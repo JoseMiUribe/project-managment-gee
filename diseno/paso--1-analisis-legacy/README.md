@@ -1,67 +1,61 @@
 ﻿# Paso -1: Análisis de Legacy
 
 ## Propósito
-Analizar proyectos existentes con documentación caótica (desfasada, contradictoria, escasa o nula) para producir un mapa estructurado y documentación estable del proyecto.
+Analizar proyectos existentes con documentación caótica (desfasada, contradictoria, escasa o nula) para producir:
+- Un mapa estructurado del proyecto existente
+- Una guía priorizada para el Paso 0 (captura de requisitos de lo nuevo)
+- Poblado inicial de las bases de datos grafo + vectorial
 
 ## Pipeline
 
 ### Sub-paso 1: Recogida de fuentes
-- **Input**: Archivos que el usuario proporciona (PDFs, Word, presentaciones, código fuente, URLs de documentación interna, capturas de pantalla)
+- **Input**: Archivos que el usuario proporciona (PDFs, Word, presentaciones, código fuente, URLs, capturas de pantalla)
 - **Proceso**: La IA clasifica cada fuente, extrae metadata, genera resumen ejecutivo
 - **Output**: `inventario-fuentes.md`
-  - Columnas: Fuente, Tipo, Formato, Fecha, Autor, Resumen (2 líneas), ¿Fiable? (Sí/No/Dudoso)
 
 ### Sub-paso 2: Análisis y clasificación
-- **Input**: inventario-fuentes.md
+- **Input**: inventario-fuentes.md + contexto del proyecto
 - **Proceso**: La IA cruza fuentes, detecta contradicciones, marca ambigüedades, identifica silencios
-- **Output**: `mapa-proyecto.md` con 4 categorías:
-  1. ✅ **Claro**: Hechos confirmados
-  2. ⚠️ **Contradictorio**: Fuentes dicen cosas distintas sobre lo mismo
-  3. ❓ **Ambiguo**: Información vaga, incompleta, terminología no definida
-  4. 🔲 **Inexistente**: Lagunas de información
-- **Intervención del usuario**: Validar la clasificación (puede mover items entre categorías)
+- **Output**: `mapa-proyecto.md` con 4 categorías: ✅ Claro / ⚠️ Contradictorio / ❓ Ambigüo / 🔲 Inexistente
 
-### Sub-paso 3: Guía de entrevista
+### Sub-paso 3: Guía de entrevista (para resolver dudas del legacy)
 - **Input**: mapa-proyecto.md
 - **Proceso**: La IA genera cuestionarios para resolver items ambiguos/contradictorios/inexistentes
-- **Output**: `cuestionarios.md`
-  - **Perfil Negocio**: Lenguaje de negocio, qué hace el sistema, para quién, reglas de negocio
-  - **Perfil Técnico**: Arquitectura, tecnologías, dependencias, deuda técnica, despliegue
-- **Intervención del usuario**: Selecciona preguntas, adapta tono, decide orden
+- **Output**: `cuestionarios.md` (perfil negocio + perfil técnico)
+
+### Sub-paso 3b: Filtro para Paso 0 (NUEVO)
+- **Input**: mapa-proyecto.md + visión del proyecto nuevo
+- **Proceso**: La IA filtra qué aspectos del legacy impactan en lo nuevo y los prioriza
+- **Output**: `guia-paso-0.md` con contradicciones, ambigüedades, lagunas, riesgos y dependencias priorizados
 
 ### Sub-paso 4: Incorporar feedback
 - **Input**: Notas/resumen del usuario tras la entrevista
-- **Proceso**: La IA coteja con el mapa anterior, produce versión actualizada
+- **Proceso**: La IA actualiza el mapa con la nueva información
 - **Output**: `mapa-proyecto-v2.md`
-- **Intervención del usuario**: Transcribe o resume la reunión para la IA
 
 ### Sub-paso 5: Documentación estable
 - **Input**: mapa-proyecto-v2.md + fuentes originales
 - **Proceso**: La IA redacta documentación consolidada
-- **Output**: `documentacion-proyecto.md`
-  - Visión general (para negocio)
-  - Arquitectura y componentes (para técnicos)
-  - Glosario de términos
-  - Estado real de cada componente (estable, legacy, en migración, desaparecido)
-  - Decisiones técnicas (ADRs si aplica)
-- **Formato**: Markdown estructurado, con adaptadores a Confluence, PDF, etc.
-- **Intervención del usuario**: Revisa, corrige, aprueba
+- **Output**: `documentacion-proyecto.md` con visión general, arquitectura, glosario, ADRs, estado de componentes
+
+### Sub-paso 6: Poblado de bases de datos (futuro)
+- **Input**: Todos los artefactos anteriores
+- **Proceso**: Se extraen entidades y relaciones para poblar el grafo y se indexan documentos en la vectorial
+- **Output**: Grafo poblado + documentos vectorizados
+
+## Salidas del Paso -1
+
+| Artefacto | Propósito | Lo consume |
+|---|---|---|
+| inventario-fuentes.md | Inventario clasificado de fuentes | Sub-paso 2 |
+| mapa-proyecto.md | Análisis ✅⚠️❓🔲 del proyecto | Sub-paso 3, 3b, 4, 5 |
+| cuestionarios.md | Preguntas para entrevista | El PM (para resolver dudas) |
+| **guia-paso-0.md** | **Filtro priorizado para lo nuevo** | **Paso 0** |
+| mapa-proyecto-v2.md | Mapa actualizado post-entrevista | Sub-paso 5, 6 |
+| documentacion-proyecto.md | Documentación estable del legacy | Consulta transversal |
 
 ## Principios
 - Pipeline desacoplado: cada sub-paso produce un artefacto markdown estándar
-- El usuario decide destino del output (documento, Confluence, prompt para otra IA)
-- El formato de salida se pregunta al usuario en cada ejecución
-
-## Implementación
-
-Este paso está implementado como un conjunto de prompts para Claude/Gemini y templates markdown.
-
-### Archivos de implementación
-- `prompts/`: Instrucciones para la IA en cada sub-paso
-- `templates/`: Plantillas markdown para los artefactos de salida
-- `guia-pm.md`: Guía procedural para el PM
-
-### Cómo usar
-1. Sigue la guia-pm.md paso a paso
-2. Ejecuta los prompts en Claude/Gemini en orden
-3. Guarda los outputs en los templates correspondientes
+- El filtro (sub-paso 3b) decide QUÉ del legacy impacta en lo nuevo
+- La guia-paso-0.md es la conexión directa con el Paso 0
+- Opcionalmente, los artefactos pueblan las bases de datos grafo + vectorial para consultas avanzadas

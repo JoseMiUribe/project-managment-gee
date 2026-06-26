@@ -13,10 +13,15 @@ Gestion_Proyectos_OpenCode/
 ├── diario/                   <- Bitácora de cada sesión (YYYY-MM-DD-tema.md)
 ├── diseno/                   <- Diseño del producto (Capa 1)
 │   ├── paso--1-analisis-legacy/
+│   │   ├── prompts/          <- Prompts para IA en cada sub-paso
+│   │   └── templates/        <- Plantillas de artefactos de salida
 │   ├── paso-0-captura-requisitos/
+│   │   └── templates/        <- Plantilla de guía estándar
 │   ├── paso-1-framework-gee/
 │   ├── paso-2-roadmap-backlog/
-│   └── paso-3-gestion-sprints/
+│   ├── paso-3-gestion-sprints/
+│   ├── modelo-grafo-vectorial/    <- Diseño de bases de datos grafo y vectorial
+│   └── flujo-transversal/         <- Conexiones y flujo de info entre pasos
 ├── reqs/                     <- Requisitos del producto que estamos diseñando
 │   ├── funcionales.md
 │   └── no-funcionales.md
