@@ -57,6 +57,14 @@ Capturar, clasificar y validar los requisitos funcionales y no funcionales de lo
 | requisitos-nofuncionales.md | No funcionales con origen |
 | zonas-incertidumbre.md | Riesgos asociados a lo desconocido |
 
+## Actualizar documento oficial del proyecto
+
+Al finalizar el paso, actualiza `investigar/[proyecto]/documentacion-proyecto.md`:
+- **Requisitos**: poblar tabla de funcionales y no funcionales con su estado
+- **Zonas de incertidumbre**: añadir tabla con aspectos inciertos y plan para resolverlos
+- **Alcance**: refinar in-scope / out-scope si el cliente lo aclaró
+- **Anexos**: añadir referencia a los artefactos de este paso
+
 ## Conexiones con otros pasos
 
 ### Hacia GEE (Paso 1)

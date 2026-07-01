@@ -143,6 +143,13 @@ Checklist de 16 puntos para verificar que el proyecto arranca correctamente:
 
 Cada item no revisado puede generar automáticamente riesgos o acciones.
 
+## Actualizar documento oficial del proyecto
+
+Al finalizar el paso, actualiza `investigar/[proyecto]/documentacion-proyecto.md`:
+- **Riesgos y Dependencias**: poblar tabla de riesgos principales con RAG, dependencias críticas con estado, y acciones en curso
+- **Decisiones Clave**: si el Check Init reveló decisiones importantes, registrarlas
+- **Anexos**: añadir referencia a los artefactos de este paso
+
 ## Relaciones entre artefactos
 
 ```

@@ -21,4 +21,13 @@ Formato: Documentación estructurada en markdown, lista para compartir o importa
 
 ## Output esperado
 
-Documentación completa en markdown.
+Documentación completa en markdown (`documentacion-proyecto.md`).
+
+## Actualizar documento oficial del proyecto
+
+Al finalizar, actualiza `investigar/[proyecto]/documentacion-proyecto.md` con la información generada en este paso:
+- **Resumen Ejecutivo**: visión general del proyecto
+- **Datos del Proyecto**: nombre, cliente, sector, stakeholders
+- **Alcance**: lo que incluye y no incluye, criterios de éxito
+- **Decisiones Clave**: ADRs encontrados durante el análisis
+- **Anexos**: añadir referencia a los artefactos de este paso
