@@ -18,8 +18,9 @@ Un asistente que te guía en la gestión de proyectos digitales: desde entender 
 ### 1. Decide cómo vas a usar el sistema
 
 | Tienes... | Modo | Qué hacer |
-|---|---|---|
-| **Claude Code / OpenCode / Gemini CLI** (IA que crea archivos) | **Automático** | Dile a la IA: "Activa PM Copilot. Nuevo proyecto [nombre]" → la IA crea la estructura sola |
+|---|---|---|---|
+| **Claude Code / OpenCode** (IA que crea archivos) | **Skill automático** | Clona el repo. Dile a la IA: "Activa PM Copilot. Nuevo proyecto [nombre]" → la IA crea la estructura sola |
+| **Gemini CLI** (IA que crea archivos) | **Skill automático** | `gemini skills install https://github.com/JoseMiUribe/project-managment-gee.git --path skills/pm-copilot-gemini`. Luego: "Activa PM Copilot. Nuevo proyecto [nombre]" |
 | **Claude Web (Project)** | **Proyecto con conocimiento** | Crea un Project en claude.ai. Pega `INSTRUCCIONES-CLAUDE-WEB.md` en Custom Instructions y sube los prompts como conocimiento. Sigue `SETUP-CLAUDE-WEB.md` |
 | **Claude Web / ChatGPT** (sin Project) | **Guía básica** | Abre `INSTRUCCIONES-CLAUDE-WEB.md`, copia el contenido y pégalo como primera instrucción. Sin archivos de conocimiento, el asistencia tendrá menos detalles |
 | **Otra IA** | **Guía** | Usa `INSTRUCCIONES-CLAUDE-WEB.md` como prompt inicial |
