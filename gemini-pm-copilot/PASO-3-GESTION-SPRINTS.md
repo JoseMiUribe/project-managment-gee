@@ -1,99 +1,130 @@
 # PASO 3: GESTION DE SPRINTS
 
-INPUT NECESARIO: Backlog priorizado + capacidad del equipo + GEE + DoR + DoD.
+INPUT: Backlog + capacidad + GEE + DoR + DoD. Si faltan, pidelos.
 
-SI NO TIENES ESTOS DATOS, pide al usuario que complete los pasos anteriores.
+## SUBPASO 1: EVALUAR DoR
 
----
-
-## SUBPASO 1: EVALUAR DoR (Definition of Ready)
-
-Para CADA historia de usuario (HU) que se vaya a hacer en el sprint:
-
-Revisa si cumple el DoR del proyecto (el archivo config/01-dor-definition.md).
+Para cada HU candidata, revisa si cumple el DoR.
 
 Pregunta al usuario una a una:
-- "Esta HU tiene los criterios de aceptacion claros?"
-- "Esta HU tiene los disenos listos?"
-- "Esta HU tiene las dependencias resueltas?"
+- "Esta HU tiene criterios de aceptacion claros?"
+- "[segun DoR del proyecto]"
 
-Si NO cumple el DoR, la HU NO puede entrar al sprint.
+Si NO cumple, esa HU no entra al sprint.
 
 ## SUBPASO 2: SPRINT PLANNING
 
-Selecciona las HU que:
-1. CUMPLEN el DoR
-2. CABEN en la capacidad del equipo
+Selecciona HU que cumplan DoR y quepan en la capacidad.
 
-Calcula:
-- Capacidad disponible del sprint
-- Suma de estimaciones de las HU seleccionadas
-- La suma NO debe pasar la capacidad
+Para cada HU, dividela en tareas y asigna perfil.
 
-Para CADA HU seleccionada, dividela en TAREAS:
-- T-001: [tarea 1]
-- T-002: [tarea 2]
-- etc.
+PRODUCE:
 
-Asigna cada tarea a un perfil (desarrollador, disenador, tester).
+```markdown
+## Sprint Backlog - Sprint X
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso3/01-sprint-candidates.md con este contenido:"
+Capacidad: X horas
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso3/02-sprint-backlog.md con este contenido:"
+### HU incluidas
 
-Incluye los vinculos a riesgos (R-001) y acciones (A-001) relevantes.
+| HU | Descripcion | Estimacion | Tareas |
+|----|-------------|-----------|--------|
+| HU-001 | Registro de usuarios | M | T-001, T-002 |
 
-## SUBPASO 3: DAILY LOG
+### Tareas
 
-Cuando el usuario empiece a trabajar, CADA DIA preguntale:
+| Tarea | Descripcion | Perfil | Horas |
+|-------|-------------|--------|-------|
+| T-001 | Crear formulario registro | Dev | 8h |
+| T-002 | Validacion de email | Dev | 4h |
+
+### Riesgos vinculados
+
+- R-001: [revisar durante el sprint]
+- A-001: [accion pendiente]
+```
+
+## SUBPASO 3: DAILY
+
+Cada dia, pregunta:
 1. "Que hiciste ayer?"
 2. "Que vas a hacer hoy?"
-3. "Hay algun impedimento?"
+3. "Hay impedimentos?"
 
-Para CADA impedimento:
-- Asigna IM-001, IM-002...
-- Revisa si afecta a algun riesgo (R-XXX)
-- Anotalo
+Si hay impedimentos, asignales IM-001, IM-002... y vinculalos a riesgos (R-XXX) si aplica.
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso3/dailylog/YYYY-MM-DD.md con este contenido:"
+PRODUCE:
 
-(YYYY-MM-DD es la fecha de hoy)
+```markdown
+## Daily - [fecha]
+
+### Ayer
+- [lo que se hizo]
+
+### Hoy
+- [lo que se va a hacer]
+
+### Impedimentos
+- IM-001: [descripcion] -> R-00X
+```
 
 ## SUBPASO 4: SPRINT REVIEW
 
-Al FINAL del sprint:
-
-Pregunta al usuario:
+Al final del sprint, pregunta:
 1. "Que HU se completaron?"
 2. "Que HU NO se completaron? Por que?"
-3. "Que feedback tiene el cliente?"
-4. "Hubo cambios de alcance?"
+3. "Que feedback hay?"
+4. "Hubo cambios?"
 
-Calcula:
-- Velocidad REAL del sprint = HU completadas
-- Velocidad vs estimada: mas, menos o igual?
-- Causa si no se completo algo
+Calcula velocidad real y comparala con la estimada.
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso3/03-review-sprint-X.md con este contenido:"
+PRODUCE:
 
-(X es el numero de sprint)
+```markdown
+## Sprint Review - Sprint X
+
+### Completado
+- HU-001: OK
+- HU-002: OK
+
+### No completado
+- HU-003: [motivo]
+
+### Velocidad
+- Estimada: X h
+- Real: X h
+- Diferencia: +/- X%
+
+### Feedback
+- [feedback del cliente/stakeholders]
+
+### Cambios
+- [si hubo cambios de alcance]
+```
 
 ## SUBPASO 5: RETROSPECTIVA
 
-Pregunta al usuario:
+Pregunta:
 1. "Que salio bien?"
 2. "Que se puede mejorar?"
 3. "Que acciones concretas vamos a tomar?"
 
-Para CADA mejora, asigna:
-- Responsable (quien lo hace)
-- Fecha limite (cuando se hace)
+PRODUCE:
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso3/04-retrospectiva-sprint-X.md con este contenido:"
+```markdown
+## Retrospectiva - Sprint X
 
-DI AL USUARIO QUE TAMBIEN UPDATEE:
-- La velocidad del equipo (si cambio)
-- Los riesgos (si alguno se materializo o se resolvio)
+### Bien
+1. [cosa que salio bien]
+
+### Mejorar
+1. [cosa a mejorar]
+
+### Acciones
+| Accion | Quien | Cuando |
+|--------|-------|--------|
+| [accion] | [responsable] | [fecha] |
+```
 
 ## FIN DEL SPRINT
 

@@ -1,73 +1,71 @@
 # PASO 0: CAPTURA DE REQUISITOS
 
-## SUBPASO 1: LEER INPUT DEL CLIENTE
+## SUBPASO 1: RECOGER INFORMACION
 
-Pide al usuario que revise 00-documento-original.md y añada todo lo que el cliente quiere.
+Si vienes de Legacy, usa la informacion que ya tienes.
+Si no, preguntale al usuario: "Cuentame que necesitas. Que funcionalidades debe tener el sistema?"
 
-Si ya hay informacion de Legacy, usala. Si no, preguntale al usuario:
-- "¿Que necesita el proyecto?"
-- "¿Que funcionalidades debe tener?"
-- "¿Hay algun documento con los requisitos?"
+## SUBPASO 2: CLASIFICAR
 
-## SUBPASO 2: CLASIFICAR EN RF y RNF
-
-Clasifica CADA peticion del cliente en:
+PRODUCE una lista clasificando cada peticion en:
 
 RF = REQUISITO FUNCIONAL (algo que el sistema HACE)
-   Ejemplo: "El sistema debe permitir subir archivos"
-   Ejemplo: "Los usuarios pueden registrarse con email"
+RNF = REQUISITO NO FUNCIONAL (como debe ser: rendimiento, seguridad, etc.)
 
-RNF = REQUISITO NO FUNCIONAL (como debe ser el sistema)
-   Ejemplo: "La pagina debe cargar en menos de 2 segundos"
-   Ejemplo: "Solo accesible para usuarios autenticados"
-   Ejemplo: "Debe funcionar en Chrome y Firefox"
+Ejemplo:
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso0/01-peticiones-cliente.md con este contenido:"
+```markdown
+## Peticiones del cliente (en bruto)
 
-Muestra el listado de peticiones en bruto.
+1. [peticion textual del cliente]
+2. [peticion textual del cliente]
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso0/02-requisitos-funcionales.md con este contenido:"
+## Requisitos Funcionales
 
-Muestra los RF numerados: RF-001, RF-002...
+| Codigo | Descripcion |
+|--------|-------------|
+| RF-001 | El sistema debe permitir... |
+| RF-002 | Los usuarios pueden... |
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso0/03-requisitos-nofuncionales.md con este contenido:"
+## Requisitos No Funcionales
 
-Muestra los RNF numerados: RNF-001, RNF-002...
+| Codigo | Descripcion | Tipo |
+|--------|-------------|------|
+| RNF-001 | La pagina debe cargar en <2s | Rendimiento |
+| RNF-002 | Solo accesible con login | Seguridad |
+```
 
 ## SUBPASO 3: DESCUBRIR RNF IMPLICITOS
 
-Piensa que requisitos NO FUNCIONALES adicionales se necesitan aunque el cliente no los haya pedido.
+Piensa que RNF adicionales se necesitan aunque el cliente no los haya pedido:
 
-Ejemplos de cosas que el cliente no dice pero se necesitan:
-- Seguridad: ¿como se protegen los datos?
-- Rendimiento: ¿cuanto tiempo maximo de respuesta?
-- Mantenibilidad: ¿quien va a mantener el sistema?
-- Disponibilidad: ¿tiene que estar siempre funcionando?
-- Usabilidad: ¿quien usa el sistema? ¿saben usar tecnologia?
-- Privacidad: ¿hay datos personales? (RGPD, LOPD)
+- Seguridad: ¿proteccion de datos?
+- Rendimiento: ¿tiempo de respuesta maximo?
+- Usabilidad: ¿quien usa el sistema?
+- Disponibilidad: ¿tiene que estar 24/7?
+- Privacidad: ¿datos personales? (RGPD)
 
-Añade estos RNF a la lista.
+Anadelos a la lista de RNF.
 
 ## SUBPASO 4: ZONAS DE INCERTIDUMBRE
 
-Identifica que cosas NO ESTAN CLARAS. Preguntale al usuario.
+Identifica que NO ESTA CLARO.
 
-Ejemplos:
-- "No sabemos cuantos usuarios usaran el sistema"
-- "No sabemos si hay que integrarse con otro sistema"
-- "No sabemos la fecha de entrega"
-- "No sabemos el presupuesto"
+```markdown
+## Zonas de Incertidumbre
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso0/04-zonas-incertidumbre.md con este contenido:"
+| Codigo | Descripcion | Impacto |
+|--------|-------------|---------|
+| ZI-001 | No sabemos cuantos usuarios | ALTO |
+| ZI-002 | No sabemos fecha de entrega | MEDIO |
+```
 
-Muestra las zonas de incertidumbre numeradas: ZI-001, ZI-002...
+## SUBPASO 5: VALIDAR
 
-## SUBPASO 5: VALIDAR CON EL USUARIO
+Pregunta: "¿Este analisis es correcto? ¿Falta algo?"
 
-Pregunta: "¿Estos requisitos son correctos? ¿Falta algo? ¿Hay que cambiar algo?"
+Espera el OK.
 
-Espera a que el usuario diga "OK" para continuar.
-
-## FIN DEL PASO
+## FIN
 
 Pregunta: "¿Quieres continuar con el Framework GEE (riesgos)?"

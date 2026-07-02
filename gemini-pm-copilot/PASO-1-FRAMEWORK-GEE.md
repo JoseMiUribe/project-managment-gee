@@ -1,121 +1,109 @@
 # PASO 1: FRAMEWORK GEE (RIESGOS Y DEPENDENCIAS)
 
-INPUT NECESARIO: Requisitos funcionales, requisitos no funcionales y zonas de incertidumbre.
-
-SI NO TIENES ESTOS DATOS, pide al usuario que primero haga el Paso 0 (Captura de Requisitos).
-
----
+INPUT NECESARIO: Requisitos funcionales + no funcionales + zonas de incertidumbre.
+Si no los tienes, pidelos.
 
 ## SUBPASO 1: CHECK INIT
 
-Evalua estos 16 puntos. Para cada uno, di si esta OK o NO.
+Evalua estos 16 puntos. PRODUCE una tabla:
 
-La lista es:
-1. COMUNICACION: Hay canales definidos con el cliente?
-2. VALIDACION: El cliente sabe cuando y como validar?
-3. PLANIFICACION: Hay un plan inicial?
-4. RIESGOS: Se han identificado riesgos?
-5. CALIDAD: Hay criterios de calidad definidos?
-6. SEGUIMIENTO: Como se va a seguir el progreso?
-7. DOCUMENTACION: Donde se guarda todo?
-8. VP: Hay un Product Owner o quien prioriza?
-9. PRESENTACION: Hay reuniones de revision?
-10. DEPENDENCIAS: El proyecto depende de algo externo?
-11. CAMBIO: Como se gestionan los cambios?
-12. LECCIONES: Como se aprende de los errores?
-13. SEGURIDAD: Hay requisitos de seguridad?
-14. CIERRE: Cuando y como se cierra el proyecto?
-15. EVENTOS: Hay hitos importantes?
-16. MEDIOS: El equipo tiene las herramientas necesarias?
+```markdown
+## Check Init
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso1/01-check-init.md con este contenido:"
-
-Muestra los 16 puntos con OK o NO.
+| # | Punto | Estado |
+|---|-------|--------|
+| 1 | Comunicacion: canales con el cliente? | OK / NO |
+| 2 | Validacion: cliente sabe cuando validar? | OK / NO |
+| 3 | Planificacion: hay plan inicial? | OK / NO |
+| 4 | Riesgos: identificados? | OK / NO |
+| 5 | Calidad: criterios definidos? | OK / NO |
+| 6 | Seguimiento: como se sigue el progreso? | OK / NO |
+| 7 | Documentacion: donde se guarda? | OK / NO |
+| 8 | VP: quien prioriza? | OK / NO |
+| 9 | Presentacion: reuniones de revision? | OK / NO |
+| 10 | Dependencias: algo externo? | OK / NO |
+| 11 | Cambio: como se gestionan cambios? | OK / NO |
+| 12 | Lecciones: como se aprende? | OK / NO |
+| 13 | Seguridad: requisitos de seguridad? | OK / NO |
+| 14 | Cierre: cuando se cierra? | OK / NO |
+| 15 | Eventos: hitos importantes? | OK / NO |
+| 16 | Medios: equipo tiene herramientas? | OK / NO |
+```
 
 ## SUBPASO 2: PERFIL DEL PROYECTO
 
-Calcula el perfil segun estas reglas:
-
-- BAJO (10): Proyecto pequeno, equipo conocido, sin riesgos grandes
-- MEDIO (30): Proyecto normal, algun riesgo moderado
-- ALTO (60): Proyecto grande, varios riesgos, fechas ajustadas
-- CRITICO (100): Proyecto muy grande, muchas incertidumbres, alta presion
-
-Pregunta al usuario cosas como:
+Pregunta al usuario:
 - "Cuantas personas en el equipo?"
 - "Cual es el plazo?"
-- "Es una tecnologia que ya conoceis?"
+- "Conoceis la tecnologia?"
 - "Hay dependencias externas?"
 
-Asigna un valor del perfil.
+Asigna perfil:
+- BAJO (10): proyecto pequeno, equipo conocido, sin riesgos
+- MEDIO (30): proyecto normal, algun riesgo
+- ALTO (60): proyecto grande, varios riesgos
+- CRITICO (100): proyecto muy grande, muchas incertidumbres
 
 ## SUBPASO 3: IDENTIFICAR RIESGOS
 
-Identifica riesgos del proyecto. USA ESTA LISTA:
+Identifica riesgos. Para cada uno:
+- R-001, R-002...
+- Probabilidad: 0.1 (baja) a 0.9 (alta)
+- Impacto: 0.05 (bajo) a 0.8 (alto)
+- Plan de mitigacion
 
-- Riesgo de plazo (no llegar a tiempo)
-- Riesgo tecnologico (no saber la tecnologia)
-- Riesgo de requisitos (requisitos cambiantes)
-- Riesgo de equipo (falta personal, rotacion)
-- Riesgo de dependencias (algo externo que bloquea)
-- Riesgo de presupuesto (coste mayor del previsto)
-- Riesgo de calidad (el producto no funciona bien)
-- Riesgo de comunicacion (mal entendidos con el cliente)
-
-Para CADA riesgo que aplique, asigna:
-- R-001, R-002... (codigo)
-- Probabilidad: 0.1 (muy baja) a 0.9 (muy alta)
-- Impacto: 0.05 (muy bajo) a 0.8 (muy alto)
-- Descripcion: que pasa si ocurre?
-- Plan de mitigacion: que hacer para evitarlo?
+Riesgos comunes: plazo, tecnologia, requisitos cambiantes, equipo, dependencias, presupuesto, calidad, comunicacion.
 
 ## SUBPASO 4: CALCULAR RAG
 
-Para cada riesgo:
-1. PESO = Probabilidad x Impacto x Perfil
-2. RAG:
-   - PESO < 10 = VERDE (bajo riesgo)
-   - PESO entre 10 y 30 = AMARILLO (riesgo medio)
-   - PESO > 30 = ROJO (alto riesgo)
+PESO = Probabilidad x Impacto x Perfil
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso1/02-registro-riesgos.md con este contenido:"
+RAG:
+- PESO < 10 = VERDE
+- PESO 10-30 = AMARILLO
+- PESO > 30 = ROJO
 
-Muestra la tabla completa:
+PRODUCE:
 
-| Codigo | Riesgo | Prob | Impacto | Perfil | PESO | RAG |
-|--------|--------|------|---------|--------|------|-----|
-| R-001 | No llegar a plazo | 0.5 | 0.6 | 30 | 9.0 | VERDE |
-| R-002 | ... | ... | ... | ... | ... | ... |
+```markdown
+## Registro de Riesgos
 
-## SUBPASO 5: IDENTIFICAR DEPENDENCIAS
+Perfil: [BAJO/MEDIO/ALTO/CRITICO] = [10/30/60/100]
 
-Identifica DEPENDENCIAS (cosas que TIENEN que pasar para que el proyecto avance).
+| Codigo | Riesgo | Prob | Impacto | PESO | RAG | Mitigacion |
+|--------|--------|------|---------|------|-----|------------|
+| R-001 | No llegar a plazo | 0.5 | 0.6 | 9.0 | VERDE | |
+| R-002 | ... | ... | ... | ... | ... | |
+```
 
-Ejemplos:
-- Terceros: "El proveedor X tiene que entregar la API"
-- Internas: "El equipo de diseno tiene que dar los mockups"
-- Legales: "El cliente tiene que firmar el contrato"
-- Tecnicas: "Hay que tener el servidor configurado"
+## SUBPASO 5: DEPENDENCIAS
 
-Cada dependencia: DP-001, DP-002...
+Identifica dependencias (cosas que TIENEN que pasar):
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso1/03-registro-dependencias.md con este contenido:"
+```markdown
+## Registro de Dependencias
 
-## SUBPASO 6: IDENTIFICAR ACCIONES
+| Codigo | Dependencia | Quien | Fecha limite | Estado |
+|--------|-------------|-------|-------------|--------|
+| DP-001 | API del proveedor | Proveedor X | 15/03 | PENDIENTE |
+```
 
-Identifica ACCIONES (cosas que HAY QUE HACER ya).
+## SUBPASO 6: ACCIONES
 
-Cada accion: A-001, A-002...
-Cada accion tiene: responsable y fecha limite.
+Identifica acciones (cosas que HAY QUE HACER ya):
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso1/04-registro-acciones.md con este contenido:"
+```markdown
+## Registro de Acciones
 
-## SUBPASO 7: DOS VISTAS
+| Codigo | Accion | Responsable | Fecha limite | Estado |
+|--------|--------|-------------|-------------|--------|
+| A-001 | Contactar proveedor | JP | 01/03 | PENDIENTE |
+```
 
-Crea una version SIMPLIFICADA para el cliente (solo los riesgos ROJOS y AMARILLOS, sin numeros tecnicos).
+## SUBPASO 7: VISTA STAKEHOLDERS (opcional)
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso1/05-vista-stakeholders.md con este contenido:"
+Crea una version simplificada solo con los riesgos ROJOS y AMARILLOS, sin numeros tecnicos.
 
-## FIN DEL PASO
+## FIN
 
-Pregunta: "¿Quieres continuar con el Roadmap (capacidad del equipo y planificacion)?"
+Pregunta: "¿Quieres continuar con el Roadmap?"

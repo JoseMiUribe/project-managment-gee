@@ -1,276 +1,116 @@
-# TEMPLATES PM COPILOT
+# TEMPLATES - FORMATOS DE OUTPUT
 
-Plantillas simplificadas. Usa estas plantillas cuando crees los archivos para el usuario.
+Usa estos formatos cuando produzcas documentos. Son ejemplos de estructura, no instrucciones de archivos.
 
----
+## TABLA DE CLASIFICACION DE FUENTES
 
-## TEMPLATE: ANALISIS DE FUENTES (Paso -1)
+| Fuente | Tipo | Contenido | Clasificacion |
+|--------|------|-----------|---------------|
+| F-001 | PDF pliego | Requisitos tecnicos | CLARO |
+| F-002 | Correo | Fechas | CONTRADICTORIO |
 
-```markdown
-# Analisis de Fuentes - [Nombre Proyecto]
-
-## Fuentes identificadas
-
-| Fuente | Tipo | Contenido principal | Clasificacion |
-|--------|------|-------------------|---------------|
-| F-001 | | | |
-| F-002 | | | |
-| F-003 | | | |
-
-## Puntos claros
-- 
-
-## Puntos ambiguos
-- 
-
-## Contradicciones
-- 
-
-## Informacion que falta
-- 
-```
-
-## TEMPLATE: CUESTIONARIOS (Paso -1)
-
-```markdown
-# Cuestionarios - [Nombre Proyecto]
-
-## Preguntas de negocio
-1. 
-2. 
-3. 
-
-## Preguntas tecnicas
-1. 
-2. 
-3. 
-```
-
-## TEMPLATE: REQUISITOS FUNCIONALES (Paso 0)
-
-```markdown
-# Requisitos Funcionales - [Nombre Proyecto]
+## LISTA DE REQUISITOS FUNCIONALES
 
 | Codigo | Descripcion | Prioridad |
 |--------|-------------|-----------|
-| RF-001 | | ALTA/MEDIA/BAJA |
-| RF-002 | | ALTA/MEDIA/BAJA |
-| RF-003 | | ALTA/MEDIA/BAJA |
-```
+| RF-001 | Como usuario quiero registrarme | ALTA |
+| RF-002 | Como admin quiero ver reportes | MEDIA |
 
-## TEMPLATE: REQUISITOS NO FUNCIONALES (Paso 0)
-
-```markdown
-# Requisitos No Funcionales - [Nombre Proyecto]
+## LISTA DE REQUISITOS NO FUNCIONALES
 
 | Codigo | Descripcion | Tipo |
 |--------|-------------|------|
-| RNF-001 | | Rendimiento/Seguridad/Usabilidad/Disponibilidad |
-| RNF-002 | | Rendimiento/Seguridad/Usabilidad/Disponibilidad |
-| RNF-003 | | Rendimiento/Seguridad/Usabilidad/Disponibilidad |
-```
+| RNF-001 | Carga en menos de 2s | Rendimiento |
+| RNF-002 | Solo acceso autenticado | Seguridad |
 
-## TEMPLATE: ZONAS DE INCERTIDUMBRE (Paso 0)
+## ZONAS DE INCERTIDUMBRE
 
-```markdown
-# Zonas de Incertidumbre - [Nombre Proyecto]
+| Codigo | Descripcion | Impacto |
+|--------|-------------|---------|
+| ZI-001 | No sabemos numero de usuarios | ALTO |
 
-| Codigo | Descripcion | Impacto | Como resolverlo |
-|--------|-------------|---------|-----------------|
-| ZI-001 | | ALTO/MEDIO/BAJO | |
-| ZI-002 | | ALTO/MEDIO/BAJO | |
-```
+## REGISTRO DE RIESGOS
 
-## TEMPLATE: REGISTRO DE RIESGOS (Paso 1)
+Perfil: [X]
+| Codigo | Riesgo | Prob | Impacto | PESO | RAG | Mitigacion |
+|--------|--------|------|---------|------|-----|------------|
+| R-001 | | 0.X | 0.X | X.X | V/A/R | |
 
-```markdown
-# Registro de Riesgos - [Nombre Proyecto]
+## REGISTRO DE DEPENDENCIAS
 
-Perfil del proyecto: [BAJO/MEDIO/ALTO/CRITICO] = [10/30/60/100]
+| Codigo | Dependencia | Quien | Fecha limite | Estado |
+|--------|-------------|-------|-------------|--------|
+| DP-001 | | | | PENDIENTE |
 
-| Codigo | Riesgo | Probabilidad | Impacto | PESO | RAG | Mitigacion |
-|--------|--------|-------------|---------|------|-----|------------|
-| R-001 | | 0.X | 0.X | | VERDE/AMARILLO/ROJO | |
-| R-002 | | 0.X | 0.X | | VERDE/AMARILLO/ROJO | |
+## REGISTRO DE ACCIONES
 
-PESO = Probabilidad x Impacto x Perfil
-VERDE < 10 | AMARILLO 10-30 | ROJO > 30
-```
+| Codigo | Accion | Responsable | Fecha | Estado |
+|--------|--------|-------------|-------|--------|
+| A-001 | | | | PENDIENTE |
 
-## TEMPLATE: REGISTRO DEPENDENCIAS (Paso 1)
+## EPICAS
 
-```markdown
-# Registro de Dependencias - [Nombre Proyecto]
-
-| Codigo | Dependencia | De quien depende | Fecha limite | Estado |
-|--------|-------------|-----------------|-------------|--------|
-| DP-001 | | | | PENDIENTE/OK/BLOQUEADO |
-| DP-002 | | | | PENDIENTE/OK/BLOQUEADO |
-```
-
-## TEMPLATE: REGISTRO ACCIONES (Paso 1)
-
-```markdown
-# Registro de Acciones - [Nombre Proyecto]
-
-| Codigo | Accion | Responsable | Fecha limite | Estado |
-|--------|--------|-------------|-------------|--------|
-| A-001 | | | | PENDIENTE/OK |
-| A-002 | | | | PENDIENTE/OK |
-```
-
-## TEMPLATE: EPICAS (Paso 2)
-
-```markdown
-# Epicas - [Nombre Proyecto]
-
-| Codigo | Nombre | Descripcion | Requisitos incluidos |
-|--------|--------|-------------|---------------------|
+| Codigo | Nombre | Descripcion | RF incluidos |
+|--------|--------|-------------|-------------|
 | EP-001 | | | RF-001, RF-002 |
-| EP-002 | | | RF-003, RF-004 |
-```
 
-## TEMPLATE: DoR (Paso 2)
+## CAPACIDAD DEL EQUIPO
 
-```markdown
-# Definition of Ready - [Nombre Proyecto]
-
-Una HU esta LISTA para empezar cuando:
-1. [ ] Tiene criterios de aceptacion claros
-2. [ ] 
-3. [ ]
-```
-
-## TEMPLATE: DoD (Paso 2)
-
-```markdown
-# Definition of Done - [Nombre Proyecto]
-
-Una HU esta TERMINADA cuando:
-1. [ ] 
-2. [ ]
-3. [ ]
-```
-
-## TEMPLATE: CAPACIDAD DEL EQUIPO (Paso 2)
-
-```markdown
-# Capacidad del Equipo - [Nombre Proyecto]
-
-## Composicion
-- Desarrolladores: X
-- Disenadores: X
-- Testers: X
-- Total personas: X
-
-## Velocidad estimada
-- Horas/dia/persona: X (restando reuniones)
+- Personas: X (X devs, X dis, X test)
+- Horas/dia/persona: X
 - Dias/sprint: X
-- Velocidad nominal: X horas/sprint
-- Factor correccion: X%
-- Factor DoD: X%
-- Velocidad real: X horas/sprint
+- Velocidad nominal: X h/sprint
+- Velocidad real: X h/sprint
+- Fiabilidad: ALTA/MEDIA/BAJA
 
-## Fiabilidad
-[ALTA/MEDIA/BAJA]
-```
+## ROADMAP CLIENTE
 
-## TEMPLATE: ROADMAP CLIENTE (Paso 2)
+| Hito | Fecha | Confianza |
+|------|-------|-----------|
+| Inicio | | ALTA |
 
-```markdown
-# Roadmap Cliente - [Nombre Proyecto]
+## ROADMAP TECNICO
 
-| Hito | Fecha estimada | Confianza | Entregable |
-|------|---------------|-----------|------------|
-| Inicio | | ALTA/MEDIA/BAJA | |
-| Hito 1 | | ALTA/MEDIA/BAJA | |
-| Entrega | | ALTA/MEDIA/BAJA | |
-```
-
-## TEMPLATE: ROADMAP TECNICO (Paso 2)
-
-```markdown
-# Roadmap Tecnico - [Nombre Proyecto]
-
-| Sprint | Fechas | Epica | Dependencias | Acciones |
-|--------|--------|-------|-------------|----------|
+| Sprint | Fechas | Epica | Deps | Acciones |
+|--------|--------|-------|------|----------|
 | Sprint 1 | | | DP-001 | A-001 |
-| Sprint 2 | | | DP-002 | A-002 |
-| Sprint 3 | | | | |
-```
 
-## TEMPLATE: SPRINT BACKLOG (Paso 3)
+## HISTORIA DE USUARIO (HU)
 
-```markdown
-# Sprint Backlog - Sprint X
+Como [rol] quiero [accion] para [beneficio]
 
-Capacidad disponible: X horas
+Criterios de aceptacion:
+- [ ]
+- [ ]
 
-## HU incluidas
-| HU | Descripcion | Estimacion | Tareas |
-|----|-------------|-----------|--------|
-| HU-001 | | | T-001, T-002 |
-| HU-002 | | | T-003 |
+Estimacion: [S/M/L/XL]
 
-## Tareas
+## SPRINT BACKLOG
+
+Capacidad: X horas
+| HU | Descripcion | Tareas |
+|----|-------------|--------|
+| HU-001 | | T-001, T-002 |
+
 | Tarea | Descripcion | Perfil | Horas |
 |-------|-------------|--------|-------|
 | T-001 | | | |
-| T-002 | | | |
 
-## Riesgos vinculados
-- R-001
-- R-002
-```
+## DAILY LOG
 
-## TEMPLATE: DAILY LOG (Paso 3)
+Ayer: [ ]
+Hoy: [ ]
+Impedimentos: IM-001: [ ] -> R-00X
 
-```markdown
-# Daily Log - YYYY-MM-DD
+## SPRINT REVIEW
 
-## Que se hizo ayer
-- 
+Completado: HU-001, HU-002
+No completado: HU-003 (motivo)
+Velocidad real: X (estimada: X)
+Feedback: [ ]
 
-## Que se hara hoy
-- 
+## RETROSPECTIVA
 
-## Impedimentos
-- IM-001: [descripcion] -> Vinculado a R-00X
-```
-
-## TEMPLATE: SPRINT REVIEW (Paso 3)
-
-```markdown
-# Sprint Review - Sprint X
-
-## Planificado vs Completado
-- HU planificadas: X
-- HU completadas: X
-- Velocidad real: X
-
-## No completado
-- HU-00X: [motivo]
-
-## Feedback del cliente
-- 
-
-## Acciones
-- 
-```
-
-## TEMPLATE: RETROSPECTIVA (Paso 3)
-
-```markdown
-# Retrospectiva - Sprint X
-
-## Que salio bien
-1. 
-
-## Que mejorar
-1. 
-
-## Acciones
-| Accion | Responsable | Fecha |
-|--------|-------------|-------|
-| | | |
-```
+Bien: 1. [ ]
+Mejorar: 1. [ ]
+Acciones: [accion] -> [responsable] -> [fecha]

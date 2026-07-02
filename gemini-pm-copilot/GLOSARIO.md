@@ -1,125 +1,69 @@
-# GLOSARIO PM COPILOT (lenguaje simple)
+# GLOSARIO PM COPILOT
 
 ## TERMINOS BASICOS
 
-PROYECTO
-Es el trabajo que vamos a hacer. Ejemplo: "Crear una aplicacion para una academia"
+PROYECTO: El trabajo que vamos a hacer. Ej: app para una academia.
 
-CLIENTE
-La persona que pide el proyecto. Tambien se le llama "stakeholder".
+CLIENTE: La persona que pide el proyecto (stakeholder).
 
-EQUIPO
-Las personas que hacen el proyecto: desarrolladores, disenadores, testers...
+EQUIPO: Desarrolladores, disenadores, testers que hacen el proyecto.
 
-HU (Historia de Usuario)
-Una funcionalidad concreta. Se escribe asi:
-"Como [rol] quiero [accion] para [beneficio]"
-Ejemplo: "Como profesor quiero subir notas para calcular la media"
+HU (Historia de Usuario): Funcionalidad concreta. Formato: "Como [rol] quiero [accion] para [beneficio]". Ej: "Como profesor quiero subir notas para calcular la media".
 
-EPICA (EP)
-Un grupo grande de funcionalidades. Ejemplo: "Modulo de evaluacion" contiene varias HU.
+EPICA (EP): Grupo grande de funcionalidades. Ej: "Modulo de evaluacion" contiene varias HU.
 
-SPRINT
-Periodo de tiempo para trabajar (normalmente 1 o 2 semanas).
-Al final del sprint se entrega algo funcional.
+SPRINT: Periodo de trabajo (1-2 semanas). Al final se entrega algo funcional.
 
-BACKLOG
-Lista de todo lo que hay que hacer, ordenado por prioridad.
+BACKLOG: Lista de todo lo que hay que hacer, ordenado por prioridad.
 
 ## TERMINOS DE CALIDAD
 
-DoR (Definition of Ready)
-Lo que necesita una HU para poder empezar a trabajar en ella.
-Ejemplo: "Tener los disenos aprobados" o "Tener claros los criterios de aceptacion"
+DoR (Definition of Ready): Lo que necesita una HU para poder empezar. Ej: "tener disenos aprobados".
 
-DoD (Definition of Done)
-Lo que necesita una HU para darse por terminada.
-Ejemplo: "Tests pasados" o "Documentacion escrita" o "Codigo revisado por un companero"
+DoD (Definition of Done): Lo que necesita una HU para estar terminada. Ej: "tests pasados, documentacion escrita".
 
 ## TERMINOS DE RIESGOS
 
-GEE (Gestion de Entregables y Eventos)
-El sistema para gestionar riesgos, dependencias, acciones y cambios.
+GEE: Gestion de Entregables y Eventos (riesgos, dependencias, acciones, cambios).
 
-RIESGO (R-001)
-Algo que puede salir mal y afectar al proyecto.
-Se mide con: Probabilidad x Impacto x Perfil = PESO
+RIESGO (R-XXX): Algo que puede salir mal. Se mide: Probabilidad x Impacto x Perfil = PESO.
 
-RAG
-Semaforo de colores para los riesgos:
-- VERDE (peso < 10): riesgo bajo, solo vigilar
-- AMARILLO (peso 10-30): riesgo medio, hay que hacer algo
-- ROJO (peso > 30): riesgo alto, accion urgente
+RAG: Semaforo. VERDE (<10), AMARILLO (10-30), ROJO (>30).
 
-META
-El perfil del proyecto:
-- BAJO (10): proyecto sencillo
-- MEDIO (30): proyecto normal
-- ALTO (60): proyecto complejo
-- CRITICO (100): proyecto muy arriesgado
+META: Perfil del proyecto. BAJO(10), MEDIO(30), ALTO(60), CRITICO(100).
 
-DEPENDENCIA (DP-001)
-Algo que TIENE que pasar para que el proyecto avance.
-Ejemplo: "El proveedor tiene que entregar la API"
+DEPENDENCIA (DP-XXX): Algo que TIENE que pasar. Ej: "el proveedor entregue la API".
 
-ACCION (A-001)
-Algo que HAY QUE HACER para mitigar un riesgo o desbloquear una dependencia.
-Tiene responsable y fecha limite.
+ACCION (A-XXX): Algo que HAY QUE HACER. Tiene responsable y fecha.
 
-IMPEDIMENTO (IM-001)
-Algo que BLOQUEA el trabajo ahora mismo.
+IMPEDIMENTO (IM-XXX): Algo que BLOQUEA el trabajo ahora.
 
-CAMBIO (SC-001)
-Un cambio en el alcance del proyecto. Si el cliente pide algo nuevo, se evalua si es cambio o entra en el backlog.
+CAMBIO (SC-XXX): Cambio en el alcance del proyecto.
 
-## TERMINOS DE PLANIFICACION
+## CODIGOS
 
-CAPACIDAD DEL EQUIPO
-Cuantas horas o puntos puede entregar el equipo en un sprint.
+F-001, F-002... = Fuentes de informacion
+RF-001... = Requisitos funcionales
+RNF-001... = Requisitos no funcionales
+ZI-001... = Zonas de incertidumbre
+EP-001... = Epicas
+HU-001... = Historias de usuario
+R-001... = Riesgos
+DP-001... = Dependencias
+A-001... = Acciones
+IM-001... = Impedimentos
+SC-001... = Cambios de alcance
+T-001... = Tareas
 
-VELOCIDAD
-Cuantas HU o puntos entrega el equipo por sprint.
-Se mide: despues del primer sprint, se sabe la velocidad REAL.
+## ESTRUCTURA DE CARPETAS (para referencia)
 
-ROADMAP CLIENTE
-Plan SIMPLE para ensenar al cliente: hitos importantes y fechas aproximadas.
-
-ROADMAP TECNICO
-Plan DETALLADO para el equipo: sprints, tareas, dependencias, asignaciones.
-
-FIABILIDAD
-Que tan fiable es la estimacion de capacidad:
-- ALTA: tenemos datos de proyectos anteriores
-- MEDIA: estimamos por experiencia
-- BAJA: es la primera vez, estimacion inicial
-
-## CODIGOS DE ARCHIVOS
-
-Cada archivo en el proyecto tiene un codigo:
-- F-001, F-002... = Fuentes de informacion (documentos originales)
-- RF-001, RF-002... = Requisitos funcionales
-- RNF-001, RNF-002... = Requisitos no funcionales
-- ZI-001, ZI-002... = Zonas de incertidumbre
-- EP-001, EP-002... = Epicas
-- HU-001, HU-002... = Historias de usuario
-- R-001, R-002... = Riesgos
-- DP-001, DP-002... = Dependencias
-- A-001, A-002... = Acciones
-- IM-001, IM-002... = Impedimentos
-- SC-001, SC-002... = Cambios de alcance
-- T-001, T-002... = Tareas
-
-## ESTRUCTURA DE CARPETAS
-
-investigar/[nombre-proyecto]/
-  00-documento-original.md        -> Documento raw del cliente
-  documentacion-proyecto.md        -> Documento oficial consolidado
-  config/                          -> DoR, DoD del proyecto
-   01-dor-definition.md
-   02-dod-definition.md
-  output-paso--1/                  -> Analisis Legacy
-  output-paso0/                    -> Captura Requisitos
-  output-paso1/                    -> GEE (riesgos)
-  output-paso2/                    -> Roadmap + Capacidad
-  output-paso3/                    -> Sprints
-   dailylog/                       -> Registros diarios
+investigar/[proyecto]/
+  00-documento-original.md
+  documentacion-proyecto.md
+  config/ (DoR, DoD)
+  output-paso--1/ (Legacy)
+  output-paso0/ (Requisitos)
+  output-paso1/ (GEE)
+  output-paso2/ (Roadmap)
+  output-paso3/ (Sprints)
+    dailylog/

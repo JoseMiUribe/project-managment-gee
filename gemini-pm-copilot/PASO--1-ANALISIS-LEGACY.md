@@ -1,82 +1,74 @@
 # PASO -1: ANALISIS DE LEGACY
 
-SOLO EJECUTA ESTE PASO SI el usuario tiene documentos existentes (PDFs, Word, URLs, capturas de pantalla, código).
+SOLO ejecuta este paso si el usuario tiene documentos existentes.
+Si no, saltalo.
 
-Si NO hay documentos previos, SALTEA este paso.
+## SUBPASO 1: PEDIR LA DOCUMENTACION
 
----
+Pide al usuario que pegue o describa toda la documentacion que tiene.
 
-## SUBPASO 1: CLASIFICAR FUENTES
+Cuando te la de, ASIGNALE a cada documento un codigo:
+F-001: [nombre del documento 1]
+F-002: [nombre del documento 2]
+etc.
 
-Pide al usuario que pegue TODA la documentación que tenga en 00-documento-original.md.
+## SUBPASO 2: ANALIZAR Y CLASIFICAR
 
-Una vez que el usuario confirme que está todo ahí, LEE el archivo 00-documento-original.md.
+Analiza CADA fuente y clasificala como:
 
-Clasifica cada documento o fuente con un código:
-- F-001: [nombre del documento 1]
-- F-002: [nombre del documento 2]
-- etc.
+✅ CLARO = se entiende bien
+⚠️ CONTRADICTORIO = se contradice con otra fuente
+❓ AMBIGUO = no queda claro, varias interpretaciones
+🔲 INEXISTENTE = falta informacion importante
 
-## SUBPASO 2: ANALIZAR CADA FUENTE
+PRODUCE DIRECTAMENTE una tabla como esta:
 
-Para cada fuente (F-001, F-002...), clasifícala como:
+```markdown
+## Clasificacion de fuentes
 
-✅ CLARO = la información es clara y se entiende
-⚠️ CONTRADICTORIO = hay información que se contradice entre documentos
-❓ AMBIGUO = la información no es clara, puede interpretarse de varias formas
-🔲 INEXISTENTE = falta información importante
-
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso--1/analisis-fuentes.md con este contenido:"
-
-Muestra el contenido completo con la tabla de clasificación.
-
-Ejemplo de tabla:
-| Fuente | Tipo | Contenido principal | Clasificacion |
-|--------|------|-------------------|---------------|
-| F-001 | PDF pliego | Requisitos tecnico | CLARO |
-| F-002 | Correo cliente | Fechas previstas | CONTRADICTORIO |
+| Fuente | Tipo | Contenido | Clasificacion |
+|--------|------|-----------|---------------|
+| F-001 | PDF pliego | Requisitos tecnicos | CLARO |
+| F-002 | Correo | Fechas | CONTRADICTORIO |
+| F-003 | Captura | Mockups | AMBIGUO |
+```
 
 ## SUBPASO 3: GENERAR CUESTIONARIOS
 
-Basado en lo que está AMBIGUO, CONTRADICTORIO o INEXISTENTE, prepara preguntas para el usuario.
+Identifica lo que esta AMBIGUO, CONTRADICTORIO o FALTA.
 
-Dos tipos de preguntas:
-
-A) PREGUNTAS DE NEGOCIO (para entender el negocio)
-- "¿Quién usa el sistema?"
-- "¿Qué problema resuelve?"
-- "¿Cuántos usuarios tendrá?"
-
-B) PREGUNTAS TECNICAS (para entender la tecnología)
-- "¿Qué tecnología usa?"
-- "¿Hay que integrarse con otros sistemas?"
-- "¿Hay base de datos existente?"
-
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso--1/cuestionarios.md con este contenido:"
-
-Muestra el contenido completo.
+PRODUCE preguntas para el usuario:
+- Preguntas de negocio (quien usa el sistema, que problema resuelve, etc.)
+- Preguntas tecnicas (que tecnologia, integraciones, etc.)
 
 ## SUBPASO 4: INCORPORAR RESPUESTAS
 
-Cuando el usuario responda las preguntas, actualiza la información.
+Cuando el usuario responda, actualiza mentalmente la informacion.
 
-Di al usuario: "Actualiza el archivo investigar/[proyecto]/00-documento-original.md añadiendo estas respuestas al final."
+## SUBPASO 5: RESUMEN CONSOLIDADO
 
-## SUBPASO 5: DOCUMENTACION CONSOLIDADA
+PRODUCE un resumen completo con:
 
-Crea un resumen de TODO lo aprendido.
+```markdown
+## Resumen del analisis
 
-Di al usuario: "Crea el archivo investigar/[proyecto]/output-paso--1/resumen-legacy.md con este contenido:"
+### Fuentes analizadas
+F-001: [resumen]
+F-002: [resumen]
 
-Muestra el contenido completo. Debe incluir:
-- Fuentes analizadas
-- Puntos claros
-- Puntos ambiguos (por resolver)
-- Contradicciones encontradas
-- Informacion que falta
+### Puntos claros
+- [lista]
+
+### Puntos ambiguos por resolver
+- [lista]
+
+### Contradicciones encontradas
+- [lista]
+
+### Informacion que falta
+- [lista]
+```
 
 ## FIN DEL PASO
 
-Di: "Hemos terminado el Analisis de Legacy. Ahora sabemos que documentos existen, que esta claro y que falta por aclarar."
-
-Pregunta: "¿Quieres continuar con la Captura de Requisitos (Paso 0)?"
+Pregunta: "¿Quieres continuar con la Captura de Requisitos?"
