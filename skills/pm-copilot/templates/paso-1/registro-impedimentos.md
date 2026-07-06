@@ -1,0 +1,15 @@
+# Registro de Impedimentos — [Nombre del Proyecto]
+
+**Fecha última actualización:** YYYY-MM-DD
+
+## Impedimentos
+
+| ID | Impedimento | Criticidad | Fecha inicio | Fecha fin | Responsable | Riesgo origen | Dependencia origen |
+|---|---|---|---|---|---|---|---|
+| IM-001 | El entorno de preproducción no está disponible y bloquea las pruebas del sprint 2 | 🔴 Rojo | 2026-07-10 | | [PM] | R-002 | DP-001 |
+
+**Notas de uso:**
+- Numeración correlativa de tres dígitos (IM-001, IM-002...).
+- Un impedimento nace cuando un riesgo se materializa (rellenar "Riesgo origen") o cuando una dependencia bloqueada empieza a afectar activamente al trabajo (rellenar "Dependencia origen"). Puede tener ambos orígenes o solo uno.
+- "Fecha fin" queda vacía mientras el impedimento sigue activo; se rellena al resolverse.
+- Criticidad usa el mismo semáforo RAG que el resto del framework.

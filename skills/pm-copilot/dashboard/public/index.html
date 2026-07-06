@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PM Copilot — Dashboard</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ======================= HEADER GLOBAL ======================= -->
+<header class="app-header">
+  <div class="project-info">
+    <h1 id="project-nombre">Cargando proyecto…</h1>
+    <div class="project-meta">
+      <span id="project-ruta"></span>
+      &middot;
+      <span>Actualizado: <code id="project-generado-en">—</code></span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button id="btn-sync" class="btn btn-primary">
+      <span class="btn-icon">🔄</span> <span class="btn-label">Actualizar</span>
+    </button>
+    <button id="btn-pdf" class="btn">
+      <span class="btn-icon">📄</span> <span class="btn-label">Generar informe PDF</span>
+    </button>
+  </div>
+</header>
+
+<div id="toast-container"></div>
+
+<!-- ======================= TABS NAV ======================= -->
+<nav class="tabs-nav">
+  <button class="tab-btn active" data-tab="tab-sprint">Sprint actual</button>
+  <button class="tab-btn" data-tab="tab-proyecto">Proyecto</button>
+  <button class="tab-btn" data-tab="tab-gee">GEE</button>
+  <button class="tab-btn" data-tab="tab-requisitos">Requisitos</button>
+</nav>
+
+<!-- ======================= TAB: SPRINT ACTUAL ======================= -->
+<section id="tab-sprint" class="tab-panel active">
+
+  <div id="sprint-sin-datos" class="card hidden">
+    <div class="empty-state">
+      <div class="empty-icon">🏁</div>
+      <p><strong>Todavía no hay ningún sprint activo.</strong></p>
+      <p>Cuando se planifique un sprint (paso 3 — sprint planning), aparecerá aquí.</p>
+    </div>
+  </div>
+
+  <div id="sprint-contenido" class="hidden">
+    <div class="card">
+      <div class="sprint-header-grid">
+        <div>
+          <h3>Objetivo del sprint <span id="sprint-numero"></span></h3>
+          <p class="sprint-objetivo" id="sprint-objetivo">—</p>
+          <p class="text-muted" id="sprint-fechas"></p>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Capacidad disponible</div>
+          <div class="stat-value" id="sprint-cap-disponible">—</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Capacidad ocupada</div>
+          <div class="stat-value" id="sprint-cap-ocupada">—</div>
+        </div>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="sprint-progress-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-bar-label" id="sprint-progress-label"></div>
+    </div>
+
+    <div id="sprint-jira-card" class="card card-highlight hidden">
+      <h2>📊 Último análisis Jira</h2>
+      <div id="sprint-jira-resumen"></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>HU por estado</h2>
+        <div id="chart-sprint-estado" class="chart-box chart-sm"></div>
+      </div>
+      <div class="card">
+        <h2>Resumen</h2>
+        <div id="sprint-resumen-lateral" class="text-muted"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Historias de usuario del sprint</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="tabla-sprint-hu">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Título</th>
+              <th>Estado</th>
+              <th>Puntos</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= TAB: PROYECTO ======================= -->
+<section id="tab-proyecto" class="tab-panel">
+
+  <div class="card">
+    <h2>Velocidad por sprint</h2>
+    <div id="chart-velocidad" class="chart-box"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Épicas del roadmap</h2>
+      <div id="epicas-lista"></div>
+    </div>
+
+    <div class="card">
+      <h2>Roadmap cliente</h2>
+      <div id="roadmap-cliente-contenido"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Capacidad actual</h2>
+    <div id="capacidad-actual-contenido"></div>
+  </div>
+
+</section>
+
+<!-- ======================= TAB: GEE ======================= -->
+<section id="tab-gee" class="tab-panel">
+
+  <nav class="subtabs-nav">
+    <button class="subtab-btn active" data-subtab="sub-riesgos">Riesgos</button>
+    <button class="subtab-btn" data-subtab="sub-dependencias">Dependencias</button>
+    <button class="subtab-btn" data-subtab="sub-acciones">Acciones</button>
+    <button class="subtab-btn" data-subtab="sub-impedimentos">Impedimentos</button>
+    <button class="subtab-btn" data-subtab="sub-changelog">Cambios de alcance</button>
+    <button class="subtab-btn" data-subtab="sub-dailylog">Daily Log</button>
+  </nav>
+
+  <!-- ---------- RIESGOS ---------- -->
+  <div id="sub-riesgos" class="subtab-panel active">
+    <div class="card">
+      <h2>Riesgos por RAG</h2>
+      <div id="chart-riesgos-rag" class="chart-box chart-sm"></div>
+    </div>
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de riesgos</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-riesgo">+ Nuevo riesgo</button>
+      </div>
+      <div id="form-nuevo-riesgo" class="new-record-form"></div>
+      <div id="riesgos-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- DEPENDENCIAS ---------- -->
+  <div id="sub-dependencias" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de dependencias</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-dependencia">+ Nueva dependencia</button>
+      </div>
+      <div id="form-nueva-dependencia" class="new-record-form"></div>
+      <div id="dependencias-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- ACCIONES ---------- -->
+  <div id="sub-acciones" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de acciones</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-accion">+ Nueva acción</button>
+      </div>
+      <div id="form-nueva-accion" class="new-record-form"></div>
+      <div id="acciones-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- IMPEDIMENTOS ---------- -->
+  <div id="sub-impedimentos" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de impedimentos</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-impedimento">+ Nuevo impedimento</button>
+      </div>
+      <div id="form-nuevo-impedimento" class="new-record-form"></div>
+      <div id="impedimentos-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- CHANGELOG ---------- -->
+  <div id="sub-changelog" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Cambios de alcance (changelog)</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-changelog">+ Nuevo cambio</button>
+      </div>
+      <div id="form-nuevo-changelog" class="new-record-form"></div>
+      <div id="changelog-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- DAILY LOG ---------- -->
+  <div id="sub-dailylog" class="subtab-panel">
+    <div class="card">
+      <h2>Daily Log</h2>
+      <div id="dailylog-lista"></div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ======================= TAB: REQUISITOS ======================= -->
+<!-- Pestaña de solo lectura: datos de Paso -1 (análisis legacy) y Paso 0
+     (requisitos del cliente). No incluye edición ni formularios "+ Nuevo",
+     a diferencia de la pestaña GEE — ver public/app.js, sección "TAB:
+     Requisitos" para más contexto. -->
+<section id="tab-requisitos" class="tab-panel">
+
+  <div class="section-header">
+    <h2 style="margin:0;">Requisitos</h2>
+    <button id="btn-pdf-requisitos" class="btn btn-sm">
+      <span class="btn-icon">📄</span> <span class="btn-label">Exportar requisitos a PDF</span>
+    </button>
+  </div>
+
+  <!-- ---------- Análisis Legacy (Paso -1) ---------- -->
+  <div class="card">
+    <h2>Análisis Legacy (Paso -1)</h2>
+    <div id="legacy-sin-datos" class="hidden"></div>
+    <div id="legacy-contenido" class="hidden">
+      <p class="text-muted" id="legacy-version-nota"></p>
+      <div class="grid-2">
+        <div id="chart-legacy-resumen" class="chart-box chart-sm"></div>
+        <div id="legacy-resumen-lateral" class="text-muted"></div>
+      </div>
+      <div class="table-wrap" id="legacy-tabla-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- Requisitos del cliente (Paso 0) ---------- -->
+  <div class="card">
+    <h2>Requisitos del cliente (Paso 0)</h2>
+    <div id="paso0-resumen" class="text-muted"></div>
+  </div>
+
+  <div class="card">
+    <h2>Peticiones del cliente</h2>
+    <div class="table-wrap" id="peticiones-tabla-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>Requisitos Funcionales</h2>
+    <div class="table-wrap" id="rf-tabla-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>Requisitos No Funcionales</h2>
+    <div class="table-wrap" id="rnf-tabla-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>Zonas de Incertidumbre</h2>
+    <div id="zi-lista"></div>
+  </div>
+
+</section>
+
+<!-- ECharts servido localmente por el backend/setup. Ver app.js para el fallback si no existe. -->
+<script src="vendor/echarts.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
