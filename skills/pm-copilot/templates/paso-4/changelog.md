@@ -1,6 +1,6 @@
 # Template: ChangeLog (Cambios de Alcance)
 
-**Instrucciones:** Añadir una entrada por cada cambio de alcance detectado (petición nueva del cliente, requisito mal entendido, decisión de negocio). Guardar/actualizar en `investigar/[proyecto]/output-paso-1/changelog.md`. Se rellena siguiendo `prompts/paso-3/gestion-changelog.md`.
+**Instrucciones:** Añadir una entrada por cada cambio de alcance detectado (petición nueva del cliente, requisito mal entendido, decisión de negocio). Guardar/actualizar en `investigar/[proyecto]/output-paso-1/changelog.md`. Se rellena siguiendo `prompts/paso-4/gestion-changelog.md`.
 
 ---
 

@@ -56,5 +56,5 @@
 - Si es fin de semana, no generes daily
 - Los impedimentos deben tener un responsable y una fecha objetivo de resolución
 - Cada daily debe hacer referencia al daily anterior para continuidad
-- Si durante el daily surge una **petición de cambio de alcance** (algo nuevo que pide el cliente, un requisito mal entendido, una decisión de negocio que cambia prioridades), no lo evalúes aquí: es una decisión de criterio que requiere el modelo principal. Regístralo como pendiente en "Notas" y ejecuta `prompts/paso-3/gestion-changelog.md` a continuación
+- Si durante el daily surge una **petición de cambio de alcance** (algo nuevo que pide el cliente, un requisito mal entendido, una decisión de negocio que cambia prioridades), no lo evalúes aquí: es una decisión de criterio que requiere el modelo principal. Regístralo como pendiente en "Notas" y ejecuta `prompts/paso-4/gestion-changelog.md` a continuación
 - Igualmente, si un riesgo nuevo detectado es no trivial (impacto alto, afecta a varias HU, o requiere replanificar), escala al modelo principal en lugar de resolverlo mecánicamente

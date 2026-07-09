@@ -15,7 +15,7 @@
 
 ## Formato de output
 
-Usa el template `templates/paso-3/review-sprint.md` para generar `review-sprint-X.md` (en `investigar/[proyecto]/output-paso-3/`).
+Usa el template `templates/paso-5/review-sprint.md` para generar `review-sprint-X.md` (en `investigar/[proyecto]/output-paso-5/`).
 
 ## Secciones a cubrir
 
@@ -29,7 +29,7 @@ Usa el template `templates/paso-3/review-sprint.md` para generar `review-sprint-
 
 ## Cambios de alcance detectados en la review
 
-Si durante la review surge una petición nueva, un requisito mal entendido, o feedback que implica redefinir algo ya acordado, **no lo decidas aquí**. Anótalo en la sección "Acciones derivadas" y ejecuta `prompts/paso-3/gestion-changelog.md` para registrarlo como SC-XXX, evaluar su impacto y decidir Aceptado/Rechazado/Aplazado. La sprint review identifica y deriva el cambio; `gestion-changelog.md` lo tramita.
+Si durante la review surge una petición nueva, un requisito mal entendido, o feedback que implica redefinir algo ya acordado, **no lo decidas aquí**. Anótalo en la sección "Acciones derivadas" y ejecuta `prompts/paso-4/gestion-changelog.md` para registrarlo como SC-XXX, evaluar su impacto y decidir Aceptado/Rechazado/Aplazado. La sprint review identifica y deriva el cambio; `gestion-changelog.md` lo tramita.
 
 Las peticiones nuevas del cliente se evalúan primero: ¿son una HU más que cabe en el backlog priorizado sin más, o son un cambio de alcance que necesita pasar por `gestion-changelog.md`? Si tienes duda, trátalo como cambio de alcance — es más seguro sobre-registrar que perder trazabilidad.
 

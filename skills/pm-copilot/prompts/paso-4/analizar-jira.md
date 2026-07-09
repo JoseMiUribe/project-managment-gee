@@ -6,7 +6,7 @@
 
 Dar al PM una lectura del estado real del sprint/proyecto en Jira — no para sustituir al equipo técnico (ellos gestionan sus tareas ahí directamente), sino para que el equipo de gestión detecte a tiempo lo que requiere intervención: bloqueos, dependencias que se están convirtiendo en bloqueos, desviación de velocidad, riesgo de no llegar al sprint.
 
-**Este prompt es de solo lectura, sin excepción.** No mueve, edita ni comenta tareas en Jira — eso lo hace el equipo técnico con sus propias herramientas. Cualquier tarea, HU o funcionalidad ya asignada a un sprint iniciado es intocable desde este skill, ni siquiera pidiendo permiso: se reporta, nunca se modifica. Ver `prompts/paso-2/crear-en-jira.md` para la única operación de escritura que hace este skill (crear, antes de que algo entre en sprint) — y ahí también, todo lo que ya está en sprint queda fuera de alcance.
+**Este prompt es de solo lectura, sin excepción.** No mueve, edita ni comenta tareas en Jira — eso lo hace el equipo técnico con sus propias herramientas. Cualquier tarea, HU o funcionalidad ya asignada a un sprint iniciado es intocable desde este skill, ni siquiera pidiendo permiso: se reporta, nunca se modifica. Ver `prompts/paso-2/crear-en-jira.md` (épicas) y `prompts/paso-3/subir-historias-a-jira.md` (historias, siempre al backlog) para las únicas operaciones de escritura que hace este skill — y ahí también, todo lo que ya está en sprint queda fuera de alcance.
 
 ## Requisito previo
 
@@ -14,7 +14,7 @@ Conexión activa confirmada por `prompts/transversal/conectar-jira.md`, y `inves
 
 ## Datos a extraer
 
-1. **Estado del sprint activo**: qué issues están To Do / En curso / Bloqueadas / Hechas, comparado contra lo planificado en `output-paso-3/sprint-backlog.md`
+1. **Estado del sprint activo**: qué issues están To Do / En curso / Bloqueadas / Hechas, comparado contra lo planificado en `output-paso-4/sprint-backlog-{N}.md`
 2. **Fechas y vencimientos**: qué issues tienen fecha límite vencida o próxima a vencer sin estar cerca de completarse
 3. **Bloqueos explícitos**: issues marcadas como bloqueadas en Jira, con el motivo si está documentado ahí
 4. **Estancamiento**: issues "En curso" sin actividad/comentarios/cambios de estado durante varios días (umbral: usa el que el PM considere razonable para este equipo, pregúntalo si no está definido)
@@ -30,13 +30,13 @@ Para cada señal extraída, decide si merece escalarse al PM como riesgo/impedim
 | Dependencia (`DP-XXX`) marcada como bloqueada o con fecha vencida en Jira | Proponer actualizar `output-paso-1/registro-dependencias.md` (subir criticidad, o pasar a `output-paso-1/registro-impedimentos.md` si ya está bloqueando trabajo activo) |
 | Issue estancada varios días sin justificación visible | Proponer un riesgo nuevo (`R-XXX`) o marcar uno existente como materializándose |
 | Velocidad real del sprint muy por debajo de `capacidad-equipo/actual.md` | Señalarlo como riesgo de no llegar al sprint; si es un patrón repetido en 2+ sprints, proponer recalibrar capacidad (`prompts/paso-2/procesar-capacidad.md`) con la velocidad real |
-| Petición o cambio detectado en comentarios de Jira que no está en el backlog | Derivar a `prompts/paso-3/gestion-changelog.md` — no lo resuelvas aquí |
+| Petición o cambio detectado en comentarios de Jira sobre una tarea de sprint (no una historia del backlog aún sin iniciar — eso lo cubre `validar-backlog-jira.md`) | Derivar a `prompts/paso-4/gestion-changelog.md` — no lo resuelvas aquí |
 
 No conviertas cada dato en bruto en un riesgo automáticamente — usa criterio: una tarea bloqueada un día no es lo mismo que una bloqueada una semana. Prioriza lo que realmente compromete el sprint o el roadmap.
 
 ## Output
 
-`investigar/[proyecto]/output-paso-3/analisis-jira-YYYY-MM-DD.md` con:
+`investigar/[proyecto]/output-paso-4/analisis-jira-YYYY-MM-DD.md` con:
 1. Resumen ejecutivo (2-3 frases): ¿el sprint va bien, en riesgo, o comprometido?
 2. Tabla de estado por HU/tarea (planificado vs. real)
 3. Bloqueos y estancamientos detectados, con la propuesta de actualización del GEE para cada uno

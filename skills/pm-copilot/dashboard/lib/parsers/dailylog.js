@@ -4,11 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const { parseMarkdownTables, findTableByHeading, getCell } = require('../markdownTable');
 
-const DAILYLOG_DIR = 'dailylog';
+const DAILYLOG_DIR = path.join('output-paso-4', 'dailylog');
 const FILE_RE = /^(\d{4}-\d{2}-\d{2})\.md$/;
 
 /**
- * Formato de daily log (ver prompts/paso-3/daily-log.md):
+ * Formato de daily log (ver prompts/paso-4/daily-log.md):
  *
  * # Daily — [YYYY-MM-DD]
  * **Sprint X | Día X de X**
