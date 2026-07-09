@@ -230,7 +230,13 @@
     try {
       state = await apiSend("POST", "/api/sync");
       renderAll();
-      showToast("Datos actualizados.", "success");
+      if (state.jiraSyncWarning) {
+        showToast(state.jiraSyncWarning, "warn");
+      } else if (state.proyecto && state.proyecto.jiraFuenteViva) {
+        showToast("Datos actualizados, incluyendo estado en vivo de Jira.", "success");
+      } else {
+        showToast("Datos actualizados.", "success");
+      }
     } catch (err) {
       console.error(err);
       showToast("Error al actualizar: " + err.message, "error");
@@ -1009,7 +1015,7 @@
     const container = qs("#dailylog-lista");
     const logs = (state.gee && state.gee.dailylogs) || [];
     if (!logs || logs.length === 0) {
-      container.innerHTML = emptyState("📓", "Todavía no hay entradas de daily log.", "Se generan con el prompt paso-3/daily-log.");
+      container.innerHTML = emptyState("📓", "Todavía no hay entradas de daily log.", "Se generan con el prompt paso-4/daily-log.");
       return;
     }
     const sorted = logs.slice().sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));

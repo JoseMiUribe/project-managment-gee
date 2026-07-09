@@ -10,6 +10,8 @@ const { getLockedHuIds } = require('./lib/sprintLock');
 const { generatePdf, generatePdfDeDocumento } = require('./lib/pdf');
 const { renderPrintView } = require('./lib/printView');
 const { renderDocumentoView, resolveRutaDocumento } = require('./lib/printDocumento');
+const { isJiraConfigured, credentialsAvailable, readProjectConfig, fetchJiraSnapshot } = require('./lib/jiraClient');
+const { writeJiraSnapshotRecord } = require('./lib/writers/jiraSnapshotWriter');
 
 const { writeRiesgo } = require('./lib/writers/riesgos');
 const { writeDependencia } = require('./lib/writers/dependencias');
@@ -56,9 +58,41 @@ app.get('/api/data', (req, res) => {
 });
 
 // --- POST /api/sync ---------------------------------------------------------
-app.post('/api/sync', (req, res) => {
+// Si el proyecto tiene config/jira-project.json (URL, projectKey, boardId —
+// nada secreto) y el proceso tiene JIRA_EMAIL/JIRA_API_TOKEN como variables
+// de entorno, "Actualizar" trae el estado real de Jira en el momento del
+// clic (épicas, sprints, historias) además de reparsear todo lo local
+// (GEE, requisitos, capacidad, roadmap). Si Jira no está configurado, o la
+// llamada falla, se hace un resync 100% local igual que antes y se avisa
+// del motivo en la respuesta (nunca se rompe el dashboard por un fallo de
+// Jira).
+app.post('/api/sync', async (req, res) => {
+  let liveJira = null;
+  let jiraSyncWarning = null;
+
+  if (isJiraConfigured(PROJECT_PATH)) {
+    if (!credentialsAvailable()) {
+      jiraSyncWarning =
+        'config/jira-project.json existe pero faltan JIRA_EMAIL/JIRA_API_TOKEN como variables de entorno del proceso — mostrando solo datos locales.';
+    } else {
+      try {
+        const cfg = readProjectConfig(PROJECT_PATH);
+        liveJira = await fetchJiraSnapshot(cfg);
+        try {
+          writeJiraSnapshotRecord(PROJECT_PATH, liveJira);
+        } catch (writeErr) {
+          console.error('[server] No se pudo guardar el registro local de la sincronización con Jira:', writeErr.message);
+        }
+      } catch (err) {
+        console.error('[server] Fallo consultando Jira en /api/sync:', err.message);
+        jiraSyncWarning = 'No se pudo sincronizar con Jira (' + err.message + '). Mostrando el último estado local.';
+      }
+    }
+  }
+
   try {
-    const snapshot = buildSnapshot(PROJECT_PATH);
+    const snapshot = buildSnapshot(PROJECT_PATH, { liveJira });
+    if (jiraSyncWarning) snapshot.jiraSyncWarning = jiraSyncWarning;
     res.json(snapshot);
   } catch (err) {
     console.error('[server] Error en /api/sync:', err);

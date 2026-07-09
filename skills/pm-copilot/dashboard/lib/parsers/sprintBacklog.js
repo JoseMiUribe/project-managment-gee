@@ -5,12 +5,17 @@ const path = require('path');
 const { parseMarkdownTables, findTableByHeading, getCell } = require('../markdownTable');
 const { parseKeyValueBlock, getValue } = require('../keyValueBlock');
 
-const OUTPUT_PASO_3_DIR = 'output-paso-3';
+const OUTPUT_PASO_4_DIR = 'output-paso-4';
 
 /**
  * Convención de nombres (documentada en README.md):
- *   investigar/[proyecto]/output-paso-3/sprint-backlog-{N}.md   -> uno por sprint
- *   investigar/[proyecto]/output-paso-3/review-sprint-{N}.md    -> cierre de ese sprint
+ *   investigar/[proyecto]/output-paso-4/sprint-backlog-{N}.md   -> uno por sprint
+ *   investigar/[proyecto]/output-paso-4/review-sprint-{N}.md    -> cierre de ese sprint
+ *
+ * Nota: antes de la reestructuración del pipeline (Paso 3 pasó a ser
+ * "Generación y validación de HU" y esto se convirtió en Paso 4 "Gestión de
+ * Sprints"), esta carpeta se llamaba output-paso-3. Si migras un proyecto
+ * antiguo, renombra la carpeta en vez de mantener ambas.
  *
  * Fallback de compatibilidad: si existe un único `sprint-backlog.md` (sin
  * número, como en el template legacy de un solo sprint), se trata como
@@ -21,7 +26,7 @@ const SPRINT_BACKLOG_LEGACY = 'sprint-backlog.md';
 const REVIEW_SPRINT_RE = /^review-sprint-(\d+)\.md$/i;
 
 function listSprintBacklogFiles(projectPath) {
-  const dir = path.join(projectPath, OUTPUT_PASO_3_DIR);
+  const dir = path.join(projectPath, OUTPUT_PASO_4_DIR);
   if (!fs.existsSync(dir)) return [];
   const entries = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile());
 
@@ -44,7 +49,7 @@ function listSprintBacklogFiles(projectPath) {
 }
 
 function reviewExistsForSprint(projectPath, numero) {
-  const dir = path.join(projectPath, OUTPUT_PASO_3_DIR);
+  const dir = path.join(projectPath, OUTPUT_PASO_4_DIR);
   if (!fs.existsSync(dir)) return false;
   if (numero === null || numero === undefined) return false;
   const candidate = path.join(dir, `review-sprint-${numero}.md`);
@@ -157,7 +162,7 @@ module.exports = {
   parseSprintBacklogs,
   listSprintBacklogFiles,
   reviewExistsForSprint,
-  OUTPUT_PASO_3_DIR,
+  OUTPUT_PASO_4_DIR,
   SPRINT_BACKLOG_RE,
   REVIEW_SPRINT_RE,
 };

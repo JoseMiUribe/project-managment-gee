@@ -55,7 +55,7 @@
 |---|---|---|---|
 | SC-XXX | | Coste / Alcance / Plazo / Calidad | Aceptado / Aplazado / Rechazado |
 
-**Nota:** todo cambio de alcance detectado aquí se tramita con `prompts/paso-3/gestion-changelog.md` y queda registrado en `output-paso-1/changelog.md`. Esta tabla es un resumen para la reunión, no la fuente de verdad.
+**Nota:** todo cambio de alcance detectado aquí se tramita con `prompts/paso-4/gestion-changelog.md` y queda registrado en `output-paso-1/changelog.md`. Esta tabla es un resumen para la reunión, no la fuente de verdad.
 
 ---
 

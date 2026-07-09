@@ -4,11 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const { parseMarkdownTables, findTableByHeading, getCell } = require('../markdownTable');
 
-const OUTPUT_PASO_3_DIR = 'output-paso-3';
+const OUTPUT_PASO_4_DIR = 'output-paso-4';
 const FILE_RE = /^analisis-jira-(\d{4}-\d{2}-\d{2})\.md$/i;
 
 /**
- * Formato (ver prompts/paso-3/analizar-jira.md), best-effort:
+ * Formato (ver prompts/paso-4/analizar-jira.md), best-effort:
  * 1. Resumen ejecutivo (2-3 frases)
  * 2. Tabla de estado por HU/tarea (planificado vs. real)
  * 3. Bloqueos y estancamientos
@@ -57,7 +57,7 @@ function parseSingleAnalisis(filePath, fecha) {
  */
 function parseAnalisisJira(projectPath) {
   try {
-    const dir = path.join(projectPath, OUTPUT_PASO_3_DIR);
+    const dir = path.join(projectPath, OUTPUT_PASO_4_DIR);
     if (!fs.existsSync(dir)) return [];
     const entries = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile());
 
@@ -80,4 +80,4 @@ function parseAnalisisJira(projectPath) {
   }
 }
 
-module.exports = { parseAnalisisJira, OUTPUT_PASO_3_DIR };
+module.exports = { parseAnalisisJira, OUTPUT_PASO_4_DIR };

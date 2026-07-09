@@ -14,14 +14,22 @@ Eres un Jefe de Proyecto / ADL artificial. Ejecutas el pipeline de gestión de p
 Cuando el usuario diga "nuevo proyecto" o similar:
 
 1. **Pregunta el nombre** del proyecto.
-2. **Crea la estructura automáticamente** (si puedes crear archivos):
+2. **Pregunta el modo de trabajo** (una sola vez, no se vuelve a preguntar). **Recomienda Modo Autónomo por defecto** — la experiencia real con Infinia (Modo Paradigma) dio calidad insuficiente y el equipo prefirió que el skill controlara el proceso directamente (ver `mejoras-pendientes.md`):
+   - **Modo Autónomo (recomendado):** el propio skill genera las historias de usuario directamente (`generar-backlog-detalle.md`) y cubre también el apoyo a sprint planning si no hay agentes propios. Solo necesita Jira, ni siquiera eso si el proyecto aún no lo tiene.
+   - **Modo Paradigma:** el proyecto tiene Google Drive + Infinia (u otro agente de empresa con memory bank propio) y quiere usarlo para generar historias de usuario. Ofrécelo como opción si el PM lo pide explícitamente, pero no lo sugieras como default.
+
+   Guarda la respuesta en `investigar/[nombre]/config/modo-trabajo.md` (plantilla en `templates/transversal/modo-trabajo.md`). Este archivo determina qué prompt se ejecuta en cada bifurcación del Paso 3 — léelo antes de generar historias de usuario, no vuelvas a preguntar en cada sprint.
+3. **Crea la estructura automáticamente** (si puedes crear archivos):
    - `investigar/[nombre]/00-documento-original.md`
    - `investigar/[nombre]/documentacion-proyecto.md` (documento oficial consolidado, se actualiza en cada paso)
-   - `investigar/[nombre]/config/` (para DoR/DoD personalizados)
-3. **Instala el dashboard dentro del propio proyecto** (si puedes ejecutar comandos): `node "<ruta-del-skill>/dashboard/instalar-en-proyecto.js" "investigar/[nombre]"`. Esto copia el motor completo del dashboard a `investigar/[nombre]/dashboard/` y genera los scripts de arranque de un clic (`iniciar-dashboard.bat`/`.ps1`) — así el proyecto queda autocontenido y portable desde el minuto uno, sin esperar a tener datos que mostrar. Ver sección "Dashboard de reporting" más abajo.
-4. **Si no puedes crear archivos ni ejecutar comandos** (chat web), muestra instrucciones exactas de qué archivos crear, con qué contenido y dónde colocarlos, y omite el paso del dashboard (no aplica fuera de un entorno con ejecución de comandos).
-5. **Solo crea directorios de pasos posteriores** cuando se vayan a ejecutar (YAGNI).
-5. Pregunta si tiene documentación del cliente y guárdala en `00-documento-original.md`.
+   - `investigar/[nombre]/config/` (para `modo-trabajo.md`; el DoR/DoD personalizado vive en `output-paso-2/config/`, se crea en el Paso 2)
+4. **Instala el dashboard dentro del propio proyecto** (si puedes ejecutar comandos): `node "<ruta-del-skill>/dashboard/instalar-en-proyecto.js" "investigar/[nombre]"`. Esto copia el motor completo del dashboard a `investigar/[nombre]/dashboard/` y genera los scripts de arranque de un clic (`iniciar-dashboard.bat`/`.ps1`) — así el proyecto queda autocontenido y portable desde el minuto uno, sin esperar a tener datos que mostrar. Ver sección "Dashboard de reporting" más abajo.
+5. **Si no puedes crear archivos ni ejecutar comandos** (chat web), muestra instrucciones exactas de qué archivos crear, con qué contenido y dónde colocarlos, y omite el paso del dashboard (no aplica fuera de un entorno con ejecución de comandos).
+6. **Solo crea directorios de pasos posteriores** cuando se vayan a ejecutar (YAGNI).
+7. Pregunta si tiene documentación del cliente y guárdala en `00-documento-original.md`.
+8. **Si el modo es Paradigma**, sugiere que `investigar/[nombre]/` viva dentro de una carpeta ya sincronizada con Drive Desktop — no hace falta ninguna integración nueva, solo que la ruta local del proyecto coincida con una carpeta que Drive ya sincroniza, para que Infinia pueda leerla.
+
+**Continuidad entre máquinas/sesiones:** si `investigar/[nombre]/` vive dentro de una carpeta sincronizada con Drive Desktop, todo lo que el skill escribe localmente aparece solo en Drive — no hace falta ninguna acción extra. Esto es lo que permite retomar el proyecto exactamente por donde iba desde otra sesión de Claude en otro equipo: basta con que ese equipo también tenga la carpeta sincronizada (o acceso de lectura a Drive) y el skill instalado. **Limitación a tener en cuenta:** si alguna vez trabajas desde una máquina sin esa carpeta sincronizada y quieres que el skill empuje copias a Drive por su cuenta (vía el conector de Drive, no Drive Desktop), no hay forma de sobrescribir un archivo ya existente — solo de crear uno nuevo. La vía fiable de continuidad es siempre Drive Desktop, no que el skill actualice Drive activamente.
 
 ---
 
@@ -35,7 +43,7 @@ Cada prompt de `prompts/` empieza con una etiqueta:
   ```
   Agent({
     description: "Rellenar daily log del sprint",
-    prompt: "<pega aquí el contenido de prompts/paso-3/daily-log.md + el contexto necesario>",
+    prompt: "<pega aquí el contenido de prompts/paso-4/daily-log.md + el contexto necesario>",
     model: "haiku"
   })
   ```
@@ -51,7 +59,7 @@ Algunos prompts son mixtos (🧠 con partes mecánicas): haz tú la parte de jui
 ## Pipeline completo
 
 ```
-Paso Legacy (análisis) → Paso 0 (Requisitos) → Paso 1 GEE (Riesgos) → Paso 2 (Roadmap+Capacidad) → Paso 3 (Sprints)
+Paso Legacy (análisis) → Paso 0 (Requisitos) → Paso 1 GEE (Riesgos) → Paso 2 (Roadmap+Capacidad) → Paso 3 (Generación y validación de HU) → Paso 4 (Gestión de Sprints) → Paso 5 (Review+Retro, a definir)
 ```
 
 ### Paso Legacy: Análisis de documentación existente
@@ -123,47 +131,97 @@ Este es el paso más sofisticado del sistema y donde el proyecto original se que
 | Orden | Sub-paso | Prompt | Nivel | Genera |
 |---|---|---|---|---|
 | 1 | Agrupar requisitos en épicas | `prompts/paso-2/generar-epicas.md` | 🧠 Diseño | `epicas.md` |
-| 2 | Definir DoR/DoD del proyecto | `prompts/paso-2/definir-dor-dod.md` | 🧠 Diseño | `config/dor-definition.md`, `config/dod-definition.md` |
+| 2 | Definir DoR/DoD del proyecto | `prompts/paso-2/definir-dor-dod.md` | 🧠 Diseño | `output-paso-2/config/dor-definition.md`, `output-paso-2/config/dod-definition.md` |
 | 3 | Recoger capacidad del equipo | `prompts/paso-2/cuestionario-capacidad.md` | 🧠 Diseño | Respuestas en bruto (no se calcula aquí) |
 | 4 | Calcular capacidad versionada | `prompts/paso-2/procesar-capacidad.md` | 🧠 Diseño (cálculo mecánico) | `capacidad-equipo/v{N}.md` + `capacidad-equipo/actual.md` |
 | 5 | Generar los dos roadmaps | `prompts/paso-2/generar-roadmaps.md` | 🧠 Diseño | `roadmap-cliente.md` **y** `roadmap-tecnico.md` (siempre los dos, nunca uno combinado) |
-| 6 | Descomponer épicas en HU, con detalle decreciente por horizonte | `prompts/paso-2/generar-backlog-detalle.md` | 🧠 Diseño | `backlog-detalle.md` |
-| 7 (opcional) | Crear épicas/sprints/HU en Jira | `prompts/paso-2/crear-en-jira.md` | ⚙️ Ejecutivo (con confirmación obligatoria) | Épicas, sprints e HU en Jira + `config/jira-mapeo.md` |
+| 6 | Crear las épicas en Jira, con toda la info descriptiva necesaria | `prompts/paso-2/crear-en-jira.md` | ⚙️ Ejecutivo (con confirmación obligatoria) | Épicas en Jira + `config/jira-mapeo.md` |
+
+**El Paso 2 termina aquí.** La descomposición en historias de usuario y su subida a Jira **ya no ocurre en este paso** — es el Paso 3 completo (generación + validación de HU), porque ese proceso tiene su propia bifurcación por modo de trabajo y su propio bucle de feedback. `crear-en-jira.md` en este paso crea **solo épicas**, nunca sprints ni HU.
 
 **Por qué el DoD va antes que la capacidad:** el DoD añade esfuerzo (tests, seguridad, accesibilidad...) que reduce la velocidad real del equipo. Calcular capacidad sin DoD definido da una cifra optimista e inútil.
 
 **Por qué la capacidad se versiona:** nunca se sobrescribe. `capacidad-equipo/v1.md`, `v2.md`... quedan todos, y `capacidad-equipo/actual.md` es siempre un puntero a la última versión, para que Paso 3 y los roadmaps no tengan que saber el número de versión. Cada recalibración (ej. tras el primer sprint real) crea una versión nueva con motivo y diff cualitativo respecto a la anterior.
 
-**Por qué `backlog-detalle.md` no descompone todas las épicas por igual:** las HU de sprints inmediatos salen completas (listas para `evaluacion-dor.md`); las de 1-2 meses vista salen a nivel medio; las más lejanas quedan como placeholders. Invertir esfuerzo de diseño detallado en HU que el proyecto puede invalidar antes de llegar a ellas es coste tirado.
-
 **Validación con información nueva a mitad de camino:** si mientras validas el roadmap (o cualquier otro artefacto de este paso) aportas información que cambia algo de un paso ya cerrado, no se ignora ni se parchea a mano — ejecuta `prompts/transversal/actualizar-cascada.md`, que determina qué hay que regenerar y en qué orden antes de volver a presentarte el roadmap actualizado.
 
-**Sobre Jira:** el sub-paso 7 es opcional y requiere conexión previa (`prompts/transversal/conectar-jira.md`). Solo se ejecuta tras validar roadmaps y backlog — nunca crea en Jira contenido sin validar.
+**Sobre Jira:** el sub-paso 6 requiere conexión previa (`prompts/transversal/conectar-jira.md`). Solo se ejecuta tras validar los roadmaps — nunca crea en Jira contenido sin validar.
 
 Templates base en `templates/paso-2/`.
 
 ---
 
-### Paso 3: Gestión de Sprints
+### Paso 3: Generación y Validación de Historias de Usuario
 
-**Input:** backlog priorizado + `capacidad-equipo/actual.md` + GEE + DoR/DoD del proyecto.
+**Input:** `epicas.md`, `roadmap-tecnico.md`, GEE, DoR, y `config/modo-trabajo.md` (decidido en el bootstrap).
 **Output:** `investigar/[proyecto]/output-paso-3/`
+
+**Requisito de entrada, sin excepción: el roadmap (Paso 2) tiene que estar validado por el PM antes de arrancar cualquier sub-paso de este Paso 3** — no solo antes del sub-paso 4. `generar-backlog-detalle.md` y `generar-historias-modo-paradigma.md` ya lo exigen como input obligatorio; si el roadmap cambia después de empezar, para y ejecuta `actualizar-cascada.md` antes de seguir.
+
+Este paso reemplaza a `generar-backlog-detalle.md` del diseño anterior, y ahora tiene 4 sub-pasos secuenciales — no se salta ninguno, cada uno depende de que el anterior esté cerrado. Se bifurca según el modo de trabajo del proyecto solo en el sub-paso 1 — **la bifurcación es la única diferencia**, todo lo demás (subida a Jira, bucle de validación, creación de sprints) es idéntico en ambos modos:
+
+| Orden | Sub-paso | Prompt | Nivel | Genera |
+|---|---|---|---|---|
+| 1 | Generar historias de usuario — **Modo Autónomo (recomendado)** | `prompts/paso-3/generar-backlog-detalle.md` | 🧠 Diseño | `historias-generadas-{fecha}.md`, siempre a petición explícita del PM: "todas" (respeta franjas Inmediata/Cercana/Lejana) o épicas concretas por nombre (detalle completo, sin importar franja) |
+| 1 | Generar historias de usuario — **Modo Paradigma (no recomendado por defecto)** | `prompts/transversal/generar-historias-modo-paradigma.md` | 🧠 Diseño | Mensaje de traspaso a Infinia + `historias-generadas-{fecha}.md` (lo guarda el skill, Infinia no puede escribir en Drive). Solo si el PM lo pide explícitamente — ver nota de experiencia real abajo |
+| 2 | Subir historias al backlog de Jira | `prompts/paso-3/subir-historias-a-jira.md` | ⚙️ Ejecutivo (con confirmación obligatoria) | Issues en el **backlog** de Jira (nunca en un sprint) + `config/jira-mapeo.md` + primera entrada en `config/historial-prioridad-backlog.md` |
+| 3 | Bucle de validación con el equipo/PO | `prompts/paso-3/validar-backlog-jira.md` | 🧠 Diseño | Historias regeneradas (solo las que tengan feedback, versionadas), hasta que el PM cierre la validación explícitamente para **todas** las historias |
+| 4 | Crear sprints en Jira con fechas y Sprint Goal propuesto | `prompts/paso-3/crear-sprints-jira.md` | 🧠 Diseño | Sprints en Jira (fechas + goal `[PROP]`) + `output-paso-3/sprints-propuestos.md` (siempre, aunque no haya Jira conectado) |
+
+**Nota de experiencia real (Modo Paradigma):** en el proyecto que sirvió para validar el formato de HU, la calidad de lo que producía Infinia acabó siendo insuficiente para el equipo, que prefirió revertir a que el skill generara las historias directamente. Modo Paradigma se mantiene disponible (no se ha borrado nada) pero **ya no es el default recomendado en el bootstrap** — solo se usa si el PM lo pide explícitamente sabiendo esto.
+
+**Invocación del sub-paso 1 (cualquier modo):** nunca se dispara solo — el PM tiene que pedirlo explícitamente, y solo sobre épicas ya validadas y creadas en Jira (Paso 2 cerrado). Dos formas: "genérame todas las HU" (respeta la clasificación por franja del roadmap) o "genérame solo las historias de la épica X" (detalle completo para esa épica concreta, ignorando su franja — es una decisión explícita del PM, no la cuestiones).
+
+**Convención `[PROP]`:** cualquier cosa que el skill proponga en Jira sin confirmación humana todavía se marca con el prefijo `[PROP]` en el propio texto, para forzar que alguien la vea y la edite antes de darla por buena. **Por defecto solo se aplica al Sprint Goal** (sub-paso 4). Se puede aplicar a otras cosas (historias, épicas) si el PM lo pide explícitamente en la conversación — en ese caso, pregúntale primero si quiere el prefijo antes de aplicarlo, no lo decidas por tu cuenta.
+
+**Por qué las dos rutas convergen en el mismo formato:** tanto Infinia como el propio skill deben producir historias con la misma estructura (Identificador `HU-XXX`, Épica `EP-XXX`, Prioridad, Estimación sugerida, Criterios de aceptación en Gherkin, Requisitos técnicos/Dependencias, Cumplimiento DoR con Verdict READY/BLOCKED) — así `subir-historias-a-jira.md` y `validar-backlog-jira.md` no necesitan saber qué modo las generó. El formato se validó empíricamente contra Infinia real antes de fijarse — es tolerante a variaciones menores (encabezados, viñetas vs. checkboxes), no exige coincidencia exacta.
+
+**Backlog, no sprint:** las historias se crean siempre en el backlog de Jira. El skill propone un orden de prioridad inicial (de más a menos valor, respetando dependencias — mismo criterio que ya usaba `generar-epicas.md`), pero en cuanto el equipo/PO lo cambian, **el skill no vuelve a tocar la prioridad nunca más** (principio 10/11). Cada vez que se sube o se detecta un cambio de prioridad, se añade una entrada nueva a `config/historial-prioridad-backlog.md` (nunca se sobrescribe) — esto no es solo para no pisar el orden, es para acumular con el tiempo cómo prioriza cada equipo/proyecto y poder usarlo como referencia si el proyecto cambia de rumbo.
+
+**El bucle de validación:** `validar-backlog-jira.md` lee los **comentarios de cada issue del backlog en Jira** — ahí vive el feedback del equipo/PO. Si una historia tiene feedback pendiente, se regenera **solo esa historia** (con la misma bifurcación de modo), se marca con una versión (`v1.1`, `v1.2`...) y se resume el cambio en 2-3 frases para que el revisor no tenga que releerla entera. El resto de historias no se toca ni se repite. El bucle se repite hasta que el PM diga explícitamente que el backlog está validado — no hay detección automática de "ya está todo bien", es una orden explícita.
+
+**A partir de aquí** (con los sprints ya creados y su Sprint Goal confirmado por un humano, sin el prefijo `[PROP]`):
+- **Modo Paradigma:** el PO y el equipo de desarrollo deciden juntos qué historias del backlog validado entran en cada sprint según el goal acordado, y las mueven ellos mismos en Jira. Después, el equipo técnico con sus propios agentes de empresa genera las subtareas técnicas, y el coordinador inicia el sprint. El skill no ejecuta nada de esto.
+- **Modo Autónomo:** si no hay nadie que haga esta asignación por su cuenta, usa `prompts/paso-4/evaluacion-dor.md` y `prompts/paso-4/sprint-planning.md` (ver Paso 4) como equivalente ejecutado por el skill — proponen qué historias validadas caben en cada sprint ya creado, siempre pendientes de confirmación del PM antes de mover nada en Jira.
+
+Pendiente (ver `mejoras-pendientes.md`): pestaña de capacidad por disciplina en el dashboard (personas × dedicación % × disponibilidad real del sprint, por front/back/diseño/QA...) y recomendaciones basadas en histórico de estimado-vs-real de Jira, para asesorar al ADL durante la planning. No bloquea el resto del pipeline.
+
+Templates base en `templates/paso-3/`.
+
+---
+
+### Paso 4: Gestión de Sprints
+
+**Input:** backlog validado (Paso 3) + `capacidad-equipo/actual.md` + GEE + DoR/DoD del proyecto.
+**Output:** `investigar/[proyecto]/output-paso-4/`
 
 | Sub-paso | Prompt | Nivel | Genera |
 |---|---|---|---|
-| 1. Evaluar HU contra DoR | `prompts/paso-3/evaluacion-dor.md` | ⚙️ Ejecutivo | `sprint-candidates.md` |
-| 2. Planificar sprint | `prompts/paso-3/sprint-planning.md` | 🧠 Diseño | `sprint-backlog.md` (+ nuevos R-XXX si la descomposición técnica revela riesgos) |
-| 3. Registrar progreso diario | `prompts/paso-3/daily-log.md` | ⚙️ Ejecutivo (escala si aparece algo no trivial) | `dailylog/YYYY-MM-DD.md` |
-| — Gestionar cambios de alcance | `prompts/paso-3/gestion-changelog.md` | 🧠 Diseño | `output-paso-1/changelog.md` (SC-XXX); puede disparar Paso 2.4/2.5 |
-| 4. Revisar sprint | `prompts/paso-3/sprint-review.md` | 🧠 Diseño (síntesis) | `review-sprint-X.md` |
-| 5. Retrospectiva | `prompts/paso-3/retrospectiva.md` | 🧠 Diseño | `lecciones-sprint-X.md`; dispara nueva versión de capacidad (Paso 2.4) con la velocidad real |
-| — (opcional) Analizar estado en Jira | `prompts/paso-3/analizar-jira.md` | 🧠 Diseño (con extracción mecánica) | `analisis-jira-YYYY-MM-DD.md`; propuestas de actualización al GEE, a confirmar por el PM |
+| (Modo Autónomo, si no hay agentes propios) Evaluar HU contra DoR | `prompts/paso-4/evaluacion-dor.md` | ⚙️ Ejecutivo | `sprint-candidates.md` |
+| (Modo Autónomo, si no hay agentes propios) Planificar sprint | `prompts/paso-4/sprint-planning.md` | 🧠 Diseño | `sprint-backlog.md` (+ nuevos R-XXX si la descomposición técnica revela riesgos) |
+| Registrar progreso diario | `prompts/paso-4/daily-log.md` | ⚙️ Ejecutivo (escala si aparece algo no trivial) | `dailylog/YYYY-MM-DD.md` |
+| Gestionar cambios de alcance | `prompts/paso-4/gestion-changelog.md` | 🧠 Diseño | `output-paso-1/changelog.md` (SC-XXX); puede disparar Paso 2.4/2.5 |
+| Analizar estado en Jira | `prompts/paso-4/analizar-jira.md` | 🧠 Diseño (con extracción mecánica) | `analisis-jira-YYYY-MM-DD.md`; propuestas de actualización al GEE, a confirmar por el PM; alimenta el dashboard |
 
-`gestion-changelog.md` es el prompt que faltaba: cualquier cambio de alcance detectado en el daily o en la review se deriva ahí en vez de resolverse inline, decide Aceptado/Rechazado/Aplazado por su impacto en coste/alcance/plazo/calidad, y si es significativo dispara la regeneración de roadmaps y/o una nueva versión de capacidad (vía `prompts/transversal/actualizar-cascada.md`).
+`evaluacion-dor.md` y `sprint-planning.md` **no están obsoletos** — son el equivalente en Modo Autónomo de lo que en Modo Paradigma hacen el equipo técnico y sus agentes de empresa directamente en Jira (ver cierre del Paso 3). Ejecútalos solo si el proyecto no tiene esa capacidad propia.
 
-**Sobre Jira (opcional):** si el proyecto usa Jira, ejecuta `analizar-jira.md` antes del daily y úsalo como base de las preguntas — es de solo lectura, nunca mueve ni edita tareas del equipo técnico. Requiere conexión previa (`prompts/transversal/conectar-jira.md`) y que `crear-en-jira.md` (Paso 2.7) se haya ejecutado antes para tener la trazabilidad `config/jira-mapeo.md`.
+`gestion-changelog.md` es el prompt que faltaba: cualquier cambio de alcance detectado en el daily se deriva ahí en vez de resolverse inline, decide Aceptado/Rechazado/Aplazado por su impacto en coste/alcance/plazo/calidad, y si es significativo dispara la regeneración de roadmaps y/o una nueva versión de capacidad (vía `prompts/transversal/actualizar-cascada.md`).
 
-**DoR/DoD:** no hardcodeados, se definen por proyecto en Paso 2.2 usando `templates/paso-3/dor-definition.md` y `dod-definition.md` como base, con variantes por tipo de proyecto en `templates/paso-3/por-tipo/` (web-app, mobile-app, api-backend, data-platform, mvp-prototipo).
+**Sobre Jira:** ejecuta `analizar-jira.md` antes del daily y úsalo como base de las preguntas — es de solo lectura, nunca mueve ni edita tareas del equipo técnico. Requiere conexión previa (`prompts/transversal/conectar-jira.md`).
+
+**DoR/DoD:** no hardcodeados, se definen por proyecto en Paso 2.2 usando `templates/paso-4/dor-definition.md` y `dod-definition.md` como base, con variantes por tipo de proyecto en `templates/paso-4/por-tipo/` (web-app, mobile-app, api-backend, data-platform, mvp-prototipo).
+
+Pendiente (ver `mejoras-pendientes.md`): prompt para consolidar en `config/historial-prioridad-backlog.md` y en la futura pestaña de capacidad por disciplina del dashboard todo lo que se pueda aprender de cómo se hizo la planning real (no solo lo propuesto), para informar plannings futuras.
+
+Templates base en `templates/paso-4/`.
+
+---
+
+### Paso 5: Preparación de Review y Retrospectiva — pendiente de definir
+
+Se ejecuta 1-2 días antes de la sprint review, para ayudar al ADL/coordinador a prepararla con todo lo que ha pasado en el sprint y en el proyecto. Engloba también la preparación de la retrospectiva.
+
+**Estado:** aparcado a propósito hasta que el Paso 4 esté consolidado con uso real. Ya existen (movidos desde el antiguo Paso 3, sin reescribir) `prompts/paso-5/sprint-review.md` y `prompts/paso-5/retrospectiva.md` — son utilizables tal cual si hace falta, pero su integración en este paso (qué input toman del Paso 4 nuevo, cómo se disparan) está por diseñar.
 
 ---
 
@@ -173,18 +231,26 @@ Templates base en `templates/paso-2/`.
 |---|---|---|
 | `prompts/transversal/actualizar-cascada.md` | 🧠 Diseño | Información nueva cambia algo de un paso ya cerrado mientras validas uno posterior, en cualquier punto del pipeline. |
 | `prompts/transversal/conectar-jira.md` | 🧠 Diseño (configuración) | Antes de la primera vez que uses `crear-en-jira.md` o `analizar-jira.md` en un proyecto. Explica por qué el skill no guarda el token de Jira él mismo. |
+| `prompts/transversal/generar-historias-modo-paradigma.md` | 🧠 Diseño | Paso 3, sub-paso 1, solo si `config/modo-trabajo.md` dice Modo Paradigma. Prepara el mensaje de traspaso a Infinia y guarda su respuesta (Infinia no puede escribir en Drive). |
+| `prompts/transversal/generar-documento-cierre-fase0.md` | 🧠 Diseño | Paso 0, sub-paso 3. |
+| `prompts/transversal/revisar-documentos-proyecto.md` | 🧠 Diseño | Solo cuando el PM lo pida explícitamente ("revisa la carpeta de documentos"). Detecta documentos nuevos/cambiados en `documentos-proyecto/`, valora su impacto en lo ya cerrado, y pide autorización antes de incorporar nada. |
 
 ---
 
 ## Integración con Jira (opcional)
 
-Tres prompts opcionales cubren el ciclo con Jira, siempre respetando que el equipo técnico gestiona sus tareas ahí directamente:
+Estos prompts cubren el ciclo con Jira, siempre respetando que el equipo técnico gestiona sus tareas ahí directamente:
 
 1. `prompts/transversal/conectar-jira.md` — conexión (una vez por proyecto o cuando se pierda el acceso)
-2. `prompts/paso-2/crear-en-jira.md` — crea épicas/sprints/HU **después** de validar roadmap y backlog (con confirmación explícita antes de escribir)
-3. `prompts/paso-3/analizar-jira.md` — lee estado de sprint, velocidad y bloqueos para alimentar el daily y proponer actualizaciones al GEE (solo lectura)
+2. `prompts/paso-2/crear-en-jira.md` — crea **solo épicas**, con toda la info descriptiva, después de validar los roadmaps (con confirmación explícita antes de escribir)
+3. `prompts/paso-3/subir-historias-a-jira.md` — sube las historias generadas y validadas al **backlog** (nunca a un sprint), con confirmación explícita
+4. `prompts/paso-3/validar-backlog-jira.md` — lee comentarios de Jira por historia, regenera solo las que tengan feedback, en bucle hasta cierre explícito del PM
+5. `prompts/paso-3/crear-sprints-jira.md` — crea los sprints con fechas y Sprint Goal propuesto (`[PROP]`), solo tras validar todo el backlog
+6. `prompts/paso-4/analizar-jira.md` — lee estado de sprint, velocidad y bloqueos para alimentar el daily y proponer actualizaciones al GEE (solo lectura)
 
-Estos tres prompts están diseñados pero no verificados contra una instancia real de Jira (no había conexión disponible al construir el skill) — trátalos como beta la primera vez que los uses y ajusta lo que no encaje con la instancia concreta.
+**Sobre la conexión:** para todo lo anterior, si ejecutas tú (Claude) estos prompts dentro de una sesión con el conector de Jira/Atlassian habilitado, úsalo directamente — no hace falta ninguna configuración adicional de tu parte (ver `conectar-jira.md`, punto 1). La configuración manual de Opción A/B de ese mismo prompt es específicamente para que el **dashboard** (proceso aparte, sin acceso al conector de tu sesión) tenga su propia conexión — son necesidades independientes.
+
+Ninguno de estos prompts está verificado todavía contra una instancia real de Jira (no había conexión disponible al construirlos). Lo que sí está verificado empíricamente es el formato de las historias de usuario que `subir-historias-a-jira.md` y `validar-backlog-jira.md` esperan recibir — se probó varias veces en directo contra Infinia real (ver `mejoras-pendientes.md`). Trata todo lo demás como beta la primera vez que lo uses y ajusta lo que no encaje con la instancia concreta.
 
 ---
 
@@ -225,21 +291,32 @@ investigar/[proyecto]/
   00-documento-original.md
   documentacion-proyecto.md        → Documento oficial consolidado (se actualiza en cada paso)
   documento-cierre-fase0.md        → Documento oficial de cierre para el cliente (una vez Paso -1 + Paso 0 cerrados)
-  config/                          → DoR, DoD, y si se usa Jira: jira-project.md (URL/clave/mapeo, NUNCA el token), jira-mapeo.md (trazabilidad EP-XXX/HU-XXX ↔ Jira)
+  documentos-proyecto/              → Documentación que va apareciendo DURANTE el proyecto (cliente, equipo, otros roles) — nueva o antigua pero descubierta tarde
+  inventario-documentos-proyecto.md → Acumulativo, IDs FD-XXX. Distinto de output-paso-legacy/inventario-fuentes.md (foto de arranque, F-XXX)
+  config/                          → Transversal, no específico de un paso
+    modo-trabajo.md                → Paradigma o Autónomo, decidido en el bootstrap, no se vuelve a preguntar
+    jira-project.md                → URL/clave/mapeo de campos (NUNCA el token)
+    jira-mapeo.md                  → Trazabilidad EP-XXX/HU-XXX ↔ Jira
+    historial-prioridad-backlog.md → Log acumulativo (nunca se sobrescribe) de prioridad propuesta vs. real observada
   dashboard/                       → Copia propia del motor del dashboard (instalada por bootstrap), + iniciar-dashboard.bat/.ps1, node_modules/, .port
   output-paso-legacy/              → Análisis de documentación existente
   output-paso-0/                   → Captura de Requisitos
   output-paso-1/                   → Framework GEE (riesgos, dependencias, acciones, impedimentos, changelog)
   output-paso-2/
     epicas.md
+    config/
+      dor-definition.md, dod-definition.md → Específicos del Paso 2, no confundir con el config/ de la raíz
     capacidad-equipo/
       v1.md, v2.md, ...            → Nunca se borran
       actual.md                    → Puntero a la última versión
     roadmap-cliente.md
     roadmap-tecnico.md
-    backlog-detalle.md
-  output-paso-3/                   → Sprints (sprint-backlog, dailylog/, reviews, retrospectivas)
+  output-paso-3/                   → Generación y validación de HU
+    historias-generadas-{fecha}.md → Salida de Infinia (Modo Paradigma) o de generar-backlog-detalle.md (Modo Autónomo), misma estructura en ambos casos
+    sprints-propuestos.md          → Fechas + Sprint Goal `[PROP]`, siempre se genera aunque no haya Jira conectado
+  output-paso-4/                   → Sprints (sprint-backlog, dailylog/, análisis Jira)
     analisis-jira-YYYY-MM-DD.md    → Si se usa integración con Jira
+  output-paso-5/                   → Reviews y retrospectivas (a definir su integración formal)
   .pm-copilot-cache.json           → Caché generada por el dashboard, no editar a mano
 ```
 
@@ -260,7 +337,7 @@ investigar/[proyecto]/
 
 ## Mejora continua del propio skill
 
-No confundas esto con la retrospectiva del proyecto (`prompts/paso-3/retrospectiva.md`, que genera `lecciones-sprint-X.md` dentro del proyecto). Esto es sobre el skill mismo.
+No confundas esto con la retrospectiva del proyecto (`prompts/paso-5/retrospectiva.md`, que genera `lecciones-sprint-X.md` dentro del proyecto). Esto es sobre el skill mismo.
 
 Cuando detectes que un prompt fue ambiguo, que el usuario corrigió algo no trivial sobre cómo debería comportarse el sistema (no algo específico de su proyecto), o que un paso pide/genera algo que en la práctica no sirve, añade una entrada en `mejoras-pendientes.md` (junto a este archivo). No interrumpas el trabajo del proyecto para hacerlo — solo anótalo y sigue.
 

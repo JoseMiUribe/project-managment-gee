@@ -1,10 +1,14 @@
-# Prompt: Crear Épicas, Sprints e Historias en Jira
+# Prompt: Crear Épicas en Jira
 
 > **Nivel:** ⚙️ Ejecutivo (una vez configurado el mapeo) — pero con una puerta de confirmación obligatoria antes de escribir en un sistema compartido. No lo automatices sin esa confirmación aunque la tarea en sí sea mecánica.
 
+## Alcance de este prompt (importante, cambió)
+
+**Este prompt solo crea épicas.** Ni sprints ni historias de usuario — eso ya no ocurre en el Paso 2. Las historias de usuario se generan y validan en el Paso 3 completo (`generar-backlog-detalle.md` o `generar-historias-modo-paradigma.md`, según `config/modo-trabajo.md`, seguido de `subir-historias-a-jira.md`), que las sube directamente al backlog. Si vienes de una versión anterior de este skill donde este prompt también creaba HU/sprints, esa parte se ha movido — no la repliques aquí.
+
 ## Cuándo se ejecuta
 
-Solo después de que el PM haya validado explícitamente: `roadmap-cliente.md`, `roadmap-tecnico.md`, y al menos las HU de franja **Inmediata** (y preferiblemente **Cercana**) de `backlog-detalle.md`. No crees en Jira contenido que todavía no está validado — Jira es un sistema compartido con el equipo técnico, no un borrador.
+Solo después de que el PM haya validado explícitamente `roadmap-cliente.md` y `roadmap-tecnico.md`. No crees en Jira contenido que todavía no está validado.
 
 ## Requisito previo
 
@@ -14,43 +18,43 @@ Ejecuta primero `prompts/transversal/conectar-jira.md` si no está ya confirmado
 
 ### 1. Resumen previo y confirmación (obligatorio, sin excepciones)
 
-Antes de crear nada, muestra al PM un resumen exacto de lo que se va a crear:
-- Cuántas épicas, con sus nombres
-- Cuántos sprints, con sus fechas/nombres según `roadmap-tecnico.md`
-- Cuántas HU, agrupadas por épica
+Antes de crear nada, muestra al PM un resumen exacto: cuántas épicas, con sus nombres y objetivos. Pide confirmación explícita ("¿confirmas que cree estas épicas en Jira?"). No proceda sin un sí explícito.
 
-Pide confirmación explícita ("¿confirmas que cree esto en Jira?"). No proceda sin un sí explícito — a diferencia de un artefacto markdown local, esto tiene efecto inmediato en un sistema que ve el equipo técnico.
+### 2. Comprobar idempotencia — y si ya está en sprint, no la toques
 
-### 2. Comprobar idempotencia antes de crear — y si ya está en sprint, no la toques
-
-Si `investigar/[proyecto]/config/jira-mapeo.md` ya existe (de una ejecución anterior de este prompt), léelo primero. Para cada EP-XXX/HU-XXX que ya tenga un ID de Jira asociado:
+Si `investigar/[proyecto]/config/jira-mapeo.md` ya existe, léelo primero. Para cada `EP-XXX` que ya tenga un ID de Jira asociado:
 
 - No la vuelvas a crear.
-- **Comprueba primero si el issue ya está asignado a un sprint activo o iniciado en Jira.** Si es así, **no lo modifiques bajo ningún concepto, ni siquiera pidiendo permiso** — a partir de ese momento es responsabilidad del equipo técnico. Repórtalo al PM en el resumen final (ej. "HU-014 cambió de contenido pero ya está en Sprint 3, no se actualizó en Jira; coordínalo directamente con el equipo si hace falta") y sigue sin tocarlo.
-- Si el issue **todavía no está en ningún sprint** (sigue en el backlog de Jira) y su contenido cambió desde la última sincronización (por una cascada o un changelog), pide permiso explícito al PM para cada actualización concreta antes de aplicarla — nunca la apliques por defecto ni la agrupes con la creación de issues nuevos sin que quede clara la distinción entre "esto es nuevo" y "esto modifica algo existente".
+- **Comprueba si la épica (o alguna de sus historias ya subidas en Paso 3) está vinculada a un sprint activo.** Si es así, **no la modifiques bajo ningún concepto, ni siquiera pidiendo permiso** — repórtalo al PM y sigue sin tocarla.
+- Si no está en sprint y su contenido cambió (por una cascada), pide permiso explícito para esa actualización concreta antes de aplicarla.
 
-### 3. Crear en este orden
+### 3. Crear las épicas con toda la información descriptiva necesaria
 
-1. **Épicas** (`EP-XXX` → issue tipo Épica según el mapeo de `jira-project.md`): nombre, descripción (objetivo + RF que incluye), prioridad
-2. **Sprints**: según la secuencia de `roadmap-tecnico.md`, solo si no existen ya sprints activos con esos nombres/fechas en el board
-3. **Historias de Usuario / funcionalidades** (`HU-XXX` → issue tipo Historia según el mapeo), vinculadas a su épica y asignadas al sprint que le corresponda según `backlog-detalle.md`. Incluye descripción completa y criterios de aceptación tal como están en `backlog-detalle.md`. **Solo crea las de franja Inmediata y Cercana** — las de franja Lejana son placeholders internos, no tiene sentido crearlas en Jira todavía (se crearán cuando `generar-backlog-detalle.md` las detalle al acercarse su sprint)
+Cada `EP-XXX` → issue tipo Épica según el mapeo de `jira-project.md`, con una descripción completa y entendible sin tener que abrir `epicas.md` en paralelo:
+
+- Nombre y objetivo de negocio (de `epicas.md`)
+- Requisitos funcionales que incluye (RF-XXX, con una frase de qué cubre cada uno — no solo el ID)
+- Dependencias con otras épicas, si las hay
+- Riesgos GEE asociados (R-XXX, con una frase de qué riesgo es, no solo el ID)
+- Prioridad (MoSCoW) y fase (MVP / Fase 2 / Condicional)
+- Enlace o referencia a la sección correspondiente de `roadmap-tecnico.md` para contexto temporal
+
+Cuanta más de esta información quede en el propio issue de Jira (no solo enlazada), más fácil será para el equipo técnico y para Infinia (Modo Paradigma) entenderla sin tener que ir a buscar el markdown original.
 
 ### 4. Registrar el mapeo de trazabilidad
 
-Guarda o actualiza `investigar/[proyecto]/config/jira-mapeo.md` con la correspondencia `EP-XXX ↔ clave de Jira` y `HU-XXX ↔ clave de Jira`, con fecha de creación/última sincronización. Este archivo es lo que permite que `analizar-jira.md` y futuras ejecuciones de este mismo prompt sepan qué ya existe.
+Guarda o actualiza `investigar/[proyecto]/config/jira-mapeo.md` con la correspondencia `EP-XXX ↔ clave de Jira`, con fecha de creación/última sincronización. Este mismo archivo lo extenderá `subir-historias-a-jira.md` en el Paso 3 con las HU.
 
 ### 5. Nunca borres, y nunca edites nada sin permiso caso por caso
 
-Si detectas que algo creado previamente por este prompt ya no debería existir (una HU se eliminó del backlog, una épica se descartó), **no la borres de Jira automáticamente**. Indícaselo al PM y que sea él quien decida y ejecute el borrado en Jira, o te confirme explícitamente que lo haga tú en esa operación concreta.
-
-Esto aplica también a cualquier edición que no sea la creación inicial: nunca la hagas por defecto, pide permiso explícito para esa modificación concreta — y recuerda que si el issue ya está en sprint, la respuesta es directamente no, sin pedir permiso siquiera (regla del paso 2 de arriba).
+Si detectas que una épica ya no debería existir, **no la borres de Jira automáticamente** — indícaselo al PM y que sea él quien decida. Cualquier edición que no sea la creación inicial requiere permiso explícito caso por caso, y si la épica ya tiene contenido en sprint, la respuesta es directamente no, sin pedir permiso siquiera.
 
 ## Output
 
-- Épicas, sprints e HU creados en Jira según el mapeo
+- Épicas creadas en Jira
 - `investigar/[proyecto]/config/jira-mapeo.md` actualizado
-- Resumen final al PM de qué se creó, con los enlaces/claves de Jira
+- Resumen final al PM con los enlaces/claves de Jira
 
 ## Alcance explícito de este prompt
 
-Este prompt **solo crea**. La actualización del estado de las tareas (en progreso, bloqueada, terminada) la hace el equipo técnico directamente en Jira con sus propias herramientas — este skill no debe tocar ni mover tareas creadas por el equipo. Para leer ese estado y analizarlo, usa `prompts/paso-3/analizar-jira.md`, que es de solo lectura.
+Solo crea épicas. Ni sprints, ni historias, ni actualización de estado de tareas — eso lo hacen `subir-historias-a-jira.md` (Paso 3) y el equipo técnico con sus propias herramientas. Para leer el estado del sprint, usa `prompts/paso-4/analizar-jira.md`, que es de solo lectura.

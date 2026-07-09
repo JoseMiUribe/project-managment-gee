@@ -16,7 +16,7 @@
 
 ## Formato de output
 
-Usa el template `templates/paso-3/retrospectiva.md` para generar `lecciones-sprint-X.md` (en `investigar/[proyecto]/output-paso-3/`).
+Usa el template `templates/paso-5/retrospectiva.md` para generar `lecciones-sprint-X.md` (en `investigar/[proyecto]/output-paso-5/`).
 
 ## Secciones a cubrir
 
