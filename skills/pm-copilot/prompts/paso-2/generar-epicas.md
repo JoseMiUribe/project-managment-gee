@@ -6,6 +6,10 @@
 
 Agrupar los requisitos funcionales del Paso 0 en épicas: bloques coherentes de valor de negocio que sirven de base para el roadmap, la capacidad del equipo y la descomposición en historias de usuario. Es el primer artefacto del Paso 2 — sin épicas no hay roadmap.
 
+## Modo de generación
+
+Este documento describe el **Modo Estándar** de generación de épicas. Si el PM pide generarlas en un modo con nombre (ej. "genera las épicas en modo mapfre"), sigue primero `prompts/transversal/gestionar-modos-generacion.md` — aplica lo que sigue en este documento como base, con las diferencias que declare ese modo. Si no se pide ningún modo, continúa directamente con el Estándar de abajo.
+
 ## Input
 
 - `investigar/[proyecto]/output-paso-0/requisitos-funcionales.md`
