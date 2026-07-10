@@ -10,6 +10,10 @@ Este es el equivalente, en Modo Autónomo, de `prompts/transversal/generar-histo
 
 **Nota de experiencia real:** este es hoy el camino recomendado por defecto, incluso en proyectos con Drive/Infinia disponible — la calidad de Modo Paradigma resultó insuficiente en uso real (ver `mejoras-pendientes.md`) y el equipo prefiere que el skill tenga el control directo del proceso.
 
+## Modo de generación
+
+Todo lo que sigue en este documento describe el **Modo Estándar** de generación de historias. Si el PM pide generarlas en un modo con nombre (ej. "genera las historias en modo mapfre"), sigue primero `prompts/transversal/gestionar-modos-generacion.md` — aplica el Estándar de aquí como base, con las diferencias que declare ese modo. Si no se pide ningún modo, continúa directamente con el Estándar de abajo.
+
 ## Cuándo se ejecuta — siempre por petición explícita del PM
 
 Solo se ejecuta cuando el PM lo pide explícitamente, y solo sobre épicas que ya estén **validadas y creadas en Jira** (`crear-en-jira.md`, Paso 2, cerrado). Nunca se dispara solo. Dos formas de invocación:
@@ -41,6 +45,25 @@ Validado con un caso real (ver `mejoras-pendientes.md`, entrada del proyecto Edu
 
 Mantén siempre `HU-XXX` como identificador para lo que genera el skill, **incluso si el equipo usa otra convención** (ej. `US-XXX`) — es intencional: permite distinguir a simple vista, dentro del mismo backlog de Jira, qué se generó con este pipeline y qué creó el equipo directamente. No unifiques nomenclatura salvo que el PM lo pida explícitamente.
 
+## Qué nivel de detalle y tamaño debe tener una HU — regla validada con feedback real del equipo
+
+Aplica a toda HU que generes en el Paso 2 (franja Inmediata), no solo a la invocación en curso. Nace de feedback explícito del equipo tras varias rondas reales de generación con distintos enfoques (skill directo, luego Infinia) — ver `mejoras-pendientes.md`, entrada 2026-07-10. El equipo rechazó tanto HU demasiado atómicas (una por cada micro-paso técnico) como HU sobredimensionadas (varios flujos distintos mezclados en una sola).
+
+**Tamaño correcto — una HU por flujo funcional completo:** cada historia debe cubrir un flujo end-to-end que el usuario reconozca como una unidad de valor usable por sí sola (ej. "un profesor califica un examen y el alumno ve la nota", no "guardar la nota en base de datos" por un lado y "notificar al alumno" por otro, como HU separadas). Ni la fragmentes en pasos técnicos sueltos, ni mezcles dos flujos distintos en la misma historia solo porque comparten pantalla o entidad.
+
+**Lo que SÍ debe llevar, con el máximo detalle posible (mejor pecar de más que de menos):**
+- Descripción completa de lo que el usuario tiene que poder hacer, sin dejar huecos de interpretación
+- Todos los inputs que el usuario percibe (campos, pantallas, acciones) y sus validaciones a nivel lógico/de negocio (qué se acepta, qué se rechaza, y por qué)
+- Toda la lógica de negocio necesaria para que el flujo tenga sentido (reglas, cálculos, condiciones)
+- Solapamientos y dependencias explícitas con otras HU (campo `Dependencias` del Paso 2 — no lo omitas ni lo minimices)
+
+**Lo que NO debe llevar, salvo que ya exista como decisión tomada y documentada (nunca inventada por ti):**
+- Nombres de tabla, esquema, endpoint, o cualquier detalle de implementación técnica que tú mismo estés decidiendo — no es tu rol decidir CÓMO se construye, solo QUÉ debe hacer el sistema desde la perspectiva del usuario y del negocio
+- Elección de tecnología, framework, o decisiones de arquitectura de ningún tipo
+- Excepción explícita: si en algún momento tienes acceso directo al repositorio de código del proyecto, puedes fundamentar sugerencias técnicas superficiales en lo que ya existe realmente (nunca inventarlas) — hoy esa capacidad no está disponible, así que por defecto queda fuera de alcance
+
+Esto no contradice el Paso 0 de arriba (mirar el estilo de HU que el equipo ya escribió): si el equipo mismo ya documentó una decisión técnica en una HU propia existente, es un hecho ya decidido, no una invención tuya — puedes reflejarlo como contexto. La diferencia es entre *reflejar* una decisión ya tomada por el equipo y *tomarla tú mismo* desde cero.
+
 ## Paso 1: clasifica cada épica en una franja temporal
 
 Usa la secuencia de sprints de `roadmap-tecnico.md`:
@@ -64,8 +87,8 @@ Cada historia debe tener, obligatoriamente, estos campos — es el mismo esquema
 - **Prioridad:** Must / Should / Could / Won't (hereda o deriva de la prioridad de la épica y del RF de origen en `epicas.md`)
 - **Estimación sugerida:** [N] puntos, con una frase justificando la complejidad
 - **Descripción:** Como [rol] / Quiero [acción] / Para [beneficio]
-- **Criterios de Aceptación (Gherkin):** mínimo 2 escenarios en formato Dado/Cuando/Entonces, con detalle técnico real cuando el contexto de `documentacion-proyecto.md` lo permita (endpoints, códigos de estado, nombres de tablas/esquemas concretos) — no te quedes en criterios genéricos si tienes con qué ser específico
-- **Requisitos Técnicos y de Seguridad** (si aplica) **y/o Dependencias** (con otras HU o con DP-XXX del GEE) — incluye lo que aplique, no fuerces ambas secciones si una no tiene contenido real
+- **Criterios de Aceptación (Gherkin):** mínimo 2 escenarios en formato Dado/Cuando/Entonces, cubriendo con el máximo detalle posible los inputs que percibe el usuario, sus validaciones lógicas/de negocio, y las reglas de negocio implicadas — no te quedes corto por brevedad, pero sin implementación técnica (ver regla de tamaño/detalle de arriba)
+- **Requisitos No Funcionales o de Seguridad aplicables** (si existen, derivados de un RNF ya definido en el Paso 0 — nunca una decisión de arquitectura que inventes tú) **y/o Dependencias** (con otras HU o con DP-XXX del GEE) — incluye lo que aplique, no fuerces ambas secciones si una no tiene contenido real
 - **Cumplimiento DoR:** repasa cada criterio de `dor-definition.md` uno por uno y cierra con un **Verdict** explícito: `READY` (cumple todo lo obligatorio) o `BLOCKED` (indica qué lo bloquea — normalmente una dependencia de otra HU sin resolver)
 
 Trata este documento como una especificación técnica permanente que van a leer otros ingenieros durante meses, no como una nota de trabajo — no resumas ni recortes por volumen aunque sean muchas historias de golpe.
@@ -114,3 +137,5 @@ Antes de regenerar, revisa `output-paso-4/sprint-backlog-{N}.md` de cualquier sp
 - ¿Todas las HU de franja Inmediata tienen los 6 campos obligatorios, incluido el Verdict de DoR?
 - ¿Usaste `HU-XXX`, no otro formato de ID?
 - ¿La priorización respeta dependencias y riesgos antes que valor puro, y lo dice explícitamente cuando se desvía del orden de valor?
+- ¿Cada HU cubre exactamente un flujo funcional completo end-to-end — ni fragmentada en pasos técnicos sueltos ni mezclada con otro flujo distinto?
+- ¿Alguna HU incluye una decisión técnica, de arquitectura o de tecnología que tú mismo hayas inventado (no reflejada de una decisión ya tomada por el equipo)? Si es así, quítala antes de cerrar.

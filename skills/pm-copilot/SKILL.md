@@ -234,6 +234,15 @@ Se ejecuta 1-2 días antes de la sprint review, para ayudar al ADL/coordinador a
 | `prompts/transversal/generar-historias-modo-paradigma.md` | 🧠 Diseño | Paso 3, sub-paso 1, solo si `config/modo-trabajo.md` dice Modo Paradigma. Prepara el mensaje de traspaso a Infinia y guarda su respuesta (Infinia no puede escribir en Drive). |
 | `prompts/transversal/generar-documento-cierre-fase0.md` | 🧠 Diseño | Paso 0, sub-paso 3. |
 | `prompts/transversal/revisar-documentos-proyecto.md` | 🧠 Diseño | Solo cuando el PM lo pida explícitamente ("revisa la carpeta de documentos"). Detecta documentos nuevos/cambiados en `documentos-proyecto/`, valora su impacto en lo ya cerrado, y pide autorización antes de incorporar nada. |
+| `prompts/transversal/gestionar-modos-generacion.md` | 🧠 Diseño | El PM pide generar épicas o historias en un modo con nombre (ej. "en modo mapfre") en vez del Modo Estándar. |
+
+---
+
+## Modos de generación (Estándar y perfiles con nombre por cliente)
+
+`generar-epicas.md` y `generar-backlog-detalle.md` describen el **Modo Estándar** de cada artefacto — la definición anclada a marcos reconocidos (INVEST, Como/Quiero/Para, Gherkin/BDD y DoR para historias; agrupación por valor de negocio para épicas), no una convención propia del skill. Es lo que se usa siempre que el PM no pida otra cosa.
+
+Si un cliente necesita variaciones recurrentes sobre ese Estándar (ej. "modo mapfre"), el PM puede pedir "genera en modo X". Si ese modo ya existe (`modos-generacion/x-epicas.md` o `x-historias.md`, dentro de la instalación del skill, **no** de `investigar/[proyecto]/`), se aplica directamente. Si no existe, el skill pregunta la diferencia respecto al Estándar y la guarda — así queda disponible para cualquier proyecto o cliente futuro, no solo el actual. Ver `prompts/transversal/gestionar-modos-generacion.md` para el procedimiento completo y `templates/transversal/modo-generacion.md` para el formato del archivo (siempre un diff contra el Estándar, nunca una redefinición completa).
 
 ---
 
