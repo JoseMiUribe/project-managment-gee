@@ -15,6 +15,7 @@ const FIELD_MAP = {
   estado: 'Estado',
   fechaCompromiso: 'Fecha compromiso',
   riesgosAsociados: 'Riesgos asociados',
+  tareaGestionJira: 'Tarea de gestión (Jira)',
   comentarios: 'Comentarios',
 };
 

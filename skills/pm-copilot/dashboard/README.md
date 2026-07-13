@@ -181,13 +181,13 @@ siguiente actualización del dashboard).
 ## Convención de nombres de sprint (importante para quien genere artefactos)
 
 Cada sprint tiene su **propio archivo**, numerado explícitamente, dentro de
-`investigar/[proyecto]/output-paso-3/`:
+`investigar/[proyecto]/output-paso-4/`:
 
 ```
-output-paso-3/sprint-backlog-1.md
-output-paso-3/sprint-backlog-2.md
-output-paso-3/review-sprint-1.md
-output-paso-3/review-sprint-2.md
+output-paso-4/sprint-backlog-1.md
+output-paso-4/sprint-backlog-2.md
+output-paso-4/review-sprint-1.md
+output-paso-4/review-sprint-2.md
 ...
 ```
 
@@ -320,12 +320,27 @@ más arriba para el contrato completo.
   incluso cuando la HU no está en un sprint activo. La edición de HU de sprint
   se sigue haciendo regenerando el artefacto vía los prompts del skill
   (`sprint-planning.md`) o editando el markdown a mano.
-- **`roadmap-cliente.md` — tabla de hitos**: cada hito se representa como una
-  mini-tabla de 2 columnas sin fila de cabecera real (`| **Campo** | valor |`
-  directamente bajo el separador). El parser lo normaliza tratando la primera
-  fila como dato si no está vacía, pero es más frágil que las tablas
-  estándar — si cambia el formato de este bloque en el template, revisar
-  `lib/parsers/roadmapCliente.js` (función `parseHitos`).
+- **No existe parser ni pestaña para `output-paso-3/historias-generadas-*.md`**
+  (el formato de HU vigente desde el rediseño de Paso 3, con Verdict de DoR
+  `✅ Ready`/`❌ No Ready`). `lib/parsers/backlogDetalle.js` sigue existiendo
+  pero lee un formato y una ruta anteriores (`output-paso-2/backlog-detalle.md`)
+  que ya no genera ningún prompt — no rompe nada (devuelve `[]`), pero el
+  dashboard no muestra el backlog de HU real del proyecto. Ver
+  `mejoras-pendientes.md`, entrada 2026-07-09.
+- **`output-paso-1/changelog.md` — desajuste de formato confirmado**:
+  `lib/parsers/changelog.js` asume una única tabla plana con una columna por
+  campo (ID/Título/Descripción/Impacto/Coste/.../Comentarios), pero el
+  formato real que producen `templates/paso-4/changelog.md` y
+  `prompts/paso-4/gestion-changelog.md` es un documento por cambio (heading
+  `## SC-XXX: ...` con subsecciones `### Descripción`, `### Impacto` —tabla
+  propia con Coste/Alcance/Plazo/Calidad como filas, no columnas—,
+  `### Decisión`, `### Riesgos generados` y `### Dependencias generadas` —
+  cada una su propia mini-tabla—). El resultado es que **todo `changelog.md`
+  real generado por el skill se parsea como vacío**, confirmado con un
+  fixture real (ver `mejoras-pendientes.md`, entrada 2026-07-13). No es un
+  bug de una línea: requiere decidir qué formato es el canónico (el
+  documento rico por cambio, o la tabla plana que ya sabe mostrar/editar el
+  dashboard) antes de arreglarlo.
 - **`capacidad-equipo/actual.md` — secciones de texto libre**: las secciones
   2 ("Composición técnica") y 3 ("Velocidad del equipo") de la plantilla de
   capacidad no son tablas sino líneas `- Campo: valor`; el parser las
@@ -334,12 +349,10 @@ más arriba para el contrato completo.
   plantilla. Si el documento de capacidad real varía la redacción de estas
   líneas, puede que algún campo quede sin mapear (queda disponible en bruto
   bajo `capacidadActual.raw`).
-- **`epicas.md` y `backlog-detalle.md`**: no tienen un formato de archivo
-  fijo (están descritos en prompts, no en templates), así que sus parsers
-  soportan tanto tabla como fichas por heading, con fallback a listas simples
-  para los placeholders de la franja "Lejana". Si el formato real generado
-  por Claude se desvía mucho de ambos patrones soportados, revisar
-  `lib/parsers/epicas.js` y `lib/parsers/backlogDetalle.js`.
+- **`epicas.md`**: no tiene un formato de archivo fijo (está descrito en el
+  prompt, no en un template), así que su parser soporta tanto tabla como
+  fichas por heading. Si el formato real generado por Claude se desvía mucho
+  de ambos patrones soportados, revisar `lib/parsers/epicas.js`.
 - **`analisis-jira-YYYY-MM-DD.md`**: el prompt no fija una estructura de
   headings exacta para el resumen ejecutivo ni la tabla de estado, así que el
   parser busca por palabras clave en los headings (best-effort, ver
@@ -349,3 +362,16 @@ más arriba para el contrato completo.
 Ninguna de estas limitaciones impide el funcionamiento del dashboard: en el
 peor caso, el campo afectado queda vacío o el snapshot omite esa pieza
 concreta de información, pero el resto del snapshot se genera con normalidad.
+
+**Verificación end-to-end (2026-07-13):** se probó el dashboard completo
+contra un proyecto fixture con datos realistas en todas las pestañas
+(Sprint actual, Proyecto, GEE, Requisitos), la API de escritura del GEE
+(confirmación obligatoria, creación con ID correlativo, bloqueo 423/501 de
+sprint, `DELETE` 405), y ambos mecanismos de PDF (informe completo y
+documento suelto, incluida la protección anti path-traversal). Se
+encontraron y corrigieron 4 bugs reales que no estaban cubiertos por las
+limitaciones ya documentadas arriba (regex de premisas/resumen ejecutivo de
+`roadmapCliente.js`, nombres de campo desalineados en el render de
+"Roadmap cliente" y de "Sistemas" en Dependencias, y el detalle de daily log
+que siempre mostraba "(sin contenido)"). Detalle completo en
+`mejoras-pendientes.md`, entrada 2026-07-13.

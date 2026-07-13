@@ -78,15 +78,37 @@ function parseCabecera(text) {
   return parseKeyValueBlock(headerText);
 }
 
+/**
+ * Extrae el cuerpo de una sección "## <heading>" hasta el siguiente "## " o
+ * "---" (en su propia línea), o el final del texto si no hay ninguno.
+ *
+ * OJO: no se puede resolver esto con una única regex tipo
+ * /^##\s+X\s*\n+([\s\S]*?)(?:\n##\s|$)/m — con la flag "m", "$" coincide
+ * al final de CUALQUIER línea, no solo al final de la cadena. Como la
+ * captura es perezosa, el motor de regex prueba primero el final de la
+ * primera línea del cuerpo (donde "$" ya es válido por la flag "m") antes de
+ * llegar al siguiente heading real, cortando la captura ahí si el cuerpo
+ * tiene más de una línea antes del siguiente "## ". Por eso el heading y el
+ * siguiente separador se buscan por separado, no en la misma regex.
+ */
+function extractSectionBody(text, headingRegexFragment) {
+  const headingRe = new RegExp(`^##\\s+${headingRegexFragment}\\s*$`, 'im');
+  const headingMatch = text.match(headingRe);
+  if (!headingMatch) return null;
+  const bodyStart = headingMatch.index + headingMatch[0].length;
+  const rest = text.slice(bodyStart);
+  const nextMarker = rest.search(/^(##\s|---\s*$)/m);
+  return (nextMarker >= 0 ? rest.slice(0, nextMarker) : rest).trim();
+}
+
 function parseResumenEjecutivo(text) {
-  const match = text.match(/^##\s+Resumen ejecutivo\s*\n+([\s\S]*?)(?:\n##\s|\n---\s*\n|$)/m);
-  return match ? match[1].trim() : '';
+  return extractSectionBody(text, 'Resumen ejecutivo') || '';
 }
 
 function parsePremisas(text) {
-  const match = text.match(/^##\s+Premisas y condiciones\s*\n+([\s\S]*?)(?:\n##\s|$)/m);
-  if (!match) return [];
-  const lines = match[1].split(/\r?\n/);
+  const body = extractSectionBody(text, 'Premisas y condiciones');
+  if (!body) return [];
+  const lines = body.split(/\r?\n/);
   const premisas = [];
   for (const line of lines) {
     const m = line.match(/^\s*\d+\.\s*\*\*([^*]+)\*\*\s*—?\s*(.*)$/) || line.match(/^\s*\d+\.\s*(.*)$/);

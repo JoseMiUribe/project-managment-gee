@@ -525,7 +525,7 @@
           return (
             "<li><span class=\"timeline-confianza\">" + confianza + "</span>" +
             '<div class="timeline-body"><strong>' + escapeHtml(fmt(h.nombre || h.titulo)) + "</strong>" +
-            "<span>" + escapeHtml(fmt(h.fecha)) + (h.descripcion ? " — " + escapeHtml(h.descripcion) : "") + "</span>" +
+            "<span>" + escapeHtml(fmt(h.ventanaEstimada || h.fecha)) + ((h.queIncluye || h.descripcion) ? " — " + escapeHtml(h.queIncluye || h.descripcion) : "") + "</span>" +
             "</div></li>"
           );
         })
@@ -693,10 +693,11 @@
         { key: "equipo", label: "Equipo", type: "text" },
         { key: "dependencia", label: "Dependencia", type: "textarea" },
         { key: "criticidadRag", label: "Criticidad", type: "select", options: ["🟢 Verde", "🟡 Amarillo", "🔴 Rojo"], render: (v) => ragBadge(v) },
-        { key: "sistemas", label: "Sistemas", type: "text" },
+        { key: "sistemas", label: "Sistemas", editable: false },
         { key: "estado", label: "Estado", type: "text" },
         { key: "fechaCompromiso", label: "Fecha compromiso", type: "date" },
         { key: "riesgosAsociados", label: "Riesgos asociados", type: "text" },
+        { key: "tareaGestionJira", label: "Tarea de gestión (Jira)", type: "text" },
         { key: "comentarios", label: "Comentarios", type: "textarea" },
       ],
     },
@@ -1011,6 +1012,37 @@
 
   // ---------- Daily log (solo lectura) ----------
 
+  function renderDailyLogEntryBody(entry) {
+    const cabecera = "Sprint " + fmt(entry.sprint, "?") + " · Día " + fmt(entry.dia, "?");
+    const progreso = entry.progreso || [];
+    const progresoHtml = progreso.length
+      ? '<table class="data-table"><thead><tr><th>HU</th><th>Estado</th><th>Lo que se hizo</th><th>Lo que se hará</th><th>Bloqueos</th></tr></thead><tbody>' +
+        progreso
+          .map(
+            (p) =>
+              "<tr><td>" + escapeHtml(fmt(p.hu)) + "</td><td>" + escapeHtml(fmt(p.estado)) + "</td><td>" +
+              escapeHtml(fmt(p.loQueSeHizo)) + "</td><td>" + escapeHtml(fmt(p.loQueSeHara)) + "</td><td>" +
+              escapeHtml(fmt(p.bloqueos)) + "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>"
+      : emptyInline("Sin tabla de progreso en esta entrada.");
+
+    const actualizaciones = entry.actualizacionesGee || [];
+    const actualizacionesHtml = actualizaciones.length
+      ? "<ul>" + actualizaciones.map((a) => "<li>" + escapeHtml(a) + "</li>").join("") + "</ul>"
+      : "";
+
+    const notasHtml = entry.notas ? "<p>" + escapeHtml(entry.notas) + "</p>" : "";
+
+    return (
+      "<p><em>" + escapeHtml(cabecera) + "</em></p>" +
+      progresoHtml +
+      (actualizacionesHtml ? "<p><strong>Actualizaciones GEE</strong></p>" + actualizacionesHtml : "") +
+      (notasHtml ? "<p><strong>Notas</strong></p>" + notasHtml : "")
+    );
+  }
+
   function renderDailyLog() {
     const container = qs("#dailylog-lista");
     const logs = (state.gee && state.gee.dailylogs) || [];
@@ -1024,9 +1056,9 @@
         (entry, idx) =>
           "<details class=\"daily-entry\"" + (idx === 0 ? " open" : "") + "><summary>" +
           escapeHtml(fmt(entry.fecha, "Fecha desconocida")) +
-          "</summary><pre>" +
-          escapeHtml(fmt(entry.raw, "(sin contenido)")) +
-          "</pre></details>"
+          "</summary>" +
+          renderDailyLogEntryBody(entry) +
+          "</details>"
       )
       .join("");
   }
