@@ -32,6 +32,9 @@ Pídele también, explícitamente:
 - Que marque con el prefijo `[IA]` cualquier criterio, requisito o asunción que sea inferencia suya y no algo confirmado en los documentos — igual que el skill ya hace con los RNF implícitos del Paso 0. No debe mezclar sin marcar lo confirmado con lo deducido.
 - Que, si hay backlog de Jira accesible, contraste los límites de la épica contra las historias ya existentes en otras épicas antes de darlos por buenos, y que declare explícitamente cualquier solape posible en vez de asumir que no lo hay.
 - Que no infra-descomponga: si hay historias del equipo en épicas comparables, que use su granularidad como referencia, no un número arbitrariamente bajo.
+- Que no incluya nombres de tabla/esquema, DDL, políticas RLS, ni ninguna decisión de tecnología o arquitectura que esté inventando — no le corresponde decidir el "cómo", solo el "qué" (salvo que refleje una decisión ya documentada por el equipo en una historia propia existente, citándola).
+- **Tamaño y agrupación de cada historia** (regla validada con feedback real del equipo, ver `mejoras-pendientes.md`, entrada 2026-07-13 y la sección equivalente en `prompts/paso-3/generar-backlog-detalle.md`): una HU por flujo funcional completo end-to-end, ni fragmentada en pasos técnicos sueltos ni mezclando varios flujos distintos. **Caso especial — épicas de configuración/ajustes sin recorrido de usuario único** (ej. "Configuración de centro"): en vez de una HU por campo o por pantalla, agrupa por **límite de dependencia/riesgo de bloqueo compartido** — todo lo que comparte el mismo perfil de bloqueo (o su ausencia) va en la misma historia; lo que tiene un riesgo de dependencia distinto se separa, aunque esté en la misma pantalla. Esto es lo que permite al equipo avanzar en paralelo en vez de que una dependencia bloquee partes ya listas.
+- Que numere las historias nuevas empezando por el siguiente `HU-XXX` libre en todo el proyecto (no solo en la épica) — comprueba `config/jira-mapeo.md` antes de indicarle el número de partida, para no repetir una colisión de identificador ya ocurrida antes.
 
 Pídele que genere las historias de la épica indicada, **siempre** con este formato exacto (validado empíricamente, Infinia lo respeta si se le pide explícito):
 
@@ -60,6 +63,10 @@ Antes de continuar a `subir-historias-a-jira.md`, comprueba con una lectura ráp
 - ¿Tiene cada historia los 5 campos obligatorios (Identificador, Épica, Prioridad, Estimación, Verdict DoR)?
 - ¿Usa `HU-XXX`, no `US-XXX`?
 - ¿Las dependencias entre historias son coherentes (si HU-002 depende de HU-001, ambas existen)?
+- ¿La numeración empieza donde le indicaste (siguiente `HU-XXX` libre en todo el proyecto), sin colisionar con `config/jira-mapeo.md`?
+- ¿Alguna historia incluye DDL, nombres de tabla/esquema, RLS o una decisión de arquitectura que Infinia esté inventando (no reflejada de una decisión ya tomada por el equipo)? Si es así, vuelve a Infinia y pide que la quite.
+- Si la épica es de configuración/ajustes sin recorrido de usuario único: ¿agrupó Infinia por límite de dependencia/riesgo de bloqueo compartido, o fragmentó por campo/pantalla? Si fragmentó, pide que reagrupe antes de aceptar el resultado.
+- Toda cita a un issue de Jira concreto (solape, dependencia) que aparezca en una historia: ¿la verificaste tú mismo contra Jira real, o solo confías en que Infinia dice haberlo comprobado? Verifícala antes de aceptar la historia — un solape con cita incorrecta es peor que no detectarlo.
 
 Si falta algo, no lo rellenes tú inventando — vuelve a Infinia con el hueco concreto detectado y pide que lo complete.
 
