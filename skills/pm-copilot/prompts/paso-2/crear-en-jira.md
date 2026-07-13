@@ -4,7 +4,7 @@
 
 ## Alcance de este prompt (importante, cambió)
 
-**Este prompt solo crea épicas.** Ni sprints ni historias de usuario — eso ya no ocurre en el Paso 2. Las historias de usuario se generan y validan en el Paso 3 completo (`generar-backlog-detalle.md` o `generar-historias-modo-paradigma.md`, según `config/modo-trabajo.md`, seguido de `subir-historias-a-jira.md`), que las sube directamente al backlog. Si vienes de una versión anterior de este skill donde este prompt también creaba HU/sprints, esa parte se ha movido — no la repliques aquí.
+**Este prompt solo crea épicas.** Ni sprints ni historias de usuario — eso ya no ocurre en el Paso 2. Las historias de usuario se generan y validan en el Paso 3 completo (`generar-backlog-detalle.md`, seguido de `subir-historias-a-jira.md`), que las sube directamente al backlog. Si vienes de una versión anterior de este skill donde este prompt también creaba HU/sprints, esa parte se ha movido — no la repliques aquí.
 
 ## Cuándo se ejecuta
 
@@ -39,7 +39,7 @@ Cada `EP-XXX` → issue tipo Épica según el mapeo de `jira-project.md`, con un
 - Prioridad (MoSCoW) y fase (MVP / Fase 2 / Condicional)
 - Enlace o referencia a la sección correspondiente de `roadmap-tecnico.md` para contexto temporal
 
-Cuanta más de esta información quede en el propio issue de Jira (no solo enlazada), más fácil será para el equipo técnico y para Infinia (Modo Paradigma) entenderla sin tener que ir a buscar el markdown original.
+Cuanta más de esta información quede en el propio issue de Jira (no solo enlazada), más fácil será para el equipo técnico entenderla sin tener que ir a buscar el markdown original.
 
 ### 4. Registrar el mapeo de trazabilidad
 

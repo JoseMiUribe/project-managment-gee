@@ -4,9 +4,9 @@
 
 ## Cuándo se ejecuta
 
-Al cierre del Paso 3, **después** de que `validar-backlog-jira.md` confirme que **todas** las historias del backlog están validadas — no antes. Es agnóstico de modo (Paradigma/Autónomo): la creación de sprints con fechas y goal propuesto es la misma operación en ambos casos, lo único que cambia entre modos fue cómo se generaron las historias, no esto.
+Al cierre del Paso 3, **después** de que `validar-backlog-jira.md` confirme que **todas** las historias del backlog están validadas — no antes.
 
-**Requisito previo, sin excepción:** `output-paso-2/roadmap-tecnico.md` debe estar validado por el PM — de hecho, todo el Paso 3 depende de esto (ya lo exigen `generar-backlog-detalle.md` y `generar-historias-modo-paradigma.md` como input obligatorio). Si el roadmap cambió desde entonces, ejecuta `prompts/transversal/actualizar-cascada.md` primero.
+**Requisito previo, sin excepción:** `output-paso-2/roadmap-tecnico.md` debe estar validado por el PM — de hecho, todo el Paso 3 depende de esto (ya lo exige `generar-backlog-detalle.md` como input obligatorio). Si el roadmap cambió desde entonces, ejecuta `prompts/transversal/actualizar-cascada.md` primero.
 
 ## La convención `[PROP]`
 
@@ -40,7 +40,7 @@ Muestra al PM la lista de sprints con sus fechas y goals propuestos antes de cre
 
 Usa el conector de Jira de la sesión (ver `prompts/transversal/conectar-jira.md`, punto 1 — no hace falta ninguna configuración adicional de tu parte). Si el conector no soporta crear objetos Sprint directamente (no está verificado todavía, ver `mejoras-pendientes.md`), dilo explícitamente y ofrece la alternativa: que el PM cree los sprints vacíos en Jira (un clic en el backlog) y tú solo les pones fecha y el Sprint Goal con `[PROP]` vía edición del sprint.
 
-**No asignes ninguna historia a estos sprints en este prompt** — eso lo hace el equipo (Modo Paradigma) o `prompts/paso-4/sprint-planning.md` (Modo Autónomo, si no hay agentes propios), ya en el Paso 4, una vez el goal esté confirmado y sin el prefijo `[PROP]`.
+**No asignes ninguna historia a estos sprints en este prompt** — eso lo hace el equipo/PO por su cuenta, o `prompts/paso-4/sprint-planning.md` si no lo cubre nadie más, ya en el Paso 4, una vez el goal esté confirmado y sin el prefijo `[PROP]`.
 
 ### 5. Guarda también una copia local
 
@@ -50,7 +50,7 @@ Independientemente de si Jira lo soporta o no, escribe `investigar/[proyecto]/ou
 
 ## Si no hay conexión a Jira todavía
 
-Si en el paso 1 de `conectar-jira.md` no hay herramientas de Jira disponibles en la sesión (proyecto Modo Autónomo que todavía no ha conectado Jira, o no sabe cómo hacerlo):
+Si en el paso 1 de `conectar-jira.md` no hay herramientas de Jira disponibles en la sesión (el proyecto todavía no ha conectado Jira, o no sabe cómo hacerlo):
 
 1. **No te detengas silenciosamente.** Genera igualmente `output-paso-3/sprints-propuestos.md` con las fechas y goals `[PROP]`.
 2. **Dile explícitamente al PM por qué es solo local**: "No hay conexión a Jira disponible en esta sesión, así que he generado la propuesta de sprints en un archivo local (`sprints-propuestos.md`) en vez de crearlos directamente en Jira. Puedo crearlos yo mismo en cuanto conectes Jira desde la interfaz de la sesión, o los puedes crear tú a mano usando este archivo como referencia."

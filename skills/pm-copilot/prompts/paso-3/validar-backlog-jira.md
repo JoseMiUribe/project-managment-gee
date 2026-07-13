@@ -4,7 +4,7 @@
 
 ## Propósito
 
-Después de `subir-historias-a-jira.md`, el equipo técnico y el Product Owner revisan las historias del backlog y dejan feedback. Este prompt recoge ese feedback, dispara la regeneración **solo** de las historias afectadas (vía el generador del modo activo — Infinia o el propio skill), y vuelve a dejarlas listas para revisión. Se repite hasta que el PM cierre la validación explícitamente — no hay una condición automática de "ya está todo bien".
+Después de `subir-historias-a-jira.md`, el equipo técnico y el Product Owner revisan las historias del backlog y dejan feedback. Este prompt recoge ese feedback, dispara la regeneración **solo** de las historias afectadas (vía `prompts/paso-3/generar-backlog-detalle.md`), y vuelve a dejarlas listas para revisión. Se repite hasta que el PM cierre la validación explícitamente — no hay una condición automática de "ya está todo bien".
 
 ## Dónde vive el feedback
 
@@ -25,7 +25,7 @@ Para cada `HU-XXX` en `config/jira-mapeo.md`, recupera los comentarios de su iss
 ### 3. Regenera solo las historias con cambio concreto pedido
 
 Por cada una:
-1. Ejecuta el generador del modo activo (`prompts/transversal/generar-historias-modo-paradigma.md` si Paradigma, `prompts/paso-3/generar-backlog-detalle.md` si Autónomo) indicando explícitamente: regenerar **solo esta historia**, con este feedback aplicado, sin tocar ni repetir las demás.
+1. Ejecuta `prompts/paso-3/generar-backlog-detalle.md` indicando explícitamente: regenerar **solo esta historia**, con este feedback aplicado, sin tocar ni repetir las demás.
 2. Exige que la nueva versión venga con: marca de versión (`v1.1`, `v1.2`...) y un resumen de 2-4 frases de qué cambió, acotado por sección.
 3. Actualiza el issue de Jira correspondiente con el contenido nuevo (mismo `HU-XXX`, mismo issue, no crees uno nuevo) y añade un comentario propio del skill con el resumen de qué cambió, para que el equipo sepa qué revisar sin comparar el texto entero a mano.
 
