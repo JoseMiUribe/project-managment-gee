@@ -4,7 +4,7 @@
 
 ## Propósito
 
-Tomar `output-paso-3/historias-generadas-{fecha}.md` (generado en Modo Paradigma o Modo Autónomo, mismo formato en ambos casos) y crear las historias en el **backlog** de Jira — nunca en un sprint — con una prioridad inicial propuesta, dejando registro de esa propuesta para poder aprender de cómo el equipo la cambia después.
+Tomar `output-paso-3/historias-generadas-{fecha}.md` (generado por `prompts/paso-3/generar-backlog-detalle.md`) y crear las historias en el **backlog** de Jira — nunca en un sprint — con una prioridad inicial propuesta, dejando registro de esa propuesta para poder aprender de cómo el equipo la cambia después.
 
 ## Requisito previo
 
@@ -32,7 +32,7 @@ Cada historia → un issue en el backlog de Jira (tipo Historia, según `jira-pr
 
 ### 4. Prioridad inicial propuesta
 
-Ordena las historias en el backlog según el orden que propuso `generar-backlog-detalle.md` / Infinia. Esto es una **propuesta**, no una decisión final.
+Ordena las historias en el backlog según el orden que propuso `generar-backlog-detalle.md`. Esto es una **propuesta**, no una decisión final.
 
 ### 5. Registra la propuesta en el historial (nunca se sobrescribe)
 

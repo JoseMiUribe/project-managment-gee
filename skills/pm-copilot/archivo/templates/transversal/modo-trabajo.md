@@ -1,3 +1,5 @@
+> **⚠️ ARCHIVADO (2026-07-13) — plantilla ya no en uso.** La bifurcación Autónomo/Paradigma que este archivo registraba desapareció al retirarse Infinia como generador (ver `mejoras-pendientes.md`, entrada 2026-07-13): ahora solo existe un camino de generación (`prompts/paso-3/generar-backlog-detalle.md`). Si un proyecto existente tiene un `config/modo-trabajo.md` creado con esta plantilla antes de esa fecha, ya no se lee ni condiciona nada — puedes archivarlo o borrarlo del proyecto sin que afecte al pipeline. Se conserva aquí solo como referencia histórica.
+
 # Modo de Trabajo — [Nombre del Proyecto]
 
 **Decidido en el bootstrap el:** [YYYY-MM-DD]

@@ -1,14 +1,12 @@
-# Prompt: Generar Historias de Usuario (Modo Autónomo)
+# Prompt: Generar Historias de Usuario
 
 > **Nivel:** 🧠 Diseño — decidir cuánto detallar cada HU según su horizonte temporal, y redactar criterios técnicos concretos, requiere criterio. Ejecuta en el modelo principal.
 
 ## Propósito
 
-Este es el equivalente, en Modo Autónomo, de `prompts/transversal/generar-historias-modo-paradigma.md` (Modo Paradigma, vía Infinia). Solo se ejecuta si `config/modo-trabajo.md` dice Autónomo — el proyecto no tiene Drive/Infinia, así que el propio skill genera las historias directamente.
+Este es el **único** generador de historias de usuario del skill: el propio skill genera siempre las historias directamente, sobre las épicas ya validadas y creadas en Jira. No existe ya una bifurcación de "quién genera" — hasta el 2026-07-13 existía una alternativa vía Infinia (Modo Paradigma), retirada por decisión explícita del PM tras uso real insuficiente incluso con el prompt de traspaso ya mejorado (ver `mejoras-pendientes.md`, entradas 2026-07-09, 2026-07-10 y 2026-07-13). El prompt que la implementaba queda archivado en `archivo/prompts/transversal/generar-historias-modo-paradigma.md` como referencia histórica, no como alternativa activa.
 
-**El formato de salida es idéntico en ambos modos** (validado empíricamente contra Infinia real, no es un diseño teórico — ver `mejoras-pendientes.md`): así `prompts/paso-3/subir-historias-a-jira.md` y `prompts/paso-3/validar-backlog-jira.md` no necesitan saber qué modo generó las historias.
-
-**Nota de experiencia real:** este es hoy el camino recomendado por defecto, incluso en proyectos con Drive/Infinia disponible — la calidad de Modo Paradigma resultó insuficiente en uso real (ver `mejoras-pendientes.md`) y el equipo prefiere que el skill tenga el control directo del proceso.
+Lo que sí sigue siendo opcional es **enriquecer** esta generación con fuentes de contexto reales del proyecto (ej. el repositorio de código, en solo lectura) — nunca como un generador alternativo, solo para fundamentar mejor lo que este mismo prompt produce. Ver `prompts/transversal/gestionar-fuentes-contexto.md`.
 
 ## Modo de generación
 
@@ -68,7 +66,7 @@ Antes de cerrar cualquier HU de una épica sin recorrido de usuario único, preg
 **Lo que NO debe llevar, salvo que ya exista como decisión tomada y documentada (nunca inventada por ti):**
 - Nombres de tabla, esquema, endpoint, o cualquier detalle de implementación técnica que tú mismo estés decidiendo — no es tu rol decidir CÓMO se construye, solo QUÉ debe hacer el sistema desde la perspectiva del usuario y del negocio
 - Elección de tecnología, framework, o decisiones de arquitectura de ningún tipo
-- Excepción explícita: si en algún momento tienes acceso directo al repositorio de código del proyecto, puedes fundamentar sugerencias técnicas superficiales en lo que ya existe realmente (nunca inventarlas) — hoy esa capacidad no está disponible, así que por defecto queda fuera de alcance
+- Excepción explícita: si el proyecto tiene registrada una fuente de contexto de repositorio de código (`config/fuentes-contexto/repo-codigo.md`, ver `prompts/transversal/gestionar-fuentes-contexto.md`), puedes fundamentar sugerencias técnicas superficiales en lo que ya existe realmente ahí (nunca inventarlas). Si no está registrada, esta capacidad queda fuera de alcance por defecto — no la asumas.
 
 Esto no contradice el Paso 0 de arriba (mirar el estilo de HU que el equipo ya escribió): si el equipo mismo ya documentó una decisión técnica en una HU propia existente, es un hecho ya decidido, no una invención tuya — puedes reflejarlo como contexto. La diferencia es entre *reflejar* una decisión ya tomada por el equipo y *tomarla tú mismo* desde cero.
 
@@ -88,7 +86,7 @@ Si una épica se solapa entre franjas, clasifica sus HU individualmente según e
 
 ## Paso 2: genera las historias de la franja Inmediata con el formato completo
 
-Cada historia debe tener, obligatoriamente, estos campos — es el mismo esquema que produce Infinia en Modo Paradigma, no lo simplifiques:
+Cada historia debe tener, obligatoriamente, estos campos — trátalo como un contrato fijo, no lo simplifiques:
 
 - **Identificador:** `HU-XXX` (tres dígitos, correlativo)
 - **Épica:** `EP-XXX`

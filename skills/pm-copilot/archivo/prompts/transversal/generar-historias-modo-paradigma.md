@@ -1,4 +1,6 @@
-# Prompt: Generar Historias de Usuario vía Infinia (Modo Paradigma)
+> **⚠️ ARCHIVADO (2026-07-13) — no es un prompt activo del pipeline.** El PM decidió retirar Infinia como generador de historias de usuario tras uso real insuficiente, incluso con las mejoras ya aplicadas a este mismo prompt (ver `mejoras-pendientes.md`, entradas 2026-07-09, 2026-07-10 y 2026-07-13). El único generador activo es ahora `prompts/paso-3/generar-backlog-detalle.md`, con soporte opcional de fuentes de contexto (`prompts/transversal/gestionar-fuentes-contexto.md`) en vez de un segundo generador. Este archivo se conserva íntegro como referencia histórica (el formato de HU aquí validado empíricamente contra Infinia sigue siendo la base del formato actual) — no lo cargues como parte de la ejecución normal del pipeline, y no lo referencies desde `SKILL.md` salvo en notas históricas.
+
+# Prompt: Generar Historias de Usuario vía Infinia (Modo Paradigma) — ARCHIVADO
 
 > **Nivel:** 🧠 Diseño — preparar el traspaso y validar lo que devuelve Infinia requiere criterio. Ejecuta en el modelo principal.
 

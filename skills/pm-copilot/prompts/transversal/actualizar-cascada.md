@@ -39,7 +39,7 @@ Regenera **en el orden de la tabla, de arriba hacia abajo** — nunca saltes dir
 
 ### 3. Ejecuta los prompts correspondientes, no edites a mano
 
-Para cada artefacto de la cadena, ejecuta el prompt que lo genera (`identificar-riesgos-dependencias.md`, `generar-epicas.md`, `procesar-capacidad.md`, `generar-roadmaps.md`, y para las historias `generar-backlog-detalle.md` o `generar-historias-modo-paradigma.md` según `config/modo-trabajo.md`) en vez de editar el markdown directamente. Editar a mano dos veces produce artefactos que ya no coinciden con lo que su propio prompt habría generado, y eso rompe la trazabilidad del sistema.
+Para cada artefacto de la cadena, ejecuta el prompt que lo genera (`identificar-riesgos-dependencias.md`, `generar-epicas.md`, `procesar-capacidad.md`, `generar-roadmaps.md`, y para las historias `generar-backlog-detalle.md`) en vez de editar el markdown directamente. Editar a mano dos veces produce artefactos que ya no coinciden con lo que su propio prompt habría generado, y eso rompe la trazabilidad del sistema.
 
 ### 4. Marca explícitamente qué cambió y por qué
 

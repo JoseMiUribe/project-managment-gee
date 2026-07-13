@@ -23,7 +23,7 @@ Usa `templates/transversal/modo-generacion.md` como plantilla al crear uno nuevo
 
 ## Cuándo se aplica
 
-Este mecanismo aplica cuando **el propio skill** genera el artefacto (`generar-epicas.md`, `generar-backlog-detalle.md` en Modo Autónomo). No aplica directamente a Modo Paradigma — ahí, Infinia genera con sus propias instrucciones vía `generar-historias-modo-paradigma.md`, fuera del control directo del skill. Si un proyecto en Modo Paradigma necesitara una personalización equivalente, es una conversación aparte con quien mantiene Infinia, no algo que este mecanismo pueda forzar desde aquí.
+Este mecanismo aplica siempre que **el propio skill** genera el artefacto (`generar-epicas.md`, `generar-backlog-detalle.md`) — que desde el 2026-07-13 es la única vía de generación que existe (ver `mejoras-pendientes.md`: Infinia se retiró como generador). El histórico `generar-historias-modo-paradigma.md` (archivado en `archivo/prompts/transversal/`) queda fuera del alcance de este mecanismo — no se aplican modos con nombre sobre un prompt que ya no está activo.
 
 ## Procedimiento
 
