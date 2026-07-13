@@ -56,7 +56,7 @@ Estos nuevos riesgos se registran como **R-XXX nuevos en el GEE**, en `output-pa
 
 ## Output
 
-Genera `sprint-backlog.md` (en `investigar/[proyecto]/output-paso-3/`, según template `templates/paso-3/sprint-backlog.md`) con:
+Genera `sprint-backlog.md` (en `investigar/[proyecto]/output-paso-4/`, según template `templates/paso-4/sprint-backlog.md`) con:
 1. Nº de sprint, fechas, objetivo
 2. Capacidad disponible (pts) y ocupada (pts)
 3. Tabla de HU seleccionadas con tareas, responsables y estado
