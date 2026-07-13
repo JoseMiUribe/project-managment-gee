@@ -19,7 +19,7 @@ No actives este prompt para matices menores que caben dentro de una HU ya defini
 
 ### 1. Registrar el cambio en el ChangeLog
 
-Añade una entrada nueva en `investigar/[proyecto]/output-paso-1/changelog.md` con ID **SC-XXX** correlativo (según template `templates/paso-3/changelog.md`). Cada entrada debe describir:
+Añade una entrada nueva en `investigar/[proyecto]/output-paso-1/changelog.md` con ID **SC-XXX** correlativo (según template `templates/paso-4/changelog.md`). Cada entrada debe describir:
 
 - Qué se pide y quién lo pide
 - Por qué surge ahora (petición nueva / requisito mal entendido / decisión de negocio)
@@ -67,7 +67,7 @@ Enlaza el SC-XXX con los R-XXX/DP-XXX que genera, y viceversa, para que el rastr
 
 ## Output
 
-Actualiza `investigar/[proyecto]/output-paso-1/changelog.md` añadiendo la(s) entrada(s) SC-XXX nuevas (template `templates/paso-3/changelog.md`). Si el cambio dispara actualización de roadmap o capacidad, dejar constancia en la propia entrada SC-XXX de qué versión de roadmap/capacidad resultó (ej. "→ roadmap-tecnico.md v3", "→ capacidad-equipo V04").
+Actualiza `investigar/[proyecto]/output-paso-1/changelog.md` añadiendo la(s) entrada(s) SC-XXX nuevas (template `templates/paso-4/changelog.md`). Si el cambio dispara actualización de roadmap o capacidad, dejar constancia en la propia entrada SC-XXX de qué versión de roadmap/capacidad resultó (ej. "→ roadmap-tecnico.md v3", "→ capacidad-equipo V04").
 
 ## Reglas
 

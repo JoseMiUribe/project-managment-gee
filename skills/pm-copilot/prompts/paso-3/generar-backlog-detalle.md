@@ -95,9 +95,19 @@ Cada historia debe tener, obligatoriamente, estos campos — trátalo como un co
 - **Descripción:** Como [rol] / Quiero [acción] / Para [beneficio]
 - **Criterios de Aceptación (Gherkin):** mínimo 2 escenarios en formato Dado/Cuando/Entonces, cubriendo con el máximo detalle posible los inputs que percibe el usuario, sus validaciones lógicas/de negocio, y las reglas de negocio implicadas — no te quedes corto por brevedad, pero sin implementación técnica (ver regla de tamaño/detalle de arriba)
 - **Requisitos No Funcionales o de Seguridad aplicables** (si existen, derivados de un RNF ya definido en el Paso 0 — nunca una decisión de arquitectura que inventes tú) **y/o Dependencias** (con otras HU o con DP-XXX del GEE) — incluye lo que aplique, no fuerces ambas secciones si una no tiene contenido real
-- **Cumplimiento DoR:** repasa cada criterio de `dor-definition.md` uno por uno y cierra con un **Verdict** explícito: `READY` (cumple todo lo obligatorio) o `BLOCKED` (indica qué lo bloquea — normalmente una dependencia de otra HU sin resolver)
+- **Cumplimiento DoR:** repasa cada criterio de `dor-definition.md` uno por uno y cierra con un **Verdict** explícito, con la misma terminología de `dor-definition.md` (nunca "READY"/"BLOCKED" — una HU que no ha empezado a desarrollarse no está "bloqueada", solo no cumple el DoR; "bloqueado" se reserva para `registro-impedimentos.md`, que es sobre trabajo en curso interrumpido): `✅ Ready` (cumple todo lo obligatorio) o `❌ No Ready` (indica qué criterio no cumple — normalmente una dependencia sin resolver). Si el motivo es una dependencia **externa** del GEE (`DP-XXX`, no una dependencia técnica con otra HU), sigue la sección "Dependencias externas y tarea de gestión en Jira" de abajo antes de cerrar la historia.
 
 Trata este documento como una especificación técnica permanente que van a leer otros ingenieros durante meses, no como una nota de trabajo — no resumas ni recortes por volumen aunque sean muchas historias de golpe.
+
+## Dependencias externas y tarea de gestión en Jira
+
+Cuando el Verdict de una HU sea `❌ No Ready` y la causa sea una dependencia **externa** del GEE (`DP-XXX` de `registro-dependencias.md` — negociar con cliente, otro equipo, seguridad, infraestructura), no basta con citarla en el campo Dependencias: esa dependencia necesita una tarea accionable y visible en el backlog de Jira, o el PM puede no darse cuenta de que hace falta actuar (caso real que motivó esta regla: una dependencia quedó meses en estado "Detectada", con fecha vencida, sin que nadie la avanzara — ver `mejoras-pendientes.md`, entrada 2026-07-13).
+
+No confundas esto con una dependencia técnica entre dos HU (ej. "HU-024 depende de HU-023") — esas nunca generan tarea de gestión, el equipo se autogestiona.
+
+1. Comprueba la columna "Tarea de gestión (Jira)" de `registro-dependencias.md` para la `DP-XXX` en cuestión.
+2. **Si ya tiene una clave de Jira asociada:** cita esa clave en la propia HU (ej. "Bloqueada por DP-001 — ver tarea de gestión UPEVUOWVWK-186"). No crees una tarea duplicada.
+3. **Si todavía no tiene tarea** (columna en `—`): no la crees tú en este prompt — indícalo explícitamente en el resumen final del trabajo, con la `DP-XXX` y la HU afectada, para que `prompts/paso-3/subir-historias-a-jira.md` la cree al subir esta historia (ese prompt sí tiene la clave de Jira de la HU ya creada, necesaria para enlazarla).
 
 ## Paso 3: franjas Cercana y Lejana
 
@@ -146,3 +156,5 @@ Antes de regenerar, revisa `output-paso-4/sprint-backlog-{N}.md` de cualquier sp
 - ¿Cada HU cubre exactamente un flujo funcional completo end-to-end — ni fragmentada en pasos técnicos sueltos ni mezclada con otro flujo distinto?
 - Si la épica es de configuración/ajustes sin recorrido de usuario único: ¿agrupaste por límite de dependencia/riesgo de bloqueo compartido, en vez de por campo o por pantalla?
 - ¿Alguna HU incluye una decisión técnica, de arquitectura o de tecnología que tú mismo hayas inventado (no reflejada de una decisión ya tomada por el equipo)? Si es así, quítala antes de cerrar.
+- ¿Usaste `✅ Ready`/`❌ No Ready` como Verdict, nunca `READY`/`BLOCKED`?
+- ¿Toda HU `❌ No Ready` por una dependencia externa (`DP-XXX`) queda señalada para `subir-historias-a-jira.md` si esa `DP-XXX` todavía no tiene tarea `[GESTIÓN]` en Jira?

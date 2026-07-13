@@ -104,12 +104,15 @@ No dejes ningún riesgo en Rojo sin al menos una Acción de mitigación propuest
 
 ### f) Completar cada dependencia
 
+Toda dependencia dada de alta aquí (`DP-XXX`) es, por definición, **externa** al equipo de entrega — requiere que el PM/ADL negocie, pida o reclame algo a alguien fuera del equipo (cliente, otro equipo, seguridad, infraestructura). Esto es distinto de una dependencia técnica entre dos historias del propio equipo (ej. "HU-024 depende de HU-023"), que **no** se registra aquí — esa vive directamente en el campo `Dependencias` de cada HU (`generar-backlog-detalle.md`, Paso 3) y el equipo se autogestiona sin ninguna tarea de Jira ni alta en este registro.
+
 Para cada dependencia:
 - **Criticidad RAG**: usa el mismo criterio de semáforo, evaluando cualitativamente cuánto bloquea el proyecto si no se resuelve a tiempo (Rojo = bloquea entregas si no se resuelve pronto; Amarillo = afecta pero hay margen; Verde = deseable pero no bloqueante)
 - **Sistemas implicados**: nombra los sistemas/equipos concretos (hasta 3 campos, Sistema 1/2/3)
 - **Estado inicial**: siempre "Detectada" al darla de alta en este paso
 - **Fecha de compromiso**: si se conoce; si no, márcala como pendiente de negociar
 - **Riesgos asociados**: ID del riesgo (`R-XXX`) que esa dependencia genera si no se resuelve
+- **Tarea de gestión (Jira)**: si en este momento ya hay conexión con Jira disponible (poco habitual en este punto del pipeline, normalmente antes del Paso 2), crea directamente una tarea en el backlog con prefijo `[GESTIÓN]` (tipo Tarea) describiendo la acción concreta de gestión (a quién contactar, qué negociar/pedir/reclamar, y la fecha de compromiso si se conoce), enlazada a esta `DP-XXX` — sin línea "Bloquea" todavía, porque en este paso aún no existen HU. Si no hay Jira conectado todavía, deja `— (pendiente, sin Jira conectado)`: la creará más adelante `prompts/paso-3/generar-backlog-detalle.md`/`subir-historias-a-jira.md`, en cuanto una HU concreta quede `❌ No Ready` por esta dependencia.
 
 ### g) Generar `riesgos-stakeholders.md`
 
@@ -138,9 +141,9 @@ No cierres el paso ni actualices `documentacion-proyecto.md` hasta tener la conf
 
 ### `registro-dependencias.md`
 
-| ID | Equipo | Dependencia | Criticidad RAG | Sistema 1 | Sistema 2 | Sistema 3 | Estado | Fecha compromiso | Riesgos asociados | Comentarios |
-|---|---|---|---|---|---|---|---|---|---|---|
-| DP-001 | | | | | | | Detectada | | | |
+| ID | Equipo | Dependencia | Criticidad RAG | Sistema 1 | Sistema 2 | Sistema 3 | Estado | Fecha compromiso | Riesgos asociados | Tarea de gestión (Jira) | Comentarios |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| DP-001 | | | | | | | Detectada | | | — (pendiente, sin Jira conectado) | |
 
 ### `registro-acciones.md`
 

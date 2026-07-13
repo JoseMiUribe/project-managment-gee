@@ -39,7 +39,7 @@
 
 ## Output
 
-Genera `sprint-candidates.md` (en `investigar/[proyecto]/output-paso-3/`) con:
+Genera `sprint-candidates.md` (en `investigar/[proyecto]/output-paso-4/`) con:
 1. Tabla resumen (HU, título, DoR, observación)
 2. Lista de Ready (candidatas al sprint)
 3. Lista de No Ready con acciones necesarias
