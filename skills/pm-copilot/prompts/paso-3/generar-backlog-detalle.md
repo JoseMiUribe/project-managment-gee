@@ -51,6 +51,14 @@ Aplica a toda HU que generes en el Paso 2 (franja Inmediata), no solo a la invoc
 
 **Tamaño correcto — una HU por flujo funcional completo:** cada historia debe cubrir un flujo end-to-end que el usuario reconozca como una unidad de valor usable por sí sola (ej. "un profesor califica un examen y el alumno ve la nota", no "guardar la nota en base de datos" por un lado y "notificar al alumno" por otro, como HU separadas). Ni la fragmentes en pasos técnicos sueltos, ni mezcles dos flujos distintos en la misma historia solo porque comparten pantalla o entidad.
 
+**Caso especial — épicas de configuración/ajustes sin un recorrido de usuario único:** algunas épicas (ej. "Configuración de centro") no tienen un flujo end-to-end natural — son un conjunto de campos o capacidades independientes que el usuario completa en cualquier orden, no un recorrido con pasos secuenciales. Aplicar "un flujo funcional completo" a ciegas aquí lleva a dos errores igual de malos: fragmentar por campo (una HU para el logo, otra para el color, otra para el idioma...) o agrupar todo en una única HU gigante que cualquier dependencia bloquea entera.
+
+Validado con feedback real del equipo (ver `mejoras-pendientes.md`, entrada 2026-07-13): en estos casos el criterio de agrupación correcto no es el campo ni la pantalla — es el **límite de dependencia/riesgo de bloqueo compartido**. Agrupa en la misma HU todo lo que comparte el mismo perfil de bloqueo (todo listo, o todo bloqueado por la misma causa); separa en HU distintas lo que tiene un riesgo de dependencia diferente, aunque viva en la misma pantalla o formulario. Esto maximiza el trabajo en paralelo del equipo: una dependencia que bloquea una parte no debe congelar partes ya listas para desarrollar.
+
+Ejemplo: en una épica de configuración de centro, "colores de marca" y "logotipo" comparten el mismo perfil de dependencia (ninguna externa más allá de un mockup) → misma HU. "Ratios ATNE/ANE" depende de datos que el cliente aún no ha entregado → HU aparte, aunque esté en la misma pantalla de configuración, precisamente para no bloquear el resto.
+
+Antes de cerrar cualquier HU de una épica sin recorrido de usuario único, pregúntate: ¿qué partes comparten exactamente el mismo bloqueo (o ausencia de él)? Esa es la frontera de la historia, no el campo ni la sección visual.
+
 **Lo que SÍ debe llevar, con el máximo detalle posible (mejor pecar de más que de menos):**
 - Descripción completa de lo que el usuario tiene que poder hacer, sin dejar huecos de interpretación
 - Todos los inputs que el usuario percibe (campos, pantallas, acciones) y sus validaciones a nivel lógico/de negocio (qué se acepta, qué se rechaza, y por qué)
@@ -138,4 +146,5 @@ Antes de regenerar, revisa `output-paso-4/sprint-backlog-{N}.md` de cualquier sp
 - ¿Usaste `HU-XXX`, no otro formato de ID?
 - ¿La priorización respeta dependencias y riesgos antes que valor puro, y lo dice explícitamente cuando se desvía del orden de valor?
 - ¿Cada HU cubre exactamente un flujo funcional completo end-to-end — ni fragmentada en pasos técnicos sueltos ni mezclada con otro flujo distinto?
+- Si la épica es de configuración/ajustes sin recorrido de usuario único: ¿agrupaste por límite de dependencia/riesgo de bloqueo compartido, en vez de por campo o por pantalla?
 - ¿Alguna HU incluye una decisión técnica, de arquitectura o de tecnología que tú mismo hayas inventado (no reflejada de una decisión ya tomada por el equipo)? Si es así, quítala antes de cerrar.
