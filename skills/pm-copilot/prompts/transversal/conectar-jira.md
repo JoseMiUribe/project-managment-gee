@@ -54,8 +54,18 @@ Una vez hay conexión (por A o B), pregunta al PM y guarda en `investigar/[proye
 - Clave del proyecto en Jira (ej. `PLEG`)
 - Mapeo de campos: qué tipo de issue de Jira corresponde a "Épica" y cuál a "Historia de Usuario" en esta instancia concreta (varía entre organizaciones), qué campo se usa para Story Points/estimación, cómo se nombran los sprints
 - Nombre del board/tablero si hay varios en el proyecto, y su ID numérico (lo necesitas para el punto siguiente; consíguelo listando los boards del proyecto)
+- **Tipos de enlace nativo entre issues** que vas a usar para declarar dependencias (ver Principio 12 y la sección "Enlaces nativos" más abajo): confirma con `getIssueLinkTypes` los nombres exactos de bloqueo (tipo "Blocks"/"is blocked by" o equivalente) y de relación informativa (tipo "Relates"/"relates to" o equivalente) **en esta instancia concreta** — no asumas que se llaman igual o tienen el mismo ID que en otro proyecto, aunque en la práctica suelen ser un tipo estándar de Jira. Guarda los dos nombres confirmados aquí.
 
 Verifica el mapeo haciendo una lectura de prueba (ej. listar los tipos de issue del proyecto) antes de darlo por bueno — no asumas nombres de campo estándar sin comprobarlos contra la instancia real.
+
+## Enlaces nativos entre issues (no solo texto)
+
+Cuando cualquier prompt de este skill declare una relación entre dos issues de Jira ya existentes (HU↔HU, HU↔tarea `[GESTIÓN]`, épica↔épica, o un solape HU↔épica de otro sistema), **crea siempre el enlace nativo de Jira además de mencionarlo en el texto** — la mención en texto sola es trazabilidad débil, no aparece en los paneles de dependencias de Jira ni en el grafo de enlaces. Usa `createIssueLink` con los nombres de tipo confirmados en `jira-project.md` (paso 3 de arriba):
+
+- **Bloqueo real** (una HU/tarea no puede avanzar hasta que la otra se resuelva): tipo "Blocks"/"is blocked by" o equivalente confirmado. Presta atención a la dirección — quien bloquea es `inwardIssue`, quien queda bloqueado es `outwardIssue` (ver descripción de la herramienta: "A is blocked by B" → `inwardIssue: B`, `outwardIssue: A`). Invertirlo produce un enlace técnicamente válido pero con el sentido lógico al revés, así que compruébalo antes de confirmar.
+- **Relación informativa sin bloqueo** (solape, contexto relacionado, sin que uno impida avanzar al otro): tipo "Relates"/"relates to" o equivalente confirmado.
+
+Si en algún momento `getIssueLinkTypes` no devuelve un tipo claramente equivalente a "Blocks" o "Relates" en la instancia del proyecto, dilo explícitamente al PM y pregunta cuál usar — no fuerces el primero de la lista.
 
 **Si además el PM va a usar la Opción B para el dashboard** (conexión REST propia, no MCP), guarda también `investigar/[proyecto]/config/jira-project.json` — es el archivo que el proceso del dashboard lee para decidir si intentar la sincronización en vivo (ninguno de estos tres campos es secreto):
 

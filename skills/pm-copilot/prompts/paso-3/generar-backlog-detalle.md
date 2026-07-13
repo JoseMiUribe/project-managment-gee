@@ -109,6 +109,8 @@ No confundas esto con una dependencia técnica entre dos HU (ej. "HU-024 depende
 2. **Si ya tiene una clave de Jira asociada:** cita esa clave en la propia HU (ej. "Bloqueada por DP-001 — ver tarea de gestión UPEVUOWVWK-186"). No crees una tarea duplicada.
 3. **Si todavía no tiene tarea** (columna en `—`): no la crees tú en este prompt — indícalo explícitamente en el resumen final del trabajo, con la `DP-XXX` y la HU afectada, para que `prompts/paso-3/subir-historias-a-jira.md` la cree al subir esta historia (ese prompt sí tiene la clave de Jira de la HU ya creada, necesaria para enlazarla).
 
+Este prompt solo produce markdown, no toca Jira — pero cualquier dependencia (HU↔HU, HU↔tarea de gestión) o solape que cites aquí en texto debe acabar como enlace nativo de Jira cuando `subir-historias-a-jira.md` suba la historia, no solo como mención (Principio 12). No hace falta que hagas nada distinto aquí; solo asegúrate de citar con precisión la HU/DP-XXX exacta para que ese prompt pueda enlazarla sin ambigüedad.
+
 ## Paso 3: franjas Cercana y Lejana
 
 ### Franja Cercana — nivel medio
