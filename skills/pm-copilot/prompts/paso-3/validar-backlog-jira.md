@@ -28,6 +28,7 @@ Por cada una:
 1. Ejecuta `prompts/paso-3/generar-backlog-detalle.md` indicando explícitamente: regenerar **solo esta historia**, con este feedback aplicado, sin tocar ni repetir las demás.
 2. Exige que la nueva versión venga con: marca de versión (`v1.1`, `v1.2`...) y un resumen de 2-4 frases de qué cambió, acotado por sección.
 3. Actualiza el issue de Jira correspondiente con el contenido nuevo (mismo `HU-XXX`, mismo issue, no crees uno nuevo) y añade un comentario propio del skill con el resumen de qué cambió, para que el equipo sepa qué revisar sin comparar el texto entero a mano.
+4. Si la regeneración introduce una dependencia o solape nuevo que no existiera en la versión anterior, crea también su enlace nativo correspondiente (Blocks/Relates, Principio 12 — ver `subir-historias-a-jira.md`). Si una dependencia anterior desapareció, no borres tú el enlace nativo ya existente en Jira (principio 9) — repórtalo al PM para que decida si hay que quitarlo.
 
 ### 4. Detecta cambios de prioridad hechos por el equipo
 

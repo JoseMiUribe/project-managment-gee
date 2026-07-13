@@ -41,17 +41,22 @@ Cada `EP-XXX` → issue tipo Épica según el mapeo de `jira-project.md`, con un
 
 Cuanta más de esta información quede en el propio issue de Jira (no solo enlazada), más fácil será para el equipo técnico entenderla sin tener que ir a buscar el markdown original.
 
-### 4. Registrar el mapeo de trazabilidad
+### 4. Crea el enlace nativo para cada dependencia entre épicas
+
+Si declaraste "Dependencias con otras épicas" en el paso anterior, no dejes esa relación solo en el texto del issue (Principio 12) — una vez creadas (o confirmadas ya existentes) ambas épicas en Jira, crea el enlace nativo tipo "Blocks"/equivalente confirmado en `jira-project.md` (ver `prompts/transversal/conectar-jira.md`). Dirección: la épica de la que depende (debe resolverse primero) es la que bloquea (`inwardIssue`), la épica dependiente es la bloqueada (`outwardIssue`).
+
+### 5. Registrar el mapeo de trazabilidad
 
 Guarda o actualiza `investigar/[proyecto]/config/jira-mapeo.md` con la correspondencia `EP-XXX ↔ clave de Jira`, con fecha de creación/última sincronización. Este mismo archivo lo extenderá `subir-historias-a-jira.md` en el Paso 3 con las HU.
 
-### 5. Nunca borres, y nunca edites nada sin permiso caso por caso
+### 6. Nunca borres, y nunca edites nada sin permiso caso por caso
 
 Si detectas que una épica ya no debería existir, **no la borres de Jira automáticamente** — indícaselo al PM y que sea él quien decida. Cualquier edición que no sea la creación inicial requiere permiso explícito caso por caso, y si la épica ya tiene contenido en sprint, la respuesta es directamente no, sin pedir permiso siquiera.
 
 ## Output
 
 - Épicas creadas en Jira
+- Enlaces nativos "Blocks"/equivalente entre épicas dependientes (si las hay)
 - `investigar/[proyecto]/config/jira-mapeo.md` actualizado
 - Resumen final al PM con los enlaces/claves de Jira
 

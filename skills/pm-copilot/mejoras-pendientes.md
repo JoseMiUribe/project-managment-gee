@@ -240,6 +240,20 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
 - **Esfuerzo estimado:** N/A (implementado)
 - **Estado:** ✅ Implementada (2026-07-13), pendiente de verificación end-to-end con un caso real
 
+### [2026-07-13] Enlaces nativos de Jira (Blocks/Relates) para toda dependencia declarada, no solo texto
+
+- **Origen:** corrección explícita del PM (Eductrade/Polar) — referenciar dependencias solo en el texto de la descripción del issue da trazabilidad débil (no aparece en los paneles de dependencias de Jira ni en su grafo de enlaces). Jira ya tiene enlaces nativos entre issues (`createIssueLink`/`getIssueLinkTypes`); en esta instancia existen "Blocks" y "Relates", probablemente estándar en cualquier instancia de Jira pero **a confirmar por proyecto, sin asumir el mismo nombre/ID en todos**.
+- **Propuesta (ya aplicada):** nuevo Principio inalterable #12 en `SKILL.md` — toda relación entre issues de Jira declarada por cualquier prompt debe crear también el enlace nativo correspondiente, no solo mencionarla en texto. `conectar-jira.md` ahora incluye, en el mismo paso donde se confirma el mapeo de campos, la confirmación explícita (vía `getIssueLinkTypes`) de los nombres de tipo "Blocks"/equivalente (bloqueo real) y "Relates"/equivalente (relación informativa/solape sin bloqueo) de la instancia concreta, con una sección nueva "Enlaces nativos entre issues" explicando la dirección correcta (`inwardIssue` = quien bloquea, `outwardIssue` = quien queda bloqueado — invertirlo deja el enlace lógicamente al revés aunque sea técnicamente válido).
+- **Aplicado en los tres puntos señalados:**
+  - `subir-historias-a-jira.md` (Paso 3): nuevo paso que crea el enlace Blocks para dependencias HU↔HU reales y Relates para solapes HU↔épica informativos declarados por `generar-backlog-detalle.md`; y la creación de la tarea `[GESTIÓN]` ahora incluye también su enlace Blocks nativo hacia la HU que bloquea (antes solo quedaba en la línea "Bloquea" del texto).
+  - `identificar-riesgos-dependencias.md` (Paso 1): aclarado que si crea la tarea `[GESTIÓN]` en este punto (Jira ya conectado, poco habitual aquí), todavía no hay HU con la que enlazarla — el enlace nativo se crea en Paso 3, no aquí.
+  - `crear-en-jira.md` (Paso 2): nuevo paso que crea el enlace Blocks entre épicas cuando se declara una dependencia épica↔épica en `epicas.md`.
+  - De paso, `validar-backlog-jira.md` también actualizado: si una regeneración introduce una dependencia nueva, crea su enlace; si una desaparece, no borra el enlace existente en Jira por su cuenta (principio 9) — lo reporta al PM.
+- **Sin verificar todavía:** no se ha creado ningún enlace nativo real contra Jira en esta sesión (revisión de diseño/prompt, no end-to-end) — la primera vez que se use, confirmar que `getIssueLinkTypes` devuelve nombres claramente equivalentes a "Blocks"/"Relates" en la instancia del proyecto real, y que la dirección `inwardIssue`/`outwardIssue` se aplica correctamente (fácil de invertir por error).
+- **Prioridad:** Alta
+- **Esfuerzo estimado:** N/A (implementado)
+- **Estado:** ✅ Implementada (2026-07-13), pendiente de verificación end-to-end con un caso real
+
 ### [2026-07-10] Nuevo: Modos de Generación — Estándar + perfiles con nombre por cliente, reutilizables entre proyectos
 
 - **Origen:** decisión explícita del usuario. Quería que el skill tuviera un "Modo Estándar" de generación de épicas/historias anclado a marcos reconocidos, y por encima de ese Estándar, perfiles con nombre por cliente (`modo-mapfre`, etc.) que declararan solo las diferencias — reutilizables en cualquier proyecto o cliente futuro, no reconfigurables cada vez desde cero.
