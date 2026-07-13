@@ -1,6 +1,6 @@
 # Template: Sprint Backlog
 
-**Instrucciones:** Rellenar durante el Sprint Planning. Cada sprint tiene su propio archivo, guardado en `investigar/[proyecto]/output-paso-3/`.
+**Instrucciones:** Rellenar durante el Sprint Planning. Cada sprint tiene su propio archivo, guardado en `investigar/[proyecto]/output-paso-4/`.
 
 ---
 

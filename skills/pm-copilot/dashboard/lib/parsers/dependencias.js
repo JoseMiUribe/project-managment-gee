@@ -7,17 +7,28 @@ const { parseMarkdownTables, findTableByHeading, getCell } = require('../markdow
 const REL_PATH = 'output-paso-1/registro-dependencias.md';
 
 function mapRow(row) {
+  const sistema1 = getCell(row, 'Sistema 1') || '';
+  const sistema2 = getCell(row, 'Sistema 2') || '';
+  const sistema3 = getCell(row, 'Sistema 3') || '';
+  // Campo derivado de solo lectura para el dashboard (columna "Sistemas"):
+  // combina sistema1/2/3 en un único texto legible. No sustituye a los
+  // campos individuales (se mantienen para quien los necesite por separado),
+  // y no se escribe de vuelta — editar sistemas por separado se hace tocando
+  // el markdown o los campos sistema1/2/3 si en el futuro se exponen sueltos.
+  const sistemas = [sistema1, sistema2, sistema3].filter((s) => s && s !== '—').join(', ');
   return {
     id: getCell(row, 'ID') || '',
     equipo: getCell(row, 'Equipo') || '',
     dependencia: getCell(row, 'Dependencia') || '',
     criticidadRag: getCell(row, 'Criticidad RAG') || '',
-    sistema1: getCell(row, 'Sistema 1') || '',
-    sistema2: getCell(row, 'Sistema 2') || '',
-    sistema3: getCell(row, 'Sistema 3') || '',
+    sistema1,
+    sistema2,
+    sistema3,
+    sistemas,
     estado: getCell(row, 'Estado') || '',
     fechaCompromiso: getCell(row, 'Fecha compromiso') || '',
     riesgosAsociados: getCell(row, 'Riesgos asociados') || '',
+    tareaGestionJira: getCell(row, 'Tarea de gestión (Jira)') || '',
     comentarios: getCell(row, 'Comentarios') || '',
   };
 }
