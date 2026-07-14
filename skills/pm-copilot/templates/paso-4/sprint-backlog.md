@@ -16,12 +16,17 @@
 
 ## HU seleccionadas
 
-| HU | Título | Tallas | Tareas | Responsable | Estado |
-|---|---|---|---|---|---|
-| HU-XXX | | | BE: ... | | Pendiente |
-| | | | FE: ... | | |
-| | | | QA: ... | | |
-| HU-XXX | | | ... | | Pendiente |
+Cada HU es una fila "cabecera" (con ID, Épica, Título, Estado y Talla) seguida de **una fila por subtarea técnica** (Subtarea/Responsable/Estado), con las columnas de cabecera en blanco en esas filas de continuación — así una misma HU puede tener 1 o varias tareas técnicas sin repetir sus datos.
+
+**Estado (de la HU, fila de cabecera):** Pendiente / En curso / Bloqueado / Hecho / Descartada.
+**Estado (de la subtarea):** Pendiente / En curso / Bloqueado / Hecho.
+
+| HU | Épica | Título | Estado | Talla | Subtarea | Responsable | Estado subtarea |
+|---|---|---|---|---|---|---|---|
+| HU-XXX | EP-XXX | | Pendiente | | BE: ... | | Pendiente |
+| | | | | | FE: ... | | Pendiente |
+| | | | | | QA: ... | | Pendiente |
+| HU-XXX | EP-XXX | | Pendiente | | ... | | Pendiente |
 
 ---
 

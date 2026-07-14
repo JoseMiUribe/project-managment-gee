@@ -287,7 +287,14 @@
   function renderHeader() {
     const proyecto = state.proyecto || {};
     qs("#project-nombre").textContent = fmt(proyecto.nombre, "Proyecto sin nombre");
-    qs("#project-ruta").textContent = fmt(proyecto.rutaAbsoluta, "");
+    // La ruta absoluta puede ser muy larga (rutas de Windows anidadas) — se
+    // trunca visualmente con CSS (text-overflow: ellipsis) y queda completa
+    // en el title (tooltip al pasar el ratón), en vez de forzar el ancho del
+    // header o partirse en dos líneas.
+    const ruta = fmt(proyecto.rutaAbsoluta, "");
+    const rutaEl = qs("#project-ruta");
+    rutaEl.textContent = ruta;
+    rutaEl.title = ruta;
     qs("#project-generado-en").textContent = fmt(proyecto.generadoEn, "nunca");
   }
 
@@ -345,13 +352,121 @@
     }
 
     const hus = sprintActivo.hu || [];
+    renderSprintBurndownChart(sprintActivo);
     renderSprintEstadoChart(hus);
     renderSprintResumenLateral(hus);
-    renderSprintTablaHu(hus);
+    renderSprintHuPorEpica(hus);
+  }
+
+  /** "YYYY-MM-DD" | "YYYY-MM-DD ...texto..." -> Date a medianoche local, o null. */
+  function parseFechaSimple(str) {
+    if (!str) return null;
+    const match = String(str).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null;
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
+  /** "YYYY-MM-DD" en huso horario LOCAL — nunca toISOString() aquí: convierte
+   *  a UTC, y con timezones por delante de UTC (ej. Europa) desplaza la
+   *  fecha un día hacia atrás (medianoche local cae en el día anterior en
+   *  UTC), rompiendo el eje de fechas del burndown. */
+  function formatFechaLocal(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  function enumerarDiasSprint(inicioStr, finStr) {
+    const inicio = parseFechaSimple(inicioStr);
+    const fin = parseFechaSimple(finStr);
+    if (!inicio || !fin || fin < inicio) return [];
+    const dias = [];
+    const cursor = new Date(inicio);
+    while (cursor <= fin) {
+      dias.push(formatFechaLocal(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return dias;
+  }
+
+  /**
+   * Burndown real: línea ideal (interpolación lineal desde los puntos
+   * comprometidos al inicio del sprint hasta 0 en la fecha fin) vs línea real
+   * (campo "Puntos restantes del sprint" de cada daily log de este sprint,
+   * ver prompts/paso-4/daily-log.md). Si no hay dailylogs con ese campo
+   * todavía, la línea real queda vacía (no rota el gráfico) hasta que se
+   * empiece a rellenar.
+   */
+  function renderSprintBurndownChart(sprintActivo) {
+    const container = qs("#chart-sprint-burndown");
+    const dias = enumerarDiasSprint(sprintActivo.fechaInicio, sprintActivo.fechaFin);
+    const totalComprometido = extraerNumero(sprintActivo.capacidadOcupada);
+
+    if (!dias.length || !totalComprometido) {
+      container.innerHTML = emptyInline(
+        "Sin fechas de sprint o capacidad ocupada suficientes para dibujar el burndown."
+      );
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+
+    const idealData = dias.map((_, idx) => {
+      const frac = dias.length > 1 ? idx / (dias.length - 1) : 1;
+      return Math.round(totalComprometido * (1 - frac) * 10) / 10;
+    });
+
+    const dailylogs = (state.gee && state.gee.dailylogs) || [];
+    const numeroSprint = String(sprintActivo.numero !== undefined ? sprintActivo.numero : "");
+    const puntosPorFecha = {};
+    dailylogs.forEach((log) => {
+      if (String(log.sprint || "").trim() === numeroSprint && log.puntosRestantes !== "" && log.puntosRestantes !== undefined) {
+        const n = Number(log.puntosRestantes);
+        if (!Number.isNaN(n)) puntosPorFecha[log.fecha] = n;
+      }
+    });
+    const realData = dias.map((d) => (puntosPorFecha[d] !== undefined ? puntosPorFecha[d] : null));
+    const hayDatosReales = realData.some((v) => v !== null);
+
+    const chart = getOrCreateChart("chart-sprint-burndown");
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      legend: { bottom: 0 },
+      grid: { left: 48, right: 24, top: 24, bottom: 48 },
+      xAxis: { type: "category", data: dias },
+      yAxis: { type: "value", name: "Puntos restantes" },
+      series: [
+        {
+          name: "Ideal",
+          type: "line",
+          data: idealData,
+          lineStyle: { type: "dashed" },
+          symbol: "none",
+          color: "#9ca3af",
+        },
+        {
+          name: "Real",
+          type: "line",
+          data: realData,
+          connectNulls: true,
+          color: "#2563eb",
+        },
+      ],
+    });
+
+    if (!hayDatosReales) {
+      showToast(
+        "El burndown solo tiene la línea ideal — todavía no hay ningún daily log de este sprint con \"Puntos restantes del sprint\" relleno.",
+        "warn"
+      );
+    }
   }
 
   function renderSprintEstadoChart(hus) {
-    const counts = { Pendiente: 0, "En curso": 0, Bloqueada: 0, Hecho: 0 };
+    const counts = { Pendiente: 0, "En curso": 0, Bloqueada: 0, Hecho: 0, Descartada: 0 };
     hus.forEach((hu) => {
       const estado = normalizeEstadoHu(hu.estado);
       if (counts[estado] === undefined) counts[estado] = 0;
@@ -375,7 +490,7 @@
     chart.setOption({
       tooltip: { trigger: "item" },
       legend: { bottom: 0 },
-      color: ["#9ca3af", "#2563eb", "#dc2626", "#16a34a"],
+      color: ["#9ca3af", "#2563eb", "#dc2626", "#16a34a", "#d1d5db"],
       series: [
         {
           type: "pie",
@@ -390,16 +505,32 @@
   function normalizeEstadoHu(raw) {
     if (!raw) return "Pendiente";
     const v = String(raw).toLowerCase();
+    if (v.includes("descarta")) return "Descartada";
     if (v.includes("bloque")) return "Bloqueada";
     if (v.includes("curso") || v.includes("progreso") || v.includes("progress")) return "En curso";
     if (v.includes("hecho") || v.includes("done") || v.includes("completa")) return "Hecho";
     return "Pendiente";
   }
 
+  const ESTADO_HU_BADGE_CLASS = {
+    Pendiente: "badge-estado-gris",
+    "En curso": "badge-estado-azul",
+    Bloqueada: "badge-estado-rojo",
+    Hecho: "badge-estado-verde",
+    Descartada: "badge-estado-muted",
+  };
+
+  function estadoBadge(raw) {
+    const norm = normalizeEstadoHu(raw);
+    const clase = ESTADO_HU_BADGE_CLASS[norm] || "badge-estado-gris";
+    return '<span class="badge-estado ' + clase + '">' + escapeHtml(norm) + "</span>";
+  }
+
   function renderSprintResumenLateral(hus) {
     const total = hus.length;
     const bloqueadas = hus.filter((h) => normalizeEstadoHu(h.estado) === "Bloqueada").length;
     const hechas = hus.filter((h) => normalizeEstadoHu(h.estado) === "Hecho").length;
+    const descartadas = hus.filter((h) => normalizeEstadoHu(h.estado) === "Descartada").length;
     const lockedCount = hus.filter((h) => h.locked).length;
     const container = qs("#sprint-resumen-lateral");
     if (total === 0) {
@@ -410,28 +541,86 @@
       "<p><strong>" + total + "</strong> historias en total</p>" +
       "<p><strong>" + hechas + "</strong> completadas</p>" +
       "<p><strong>" + bloqueadas + "</strong> bloqueadas</p>" +
+      (descartadas > 0 ? "<p><strong>" + descartadas + "</strong> descartadas</p>" : "") +
       (lockedCount > 0 ? "<p>🔒 <strong>" + lockedCount + "</strong> bloqueadas para edición (sprint activo)</p>" : "");
   }
 
-  function renderSprintTablaHu(hus) {
-    const tbody = qs("#tabla-sprint-hu tbody");
-    tbody.innerHTML = "";
-    if (hus.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="5">' + emptyInline("No hay historias de usuario en el sprint activo.") + "</td></tr>";
+  /** Agrupa las HU del sprint activo por épica, con un acordeón desplegable
+   *  por épica y otro anidado por HU (mostrando sus subtareas técnicas). Las
+   *  HU sin épica conocida (formato antiguo, o todavía no enlazadas) caen en
+   *  un grupo "Sin épica asignada" en vez de desaparecer. */
+  function renderSprintHuPorEpica(hus) {
+    const container = qs("#sprint-hu-por-epica");
+    if (!hus.length) {
+      container.innerHTML = emptyInline("No hay historias de usuario en el sprint activo.");
       return;
     }
+
+    const grupos = {};
+    const orden = [];
     hus.forEach((hu) => {
-      const tr = document.createElement("tr");
-      if (hu.locked) tr.classList.add("row-locked");
-      tr.innerHTML =
-        "<td>" + escapeHtml(fmt(hu.id || hu.hu)) + "</td>" +
-        "<td>" + escapeHtml(fmt(hu.titulo || hu.nombre)) + "</td>" +
-        "<td>" + estadoBadge(hu.estado) + "</td>" +
-        "<td>" + escapeHtml(fmt(hu.puntos || hu.puntosHistoria || hu.tallas)) + "</td>" +
-        "<td>" + (hu.locked ? '<span class="locked-badge">🔒 En sprint activo</span>' : "") + "</td>";
-      tbody.appendChild(tr);
+      const epica = (hu.epica || "").trim() || "Sin épica asignada";
+      if (!grupos[epica]) {
+        grupos[epica] = [];
+        orden.push(epica);
+      }
+      grupos[epica].push(hu);
     });
+
+    container.innerHTML = orden
+      .map((epica) => {
+        const items = grupos[epica];
+        const husHtml = items.map(renderHuItemHtml).join("");
+        return (
+          '<details class="epica-group" open><summary>' +
+          escapeHtml(epica) +
+          ' <span class="text-muted">(' + items.length + (items.length === 1 ? " HU)" : " HU)") + "</span></summary>" +
+          '<div class="epica-hu-list">' + husHtml + "</div></details>"
+        );
+      })
+      .join("");
+  }
+
+  function renderHuItemHtml(hu) {
+    const subtareas = hu.subtareas || [];
+    const subtareasHtml = subtareas.length
+      ? '<table class="data-table subtareas-table"><thead><tr><th>Subtarea</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>' +
+        subtareas
+          .map(
+            (s) =>
+              "<tr><td>" + escapeHtml(fmt(s.descripcion)) + "</td><td>" + escapeHtml(fmt(s.responsable)) + "</td><td>" +
+              estadoBadge(s.estado) + "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>"
+      : emptyInline("Sin subtareas técnicas registradas para esta HU.");
+
+    return (
+      '<details class="hu-item"><summary>' +
+      '<span class="hu-id">' + escapeHtml(fmt(hu.hu)) + "</span> " +
+      '<span class="hu-titulo">' + escapeHtml(fmt(hu.titulo)) + "</span> " +
+      estadoBadge(hu.estado) + " " +
+      '<span class="hu-puntos">' + escapeHtml(fmt(hu.tallas)) + "</span> " +
+      (hu.locked ? '<span class="locked-badge">🔒</span>' : "") +
+      "</summary>" +
+      subtareasHtml +
+      "</details>"
+    );
+  }
+
+  function setupSprintTabButtons() {
+    const btnExpandir = qs("#btn-sprint-expandir-todo");
+    const btnContraer = qs("#btn-sprint-contraer-todo");
+    if (btnExpandir) {
+      btnExpandir.addEventListener("click", () => {
+        document.querySelectorAll("#sprint-hu-por-epica details").forEach((d) => (d.open = true));
+      });
+    }
+    if (btnContraer) {
+      btnContraer.addEventListener("click", () => {
+        document.querySelectorAll("#sprint-hu-por-epica details").forEach((d) => (d.open = false));
+      });
+    }
   }
 
   // ------------------------------------------------------------------
@@ -1468,6 +1657,7 @@
     }
     setupTabs();
     setupHeaderButtons();
+    setupSprintTabButtons();
     loadInitial();
   });
 })();

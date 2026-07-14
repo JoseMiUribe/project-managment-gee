@@ -11,6 +11,7 @@
    - ¿Qué se hará hoy?
    - ¿Hay bloqueos/impedimentos?
    - ¿Hay novedades para el GEE?
+   - **Puntos restantes del sprint hoy**: suma los puntos (talla) de las HU que a fecha de hoy no están `Hecho` ni `Descartada` en `output-paso-4/sprint-backlog-{N}.md`. Este dato es el que alimenta el gráfico de burndown del dashboard (pestaña Sprint actual) — sin él, el burndown no tiene datos reales que dibujar. No lo omitas aunque no haya cambiado respecto a ayer.
 
 2. Actualiza el estado de cada HU y tarea
 
@@ -30,6 +31,7 @@
 # Daily — [YYYY-MM-DD]
 
 **Sprint X | Día X de X**
+**Puntos restantes del sprint:** [X] pts (de [Y] pts comprometidos en el Planning)
 
 ## Progreso
 
