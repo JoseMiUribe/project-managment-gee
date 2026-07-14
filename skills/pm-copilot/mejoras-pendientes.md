@@ -304,3 +304,12 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
 - **Prioridad:** Alta
 - **Esfuerzo estimado:** N/A (implementado)
 - **Estado:** ✅ Implementada (2026-07-13), verificado end-to-end con el fixture
+
+### [2026-07-14] Convención `[FEEDBACK-PM]` en comentarios de Jira: separa feedback sobre el skill de feedback sobre el proyecto
+
+- **Origen:** decisión explícita del PM. El equipo deja comentarios en los issues de Jira de las HU durante la revisión del backlog (`validar-backlog-jira.md`). Hasta ahora todo comentario se trataba igual (candidato a regenerar la historia si pedía un cambio concreto). El equipo empezó a usar el prefijo `[FEEDBACK-PM]` para separar dos conversaciones que antes se mezclaban en el mismo sitio: feedback sobre cómo el skill genera las historias (calidad, formato, nivel de detalle) vs. feedback real sobre el proyecto (el equipo entiende la funcionalidad/requisito de otra manera). Confirmado explícitamente que los dos nunca se mezclan dentro del mismo comentario — es uno u otro.
+- **Propuesta (ya aplicada):** `prompts/paso-3/validar-backlog-jira.md` ahora clasifica los comentarios en dos canales antes de decidir nada: los que empiezan por `[FEEDBACK-PM]` se extraen y registran directamente en `mejoras-pendientes.md` (nunca disparan una regeneración de la HU, aunque la citen como ejemplo); el resto sigue el procedimiento normal de validación (candidato a regeneración si pide un cambio concreto). El resumen final de cada ronda al PM separa explícitamente ambos recuentos. El prompt no implementa cambios al skill por su cuenta a partir de un `[FEEDBACK-PM]` — solo los registra (y se ofrece a implementarlos aparte si son de Prioridad Alta/Esfuerzo Bajo-Medio, igual que el resto de entradas de este archivo).
+- **Sin verificar todavía:** no se ha probado todavía con comentarios reales `[FEEDBACK-PM]` de un proyecto en marcha — la primera vez que se use, confirmar que la extracción a `mejoras-pendientes.md` produce entradas útiles (no solo una copia literal del comentario) y que agrupar varios comentarios de la misma ronda en una sola entrada, cuando apunten a lo mismo, funciona bien en la práctica.
+- **Prioridad:** Alta
+- **Esfuerzo estimado:** N/A (implementado)
+- **Estado:** ✅ Implementada (2026-07-14), pendiente de verificación con uso real
