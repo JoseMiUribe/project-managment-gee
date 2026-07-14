@@ -1,50 +1,24 @@
 # Template: ChangeLog (Cambios de Alcance)
 
-**Instrucciones:** Añadir una entrada por cada cambio de alcance detectado (petición nueva del cliente, requisito mal entendido, decisión de negocio). Guardar/actualizar en `investigar/[proyecto]/output-paso-1/changelog.md`. Se rellena siguiendo `prompts/paso-4/gestion-changelog.md`.
+**Instrucciones:** Añadir una fila por cada cambio de alcance detectado (petición nueva del cliente, requisito mal entendido, decisión de negocio). Guardar/actualizar en `investigar/[proyecto]/output-paso-1/changelog.md`. Se rellena siguiendo `prompts/paso-4/gestion-changelog.md`.
+
+**Formato:** tabla plana, una fila por cambio — mismo patrón que `registro-riesgos.md`/`registro-dependencias.md`/`registro-acciones.md`/`registro-impedimentos.md`. Es intencional: el dashboard trata el Changelog como una pestaña más del GEE, con la misma edición en línea (ver `confirm` obligatorio antes de escribir) y el mismo alta con ID correlativo. No lo sustituyas por un documento narrativo por cambio — el dashboard no sabe leer eso.
 
 ---
 
-## SC-XXX: [Título breve del cambio]
+# ChangeLog (Cambios de Alcance) — [Nombre del Proyecto]
 
-**Fecha:** [YYYY-MM-DD]
-**Origen:** Petición nueva del cliente / Requisito mal entendido / Decisión de negocio
-**Solicitado por:** [nombre/rol]
+**Fecha última actualización:** YYYY-MM-DD
 
-### Descripción
+## Cambios de alcance
 
-[Qué se pide, en qué difiere de lo acordado o de lo entendido hasta ahora]
+| ID | Título | Descripción | Impacto | Coste | Alcance | Plazo | Calidad | Decisión | Riesgos generados | Dependencias generadas | Acciones generadas | Comentarios |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| SC-001 | Recordatorio de cita por WhatsApp | El cliente pide añadir WhatsApp como canal de recordatorio de cita, además de SMS/email (RF-004) | Amplía RF-004; valor claro para el cliente pero requiere contratar una API de pago | Sí — API WhatsApp Business no presupuestada inicialmente | Sí — amplía RF-004 | No — no compromete el sprint actual | No | Aceptado con condiciones — se pospone a sprint 3 para no comprometer el MVP | R-003 | — | — | Confirmado con el PO del cliente por email el 2026-07-11 |
 
-### Impacto
-
-| Eje | ¿Impacta? | Detalle |
-|---|---|---|
-| Coste | Sí / No | |
-| Alcance | Sí / No | |
-| Plazo | Sí / No | |
-| Calidad | Sí / No | |
-
-### Decisión
-
-**Estado:** Aceptado / Aceptado con condiciones / Aplazado / Rechazado
-**Motivo:** [razonamiento de la decisión, no solo la etiqueta]
-**Condición de retoma (si Aplazado):** [qué debe ocurrir para reevaluarlo]
-
-### Riesgos generados
-
-| ID | Riesgo |
-|---|---|
-| R-XXX | |
-
-### Dependencias generadas
-
-| ID | Dependencia |
-|---|---|
-| DP-XXX | |
-
-### Seguimiento
-
-- [ ] Actualizado `output-paso-2/roadmap-cliente.md` (si aplica)
-- [ ] Actualizado `output-paso-2/roadmap-tecnico.md` (si aplica)
-- [ ] Nueva versión de `output-paso-2/capacidad-equipo/` (si aplica)
-
-**Comentarios:** [notas adicionales, trazabilidad con el cliente, referencias a versiones de roadmap/capacidad resultantes]
+**Notas de uso:**
+- Numeración correlativa de tres dígitos (SC-001, SC-002...), no reutilizar IDs de cambios cerrados o rechazados.
+- **Impacto:** resumen de una frase de qué cambia en conjunto — no repitas aquí el detalle de cada eje, para eso están las 4 columnas siguientes.
+- **Coste / Alcance / Plazo / Calidad:** cada una "Sí — [detalle breve]" si ese eje se ve afectado, o "No" si no aplica. Cualitativo está bien (no hace falta recalcular cifras para dar de alta la fila).
+- **Decisión:** el estado (Aceptado / Aceptado con condiciones / Aplazado / Rechazado) y el motivo, separados por " — ", en la misma celda (ej. "Aplazado — pendiente de recalcular capacidad tras sprint 2"). Un cambio Rechazado no se borra: queda en la tabla como precedente y trazabilidad con el cliente.
+- **Riesgos generados / Dependencias generadas / Acciones generadas:** IDs separados por coma (`R-XXX`, `DP-XXX`, `A-XXX`) si el cambio dio de alta algo nuevo en el GEE, o "—" si no aplica. Esta columna es solo trazabilidad cruzada — el registro real vive en `registro-riesgos.md`/`registro-dependencias.md`/`registro-acciones.md`, no la dupliques aquí.

@@ -327,20 +327,16 @@ más arriba para el contrato completo.
   que ya no genera ningún prompt — no rompe nada (devuelve `[]`), pero el
   dashboard no muestra el backlog de HU real del proyecto. Ver
   `mejoras-pendientes.md`, entrada 2026-07-09.
-- **`output-paso-1/changelog.md` — desajuste de formato confirmado**:
-  `lib/parsers/changelog.js` asume una única tabla plana con una columna por
-  campo (ID/Título/Descripción/Impacto/Coste/.../Comentarios), pero el
-  formato real que producen `templates/paso-4/changelog.md` y
-  `prompts/paso-4/gestion-changelog.md` es un documento por cambio (heading
-  `## SC-XXX: ...` con subsecciones `### Descripción`, `### Impacto` —tabla
-  propia con Coste/Alcance/Plazo/Calidad como filas, no columnas—,
-  `### Decisión`, `### Riesgos generados` y `### Dependencias generadas` —
-  cada una su propia mini-tabla—). El resultado es que **todo `changelog.md`
-  real generado por el skill se parsea como vacío**, confirmado con un
-  fixture real (ver `mejoras-pendientes.md`, entrada 2026-07-13). No es un
-  bug de una línea: requiere decidir qué formato es el canónico (el
-  documento rico por cambio, o la tabla plana que ya sabe mostrar/editar el
-  dashboard) antes de arreglarlo.
+- ~~`output-paso-1/changelog.md` — desajuste de formato~~ **Resuelto
+  (2026-07-13):** el PM confirmó que el Changelog debe comportarse como
+  cualquier otra pestaña del GEE (tabla plana, editable en línea) — el
+  desajuste vivía en `templates/paso-4/changelog.md`/
+  `prompts/paso-4/gestion-changelog.md`, que generaban un documento narrativo
+  por cambio en vez de una fila por `SC-XXX`. `lib/parsers/changelog.js`,
+  `lib/writers/changelog.js` y el `GEE_CONFIG.changelog` de `app.js` no
+  necesitaron ningún cambio — ya esperaban correctamente la tabla plana.
+  Verificado end-to-end con el fixture (ver `mejoras-pendientes.md`, entradas
+  2026-07-13).
 - **`capacidad-equipo/actual.md` — secciones de texto libre**: las secciones
   2 ("Composición técnica") y 3 ("Velocidad del equipo") de la plantilla de
   capacidad no son tablas sino líneas `- Campo: valor`; el parser las

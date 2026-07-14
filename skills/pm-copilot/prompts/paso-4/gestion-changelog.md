@@ -19,11 +19,12 @@ No actives este prompt para matices menores que caben dentro de una HU ya defini
 
 ### 1. Registrar el cambio en el ChangeLog
 
-Añade una entrada nueva en `investigar/[proyecto]/output-paso-1/changelog.md` con ID **SC-XXX** correlativo (según template `templates/paso-4/changelog.md`). Cada entrada debe describir:
+Añade una **fila nueva** en la tabla de `investigar/[proyecto]/output-paso-1/changelog.md` con ID **SC-XXX** correlativo (según template `templates/paso-4/changelog.md` — tabla plana, una fila por cambio, igual que `registro-riesgos.md`/`registro-dependencias.md`/`registro-acciones.md`/`registro-impedimentos.md`; no generes un documento narrativo por cambio, el dashboard no sabe leerlo). Completa estas columnas:
 
-- Qué se pide y quién lo pide
-- Por qué surge ahora (petición nueva / requisito mal entendido / decisión de negocio)
-- Impacto **cualitativo** en cada eje (no hace falta recalcular cifras todavía, solo estimar dirección y magnitud):
+- **Título:** breve, identifica el cambio de un vistazo
+- **Descripción:** qué se pide, quién lo pide, y en qué difiere de lo acordado o de lo entendido hasta ahora
+- **Impacto:** resumen de una frase de qué cambia en conjunto
+- **Coste / Alcance / Plazo / Calidad:** impacto **cualitativo** en cada eje, cada uno como "Sí — [detalle breve]" o "No" (no hace falta recalcular cifras todavía, solo estimar dirección y magnitud):
 
 | Eje | Preguntas guía |
 |---|---|
@@ -45,7 +46,7 @@ Aplica estos criterios en orden:
 4. **¿Es viable con el presupuesto y contrato actuales?**
    Si el cambio excede claramente el alcance contractual y no hay margen de negociación → **Rechazado**, y se documenta la alternativa (pasa a un futuro contrato/fase, o se descarta).
 
-Registra la decisión final (Aceptado / Rechazado / Aplazado) y el razonamiento en la misma entrada SC-XXX. Si es "Aplazado", indica la condición o hito que debe darse para retomarlo.
+Registra la decisión final en la columna **Decisión** de la fila SC-XXX: el estado (Aceptado / Aceptado con condiciones / Aplazado / Rechazado) y el razonamiento, separados por " — " en la misma celda (ej. "Aplazado — pendiente de recalcular capacidad tras sprint 2"). Si es "Aplazado", indica ahí mismo la condición o hito que debe darse para retomarlo.
 
 ### 3. Si el cambio es significativo: actualizar roadmaps y capacidad
 
@@ -63,22 +64,23 @@ Si el análisis de impacto revela una incertidumbre técnica, una dependencia ex
 - Riesgos → crea R-XXX en `output-paso-1/registro-riesgos.md` (con Probabilidad × Impacto × Multiplicador y RAG, según las reglas del Paso 1)
 - Dependencias → crea DP-XXX en `output-paso-1/registro-dependencias.md`
 
-Enlaza el SC-XXX con los R-XXX/DP-XXX que genera, y viceversa, para que el rastro sea navegable en ambos sentidos.
+Enlaza el SC-XXX con los R-XXX/DP-XXX que genera en las columnas **Riesgos generados** / **Dependencias generadas** de su fila (IDs separados por coma), y cita el SC-XXX de vuelta en el riesgo/dependencia (columna "Relacionado con" / "Comentarios"), para que el rastro sea navegable en ambos sentidos.
 
 ## Output
 
-Actualiza `investigar/[proyecto]/output-paso-1/changelog.md` añadiendo la(s) entrada(s) SC-XXX nuevas (template `templates/paso-4/changelog.md`). Si el cambio dispara actualización de roadmap o capacidad, dejar constancia en la propia entrada SC-XXX de qué versión de roadmap/capacidad resultó (ej. "→ roadmap-tecnico.md v3", "→ capacidad-equipo V04").
+Actualiza `investigar/[proyecto]/output-paso-1/changelog.md` añadiendo la(s) fila(s) SC-XXX nuevas a la tabla (template `templates/paso-4/changelog.md`). Si el cambio dispara actualización de roadmap o capacidad, deja constancia en la columna **Comentarios** de la propia fila de qué versión de roadmap/capacidad resultó (ej. "→ roadmap-tecnico.md v3", "→ capacidad-equipo V04").
 
 ## Reglas
 
 - Todo cambio de alcance pasa por aquí, venga de donde venga (daily, review, conversación informal con el cliente). No se resuelve "de pasada" en otro documento
-- Sé explícito con el impacto aunque sea cualitativo: "impacto medio en coste" es mejor que omitirlo
+- Sé explícito con el impacto aunque sea cualitativo: "Sí — impacto medio en coste" es mejor que dejar la columna vacía
 - No decidas Aceptado si el cambio requiere recalcular capacidad o roadmap y esa recalculación no se ha hecho todavía: usa "Aceptado con condiciones" o "Aplazado" hasta tenerla
 - Un cambio rechazado no se borra: queda documentado como precedente y para trazabilidad con el cliente
+- Es una tabla plana como el resto del GEE: no la reemplaces por un documento narrativo por cambio aunque parezca más legible — el dashboard (y este mismo prompt en ejecuciones futuras) esperan encontrar una fila por `SC-XXX`, no una sección
 
 ## Autoevaluación
 
-- ¿La entrada SC-XXX tiene impacto cualitativo en los 4 ejes (Coste/Alcance/Plazo/Calidad), no solo en uno?
-- ¿La decisión (Aceptado/Rechazado/Aplazado) tiene un motivo explícito, no solo la etiqueta?
-- ¿Si el cambio era significativo, se disparó la actualización de roadmap/capacidad, o quedó pendiente y anotada como tal?
-- ¿Los riesgos y dependencias nuevas que introduce el cambio están registrados en el GEE y enlazados al SC-XXX?
+- ¿La fila SC-XXX tiene las 4 columnas de impacto (Coste/Alcance/Plazo/Calidad) rellenas, aunque sea con "No", no solo dejadas en blanco?
+- ¿La columna Decisión tiene un motivo explícito, no solo la etiqueta (Aceptado/Rechazado/Aplazado)?
+- ¿Si el cambio era significativo, se disparó la actualización de roadmap/capacidad, o quedó pendiente y anotada como tal en Comentarios?
+- ¿Los riesgos y dependencias nuevas que introduce el cambio están registrados en el GEE y enlazados en las columnas correspondientes de la fila SC-XXX?
