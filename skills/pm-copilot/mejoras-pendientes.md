@@ -313,3 +313,14 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
 - **Prioridad:** Alta
 - **Esfuerzo estimado:** N/A (implementado)
 - **Estado:** ✅ Implementada (2026-07-14), pendiente de verificación con uso real
+
+### [2026-07-14] Bug real: el botón "Generar informe PDF" no hacía nada — reportado por el usuario tras la auditoría del dashboard
+
+- **Origen:** el usuario probó el dashboard real (tras la auditoría de la entrada anterior) y reportó que el botón "Generar informe PDF" de arriba a la derecha no hacía nada, con este error en consola: `Uncaught (in promise) TypeError: Cannot set properties of undefined (setting 'originalHtml') at setBtnLoading (app.js:95:32) at HTMLButtonElement.doGeneratePdf (app.js:244:5)`.
+- **Causa confirmada:** en `setupHeaderButtons()`, el botón se conectaba con `qs("#btn-pdf").addEventListener("click", doGeneratePdf)` — pasando la función directamente como listener. El DOM llama a un listener con el `Event` del click como primer argumento, y `doGeneratePdf(triggerBtn)` usa ese primer argumento como el botón (`const btn = triggerBtn || qs("#btn-pdf")`) para soportar reutilizarse desde el botón "Exportar requisitos a PDF" de la pestaña Requisitos. Como el `Event` es *truthy*, pisaba el fallback a `qs("#btn-pdf")` — `setBtnLoading` recibía el `Event` en vez de un botón real, y `event.dataset` es `undefined` (los `Event` no tienen `dataset`), rompiendo en `btn.dataset.originalHtml = ...`. El otro punto de uso (`btnPdfRequisitos.addEventListener("click", async () => { await doGeneratePdf(btnPdfRequisitos); })`) ya evitaba el problema envolviendo la llamada — solo el botón principal tenía el bug.
+- **Propuesta (ya aplicada):** el listener del botón principal ahora se envuelve igual que el de Requisitos (`btnPdf.addEventListener("click", () => doGeneratePdf(btnPdf))`), pasando explícitamente el botón real en vez de dejar que el DOM inyecte el `Event`.
+- **Verificado con el fixture real:** clic real sobre `#btn-pdf` (`.click()` disparado en el propio navegador, no solo `fetch` a la API) — el botón entra en estado de carga ("Generando PDF…"), genera `output-informe-2026-07-14.pdf` correctamente, y vuelve a su estado normal sin error en consola.
+- **Nota de proceso:** esto confirma que la auditoría end-to-end de la entrada anterior, aunque exhaustiva, no cubrió el clic real sobre el botón de PDF (se probó `POST /api/pdf` directamente vía `fetch`, que sí funciona — el bug está solo en el wiring del listener del frontend, no en el backend). Para próximas auditorías, probar también el clic real de cada botón principal del header, no solo su endpoint subyacente.
+- **Prioridad:** Alta
+- **Esfuerzo estimado:** N/A (implementado)
+- **Estado:** ✅ Implementada (2026-07-14), verificado con clic real en el fixture

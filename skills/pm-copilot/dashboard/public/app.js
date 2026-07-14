@@ -1429,7 +1429,13 @@
 
   function setupHeaderButtons() {
     qs("#btn-sync").addEventListener("click", doSync);
-    qs("#btn-pdf").addEventListener("click", doGeneratePdf);
+    // No pasar doGeneratePdf directamente como listener: el DOM lo llamaría
+    // con el Event del click como primer argumento, que pisaría el parámetro
+    // opcional triggerBtn (Event es truthy) y setBtnLoading intentaría leer
+    // "dataset" de un Event en vez de un botón real, rompiendo el PDF con
+    // "Cannot set properties of undefined (setting 'originalHtml')".
+    const btnPdf = qs("#btn-pdf");
+    btnPdf.addEventListener("click", () => doGeneratePdf(btnPdf));
     // Botón "Exportar requisitos a PDF" de la pestaña Requisitos: usa el mismo
     // POST /api/pdf que el botón global (informe completo), que desde la
     // integración final incluye también la sección "Requisitos" (legacy +
