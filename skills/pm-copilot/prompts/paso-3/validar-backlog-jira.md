@@ -16,9 +16,16 @@ En los **comentarios del propio issue de Jira** de cada historia del backlog. No
 
 Para cada `HU-XXX` en `config/jira-mapeo.md`, recupera los comentarios de su issue de Jira desde la última vez que se procesó (guarda en `config/jira-mapeo.md` o en un campo propio la fecha/comentario del último procesado, para no reprocesar lo ya resuelto).
 
-### 2. Clasifica cada historia
+**Separa primero el feedback sobre el skill del feedback sobre el proyecto.** El equipo usa una convención de dos canales dentro de los mismos comentarios de Jira, y nunca los mezcla dentro de un mismo comentario:
 
-- **Sin comentarios nuevos:** no se toca.
+- **Comentario que empieza por `[FEEDBACK-PM]`:** es feedback sobre cómo el skill genera las historias (calidad, formato, nivel de detalle, cosas que se repiten mal) — no sobre esta HU o este proyecto en concreto. **Nunca dispara una regeneración de la historia**, aunque cite esa HU como ejemplo concreto. Extráelo y regístralo en `mejoras-pendientes.md` (el del propio skill, no ningún archivo del proyecto) siguiendo su formato de entrada habitual — cita la HU y el texto del comentario como origen. Si varios comentarios `[FEEDBACK-PM]` de la misma ronda apuntan a lo mismo, agrúpalos en una sola entrada coherente en vez de una por comentario suelto.
+- **Comentario sin ese prefijo:** es feedback real sobre el proyecto — el equipo entiende la funcionalidad o el requisito de otra manera, y esta HU concreta sí puede necesitar cambiar. Sigue con el resto de este procedimiento normalmente.
+
+No implementes tú directamente ningún cambio al skill a partir de un `[FEEDBACK-PM]` en este prompt — solo lo registras. Si es de Prioridad Alta y Esfuerzo Bajo/Medio, ofrécete a implementarlo al PM como ya indica `mejoras-pendientes.md` (una frase, no un bloqueo), pero no lo apliques por tu cuenta dentro de este bucle de validación.
+
+### 2. Clasifica cada historia (solo con los comentarios sin `[FEEDBACK-PM]`)
+
+- **Sin comentarios nuevos** (o solo `[FEEDBACK-PM]`, ya extraídos en el paso 1): no se toca la historia.
 - **Comentario que es una pregunta o duda sin pedir cambio concreto:** no regeneres todavía — repórtalo al PM, puede que haga falta una respuesta humana antes de poder actuar.
 - **Comentario que pide un cambio concreto** (añadir un caso, corregir un criterio, cambiar el alcance de la historia): candidata a regeneración.
 
@@ -38,7 +45,7 @@ Antes de cerrar cada ronda, compara el orden actual del backlog en Jira contra l
 
 ### 5. Resumen de la ronda al PM
 
-Cuántas historias sin cambios, cuántas regeneradas (con su resumen de cambio), cuántas con duda pendiente de respuesta humana, y si hubo cambios de prioridad detectados.
+Cuántas historias sin cambios, cuántas regeneradas (con su resumen de cambio), cuántas con duda pendiente de respuesta humana, si hubo cambios de prioridad detectados, y **por separado** cuántos comentarios `[FEEDBACK-PM]` se registraron en `mejoras-pendientes.md` esta ronda (con un resumen de una línea de cada uno) — no los mezcles con el resumen de cambios del proyecto, son dos conversaciones distintas.
 
 ### 6. Repite hasta cierre explícito
 
@@ -53,3 +60,5 @@ Si una historia con feedback pendiente ya está en un sprint activo (comprobar `
 - Nunca regeneres una historia sin feedback concreto — no "mejores" nada por iniciativa propia en este bucle.
 - Nunca toques más de las historias que tienen feedback en esa ronda.
 - Nunca cierres el bucle sin una instrucción explícita del PM.
+- Nunca trates un comentario `[FEEDBACK-PM]` como motivo de regeneración de la HU, aunque hable de esa historia como ejemplo — va a `mejoras-pendientes.md`, no al backlog del proyecto.
+- Nunca implementes un cambio al skill a partir de un `[FEEDBACK-PM]` dentro de este mismo bucle — regístralo y, como mucho, ofrécete a implementarlo aparte.
