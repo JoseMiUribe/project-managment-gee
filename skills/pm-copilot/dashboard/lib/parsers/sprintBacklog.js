@@ -56,15 +56,50 @@ function reviewExistsForSprint(projectPath, numero) {
   return fs.existsSync(candidate);
 }
 
-function parseHuRow(row) {
-  return {
-    hu: getCell(row, 'HU') || '',
-    titulo: getCell(row, 'Título') || '',
-    tallas: getCell(row, 'Tallas') || '',
-    tareas: getCell(row, 'Tareas') || '',
-    responsable: getCell(row, 'Responsable') || '',
-    estado: getCell(row, 'Estado') || '',
-  };
+/**
+ * La tabla "HU seleccionadas" tiene una fila de cabecera por HU (con ID,
+ * Épica, Título, Estado, Talla) seguida de 0-N filas de continuación con la
+ * columna HU en blanco, una por subtarea técnica (Subtarea/Responsable/Estado
+ * subtarea) — ver `templates/paso-4/sprint-backlog.md`. Agrupa las filas de
+ * continuación bajo la última HU con ID no vacío en vez de descartarlas (el
+ * comportamiento anterior perdía todas las subtareas salvo la primera fila).
+ *
+ * Tolerante a nombres de columna: acepta tanto "Subtarea"/"Talla" (formato
+ * vigente) como "Tareas"/"Tallas" (formato anterior, una sola fila por HU sin
+ * desglose de subtareas) para no romper archivos ya generados.
+ */
+function parseHuTable(rows) {
+  const hus = [];
+  let current = null;
+
+  for (const row of rows) {
+    const idCell = (getCell(row, 'HU') || '').trim();
+    if (idCell) {
+      current = {
+        hu: idCell,
+        epica: getCell(row, 'Épica') || getCell(row, 'Epica') || '',
+        titulo: getCell(row, 'Título') || '',
+        estado: getCell(row, 'Estado') || '',
+        tallas: getCell(row, 'Talla') || getCell(row, 'Tallas') || '',
+        subtareas: [],
+      };
+      hus.push(current);
+    }
+    if (!current) continue; // fila de subtarea antes de cualquier cabecera: no hay HU a la que asociarla
+
+    const descripcion = getCell(row, 'Subtarea') || getCell(row, 'Tareas') || '';
+    const responsableSubtarea = getCell(row, 'Responsable') || '';
+    const estadoSubtarea = getCell(row, 'Estado subtarea') || '';
+    if (descripcion || responsableSubtarea || estadoSubtarea) {
+      current.subtareas.push({
+        descripcion,
+        responsable: responsableSubtarea,
+        estado: estadoSubtarea,
+      });
+    }
+  }
+
+  return hus;
 }
 
 function parseNuevoRiesgoRow(row) {
@@ -107,11 +142,7 @@ function parseSingleSprintFile(filePath, fallbackNumero) {
   const huTable = findTableByHeading(tables, ['hu seleccionadas']) || tables[0] || null;
   const riesgosTable = findTableByHeading(tables, ['nuevos riesgos detectados']) || null;
 
-  const hu = huTable
-    ? huTable.rows
-        .filter((r) => (getCell(r, 'HU') || '').trim() !== '')
-        .map(parseHuRow)
-    : [];
+  const hu = huTable ? parseHuTable(huTable.rows) : [];
 
   const nuevosRiesgos = riesgosTable
     ? riesgosTable.rows

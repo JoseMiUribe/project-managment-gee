@@ -12,13 +12,10 @@
 <header class="app-header">
   <div class="project-info">
     <h1 id="project-nombre">Cargando proyecto…</h1>
-    <div class="project-meta">
-      <span id="project-ruta"></span>
-      &middot;
-      <span>Actualizado: <code id="project-generado-en">—</code></span>
-    </div>
+    <div class="project-meta" id="project-ruta" title=""></div>
   </div>
   <div class="header-actions">
+    <span class="header-actualizado">Actualizado: <code id="project-generado-en">—</code></span>
     <button id="btn-sync" class="btn btn-primary">
       <span class="btn-icon">🔄</span> <span class="btn-label">Actualizar</span>
     </button>
@@ -77,6 +74,11 @@
       <div id="sprint-jira-resumen"></div>
     </div>
 
+    <div class="card">
+      <h2>Burndown del sprint</h2>
+      <div id="chart-sprint-burndown" class="chart-box"></div>
+    </div>
+
     <div class="grid-2">
       <div class="card">
         <h2>HU por estado</h2>
@@ -89,21 +91,14 @@
     </div>
 
     <div class="card">
-      <h2>Historias de usuario del sprint</h2>
-      <div class="table-wrap">
-        <table class="data-table" id="tabla-sprint-hu">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Título</th>
-              <th>Estado</th>
-              <th>Puntos</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="card-header-row">
+        <h2>Historias de usuario del sprint, por épica</h2>
+        <div class="card-header-actions">
+          <button id="btn-sprint-expandir-todo" class="btn btn-sm">Desplegar todas</button>
+          <button id="btn-sprint-contraer-todo" class="btn btn-sm">Contraer todas</button>
+        </div>
       </div>
+      <div id="sprint-hu-por-epica"></div>
     </div>
   </div>
 </section>

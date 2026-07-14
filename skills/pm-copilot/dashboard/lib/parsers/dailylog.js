@@ -55,6 +55,17 @@ function parseSprintDia(text) {
   return { sprint: match[1].trim(), dia: match[2].trim() };
 }
 
+/**
+ * "**Puntos restantes del sprint:** X pts (de Y pts comprometidos...)" —
+ * alimenta el burndown real de la pestaña Sprint actual. Devuelve solo el
+ * número (string vacío si no está presente, un daily antiguo o sin rellenar
+ * no debe romper el resto del parseo).
+ */
+function parsePuntosRestantes(text) {
+  const match = text.match(/\*\*Puntos restantes del sprint:?\*\*\s*(-?\d+(?:[.,]\d+)?)/i);
+  return match ? match[1].replace(',', '.') : '';
+}
+
 function parseSingleDailylog(filePath, fecha) {
   const text = fs.readFileSync(filePath, 'utf8');
   const tables = parseMarkdownTables(text);
@@ -66,6 +77,7 @@ function parseSingleDailylog(filePath, fecha) {
     fecha,
     sprint,
     dia,
+    puntosRestantes: parsePuntosRestantes(text),
     progreso: progresoTable
       ? progresoTable.rows.filter((r) => (getCell(r, 'HU') || '').trim() !== '').map(parseProgresoRow)
       : [],

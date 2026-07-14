@@ -59,10 +59,11 @@ Estos nuevos riesgos se registran como **R-XXX nuevos en el GEE**, en `output-pa
 Genera `sprint-backlog.md` (en `investigar/[proyecto]/output-paso-4/`, según template `templates/paso-4/sprint-backlog.md`) con:
 1. Nº de sprint, fechas, objetivo
 2. Capacidad disponible (pts) y ocupada (pts)
-3. Tabla de HU seleccionadas con tareas, responsables y estado
-4. Dependencias entre tareas del sprint
-5. Nuevos riesgos detectados (si los hay), con su ID R-XXX ya reflejado en `output-paso-1/registro-riesgos.md`
-6. Mapa de dependencias visual (opcional)
+3. Tabla de HU seleccionadas: una fila de cabecera por HU (con `EP-XXX` en la columna Épica — el dashboard agrupa el Sprint Actual por épica, no la omitas) seguida de una fila por cada subtarea técnica (Subtarea/Responsable/Estado), con las columnas de cabecera en blanco en esas filas de continuación
+4. Estado de cada HU (fila de cabecera) usando exactamente: `Pendiente` / `En curso` / `Bloqueado` / `Hecho` / `Descartada`. Estado de cada subtarea: `Pendiente` / `En curso` / `Bloqueado` / `Hecho`
+5. Dependencias entre tareas del sprint
+6. Nuevos riesgos detectados (si los hay), con su ID R-XXX ya reflejado en `output-paso-1/registro-riesgos.md`
+7. Mapa de dependencias visual (opcional)
 
 ## Autoevaluación
 
