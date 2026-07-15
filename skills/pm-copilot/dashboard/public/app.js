@@ -291,6 +291,26 @@
     rutaEl.textContent = ruta;
     rutaEl.title = ruta;
     qs("#project-generado-en").textContent = fmt(proyecto.generadoEn, "nunca");
+    renderBadgeCambiosPendientes();
+  }
+
+  /**
+   * Muestra cuántas ediciones hechas desde el dashboard aún no se han
+   * procesado en una sesión de Claude (ver output-transversal/
+   * cambios-pendientes-dashboard.md y prompts/transversal/actualizar-cascada.md).
+   * No dispara ningún análisis por sí solo — es solo la señal para que una
+   * futura sesión ("haz el análisis") sepa que hay algo que revisar sin
+   * tener que re-escanear todo el proyecto.
+   */
+  function renderBadgeCambiosPendientes() {
+    const badge = qs("#badge-cambios-pendientes");
+    const count = (state.cambiosPendientes && state.cambiosPendientes.pendientesCount) || 0;
+    if (count === 0) {
+      badge.classList.add("hidden");
+      return;
+    }
+    badge.classList.remove("hidden");
+    badge.textContent = "🟠 " + count + (count === 1 ? " cambio pendiente de análisis" : " cambios pendientes de análisis");
   }
 
   // ------------------------------------------------------------------
@@ -947,10 +967,109 @@
     },
   };
 
+  /**
+   * Config declarativa de los 4 artefactos editables del Paso 0 (Requisitos),
+   * mismo patrón que GEE_CONFIG y renderizados con las mismas funciones
+   * (renderGeeTable/buildGeeRowPair/enterEditMode/...), pero sin
+   * Descartar/Eliminar (softDelete: false — eso es específico del GEE, ver
+   * Principio de alcance de la Fase C) ni campos type:"relacion" (no se pidió
+   * referenciar cruzado entre requisitos). "Legacy" (Paso -1) no tiene
+   * entrada aquí: es un análisis histórico de solo lectura, no se edita desde
+   * el dashboard.
+   */
+  const REQUISITOS_CONFIG = {
+    peticiones: {
+      apiTipo: "peticiones",
+      tablaWrap: "peticiones-tabla-wrap",
+      formId: "form-nueva-peticion",
+      titulo: "petición",
+      softDelete: false,
+      resumenKeys: ["peticion", "prioridadSubjetiva"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.peticiones) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "peticion", label: "Petición", type: "textarea" },
+        { key: "loDijoElCliente", label: "Lo dijo el cliente", type: "textarea" },
+        { key: "prioridadSubjetiva", label: "Prioridad subjetiva", type: "select", options: ["Alta", "Media", "Baja"] },
+      ],
+    },
+    funcionales: {
+      apiTipo: "funcionales",
+      tablaWrap: "rf-tabla-wrap",
+      formId: "form-nuevo-rf",
+      titulo: "requisito funcional",
+      softDelete: false,
+      resumenKeys: ["descripcion", "prioridad"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.funcionales) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "modulo", label: "Módulo/Área", type: "text" },
+        { key: "descripcion", label: "Descripción", type: "textarea" },
+        { key: "actor", label: "Actor/Rol", type: "text" },
+        { key: "prioridad", label: "Prioridad (MoSCoW)", type: "select", options: ["Must", "Should", "Could", "Won't"], render: (v) => moscowBadge(v) },
+        { key: "origen", label: "Origen", type: "text" },
+        { key: "dependencias", label: "Dependencias", type: "text" },
+      ],
+    },
+    nofuncionales: {
+      apiTipo: "nofuncionales",
+      tablaWrap: "rnf-tabla-wrap",
+      formId: "form-nuevo-rnf",
+      titulo: "requisito no funcional",
+      softDelete: false,
+      resumenKeys: ["descripcion", "categoria"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.noFuncionales) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "descripcion", label: "Descripción", type: "textarea" },
+        {
+          key: "categoria",
+          label: "Categoría",
+          type: "select",
+          options: ["Rendimiento", "Seguridad", "Disponibilidad", "Normativa", "Usabilidad", "Mantenibilidad", "Escalabilidad"],
+        },
+        {
+          key: "origen",
+          label: "Origen",
+          type: "text",
+          render: (v, row) => (row && row.implicito ? "⚠️ " : "") + escapeHtml(fmt(v, "—")),
+        },
+        { key: "prioridad", label: "Prioridad (MoSCoW)", type: "select", options: ["Must", "Should", "Could", "Won't"], render: (v) => moscowBadge(v) },
+      ],
+    },
+    zonas: {
+      apiTipo: "zonas",
+      tablaWrap: "zonas-tabla-wrap",
+      formId: "form-nueva-zona",
+      titulo: "zona de incertidumbre",
+      softDelete: false,
+      resumenKeys: ["zona", "porQueEsIncierto"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.zonasIncertidumbre) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "zona", label: "Zona", type: "text" },
+        { key: "descripcion", label: "Descripción", type: "textarea" },
+        { key: "porQueEsIncierto", label: "Por qué es incierto", type: "select", options: ["Ambigüedad", "Contradicción", "Decisión pendiente", "Asunción IA"] },
+        { key: "afecta", label: "Afecta a", type: "text" },
+        { key: "pregunta", label: "Pregunta para resolverlo", type: "textarea" },
+        { key: "recomendacionPorDefecto", label: "Recomendación por defecto (80/20)", type: "textarea" },
+      ],
+    },
+  };
+
+  /** Busca la config declarativa (GEE o Requisitos) de un tipo por su clave. */
+  function getRegistryConfig(tipo) {
+    return GEE_CONFIG[tipo] || REQUISITOS_CONFIG[tipo];
+  }
+
   function renderGeeAll() {
     renderRiesgosRagChart();
     Object.keys(GEE_CONFIG).forEach((tipo) => renderGeeTable(tipo));
     renderDailyLog();
+  }
+
+  function renderRequisitosEditableTables() {
+    Object.keys(REQUISITOS_CONFIG).forEach((tipo) => renderGeeTable(tipo));
   }
 
   function renderRiesgosRagChart() {
@@ -1003,12 +1122,14 @@
   // selector de fecha y desplegables relacionales.
 
   function renderGeeTable(tipo) {
-    const cfg = GEE_CONFIG[tipo];
+    const cfg = getRegistryConfig(tipo);
     const wrap = qs("#" + cfg.tablaWrap);
+    const rawRows = cfg.getRows ? cfg.getRows() : (state.gee && state.gee[cfg.dataKey]) || [];
     // "Eliminado" nunca se ve en el dashboard (aunque sigue en el archivo,
     // nunca se borra de verdad) — "Descartado" sí se ve, tachado, ver
-    // buildGeeRowPair. Ver Descartar/Eliminar más abajo.
-    const rows = ((state.gee && state.gee[cfg.dataKey]) || []).filter((r) => r.visibilidad !== "Eliminado");
+    // buildGeeRowPair. No aplica a tipos con softDelete:false (Requisitos):
+    // esas filas nunca tienen "visibilidad", así que el filtro es un no-op.
+    const rows = rawRows.filter((r) => r.visibilidad !== "Eliminado");
 
     if (!rows || rows.length === 0) {
       wrap.innerHTML = emptyState("📭", "Todavía no hay ningún registro de " + cfg.titulo + ".", 'Usa el botón "+ Nuevo ' + cfg.titulo + '" para crear el primero.');
@@ -1043,7 +1164,8 @@
 
   function buildGeeRowPair(tipo, cfg, row, resumenCols) {
     const colspan = resumenCols.length + 2;
-    const descartado = row.visibilidad === "Descartado";
+    const softDelete = cfg.softDelete !== false;
+    const descartado = softDelete && row.visibilidad === "Descartado";
 
     const summaryTr = el("tr", {
       "data-id": String(row.id),
@@ -1098,8 +1220,10 @@
       actions.appendChild(btnEdit);
       actions.appendChild(btnSave);
       actions.appendChild(btnCancel);
-      actions.appendChild(btnDescartar);
-      actions.appendChild(btnEliminar);
+      if (softDelete) {
+        actions.appendChild(btnDescartar);
+        actions.appendChild(btnEliminar);
+      }
     }
     panel.appendChild(actions);
 
@@ -1212,7 +1336,7 @@
   function renderCellReadonly(el_, col, row) {
     const value = row[col.key];
     if (col.render) {
-      el_.innerHTML = col.render(value);
+      el_.innerHTML = col.render(value, row);
     } else {
       el_.textContent = fmt(value, "—");
     }
@@ -1464,7 +1588,7 @@
   // ---------- Formulario "+ Nuevo registro" ----------
 
   function ensureNewRecordForm(tipo) {
-    const cfg = GEE_CONFIG[tipo];
+    const cfg = getRegistryConfig(tipo);
     const container = qs("#" + cfg.formId);
     if (container.dataset.built === "true") return;
     container.dataset.built = "true";
@@ -1811,10 +1935,7 @@
   function renderPaso0Section() {
     const paso0 = state.requisitos && state.requisitos.paso0;
     renderPaso0Resumen(paso0);
-    renderPeticionesTabla(paso0);
-    renderFuncionalesTabla(paso0);
-    renderNoFuncionalesTabla(paso0);
-    renderZonasIncertidumbre(paso0);
+    renderRequisitosEditableTables();
   }
 
   function renderPaso0Resumen(paso0) {
@@ -1842,131 +1963,6 @@
     if (v.includes("must")) clase = "tag-prioridad-alta";
     else if (v.includes("should")) clase = "tag-fase-mvp";
     return '<span class="tag' + (clase ? " " + clase : "") + '">' + escapeHtml(raw) + "</span>";
-  }
-
-  function renderPeticionesTabla(paso0) {
-    const wrap = qs("#peticiones-tabla-wrap");
-    const items = (paso0 && paso0.peticiones) || [];
-    if (items.length === 0) {
-      wrap.innerHTML = emptyState("📥", "Todavía no hay peticiones del cliente registradas.", "Se generan en el Paso 0 (procesar-respuestas) a partir de la entrevista o notas del cliente.");
-      return;
-    }
-    const rows = items
-      .map(
-        (p) =>
-          "<tr><td>" +
-          escapeHtml(fmt(p.id)) +
-          "</td><td>" +
-          escapeHtml(fmt(p.peticion)) +
-          "</td><td>" +
-          escapeHtml(fmt(p.loDijoElCliente)) +
-          "</td><td>" +
-          escapeHtml(fmt(p.prioridadSubjetiva)) +
-          "</td></tr>"
-      )
-      .join("");
-    wrap.innerHTML =
-      '<table class="data-table"><thead><tr>' +
-      "<th>ID</th><th>Petición</th><th>Lo dijo el cliente</th><th>Prioridad subjetiva</th>" +
-      "</tr></thead><tbody>" +
-      rows +
-      "</tbody></table>";
-  }
-
-  function renderFuncionalesTabla(paso0) {
-    const wrap = qs("#rf-tabla-wrap");
-    const items = (paso0 && paso0.funcionales) || [];
-    if (items.length === 0) {
-      wrap.innerHTML = emptyState("🧩", "Todavía no hay requisitos funcionales registrados.", "Se generan en el Paso 0 (procesar-respuestas) a partir de las peticiones del cliente.");
-      return;
-    }
-    const rows = items
-      .map(
-        (rf) =>
-          "<tr><td>" +
-          escapeHtml(fmt(rf.id)) +
-          "</td><td>" +
-          escapeHtml(fmt(rf.modulo)) +
-          "</td><td>" +
-          escapeHtml(fmt(rf.descripcion)) +
-          "</td><td>" +
-          escapeHtml(fmt(rf.actor)) +
-          "</td><td>" +
-          moscowBadge(rf.prioridad) +
-          "</td><td>" +
-          escapeHtml(fmt(rf.origen)) +
-          "</td><td>" +
-          escapeHtml(fmt(rf.dependencias)) +
-          "</td></tr>"
-      )
-      .join("");
-    wrap.innerHTML =
-      '<table class="data-table"><thead><tr>' +
-      "<th>ID</th><th>Módulo/Área</th><th>Descripción</th><th>Actor/Rol</th><th>Prioridad</th><th>Origen</th><th>Dependencias</th>" +
-      "</tr></thead><tbody>" +
-      rows +
-      "</tbody></table>";
-  }
-
-  function renderNoFuncionalesTabla(paso0) {
-    const wrap = qs("#rnf-tabla-wrap");
-    const items = (paso0 && paso0.noFuncionales) || [];
-    if (items.length === 0) {
-      wrap.innerHTML = emptyState("⚙️", "Todavía no hay requisitos no funcionales registrados.", "Se generan en el Paso 0 (procesar-respuestas), incluyendo los RNF implícitos inferidos por la IA.");
-      return;
-    }
-    const rows = items
-      .map(
-        (rnf) =>
-          "<tr" +
-          (rnf.implicito ? ' class="row-implicito"' : "") +
-          "><td>" +
-          escapeHtml(fmt(rnf.id)) +
-          "</td><td>" +
-          escapeHtml(fmt(rnf.descripcion)) +
-          "</td><td>" +
-          escapeHtml(fmt(rnf.categoria)) +
-          "</td><td>" +
-          (rnf.implicito ? "⚠️ " : "") +
-          escapeHtml(fmt(rnf.origen)) +
-          "</td><td>" +
-          moscowBadge(rnf.prioridad) +
-          "</td></tr>"
-      )
-      .join("");
-    wrap.innerHTML =
-      '<table class="data-table"><thead><tr>' +
-      "<th>ID</th><th>Descripción</th><th>Categoría</th><th>Origen</th><th>Prioridad</th>" +
-      "</tr></thead><tbody>" +
-      rows +
-      "</tbody></table>" +
-      (items.some((r) => r.implicito)
-        ? '<p class="text-muted" style="margin-top:8px;">⚠️ = RNF implícito, inferido por la IA y todavía no confirmado por el cliente (ver Zonas de Incertidumbre).</p>'
-        : "");
-  }
-
-  function renderZonasIncertidumbre(paso0) {
-    const container = qs("#zi-lista");
-    const items = (paso0 && paso0.zonasIncertidumbre) || [];
-    if (items.length === 0) {
-      container.innerHTML = emptyState("❔", "Todavía no hay zonas de incertidumbre registradas.", "Se generan en el Paso 0 (procesar-respuestas) a partir de ambigüedades, contradicciones y asunciones de la IA.");
-      return;
-    }
-    container.innerHTML = items
-      .map(
-        (zi) =>
-          '<div class="epica-card">' +
-          '<div class="epica-card-header">' +
-          "<strong>" + escapeHtml(fmt(zi.id)) + (zi.zona ? " — " + escapeHtml(fmt(zi.zona)) : "") + "</strong>" +
-          (zi.porQueEsIncierto ? '<span class="tag">' + escapeHtml(zi.porQueEsIncierto) + "</span>" : "") +
-          "</div>" +
-          (zi.descripcion ? '<div class="epica-desc">' + escapeHtml(zi.descripcion) + "</div>" : "") +
-          (zi.afecta ? "<p class=\"text-muted\"><strong>Afecta a:</strong> " + escapeHtml(zi.afecta) + "</p>" : "") +
-          (zi.pregunta ? "<p><strong>❓ Pregunta pendiente:</strong> " + escapeHtml(zi.pregunta) + "</p>" : "") +
-          (zi.recomendacionPorDefecto ? "<p><strong>💡 Recomendación por defecto (80/20):</strong> " + escapeHtml(zi.recomendacionPorDefecto) + "</p>" : "") +
-          "</div>"
-      )
-      .join("");
   }
 
   // ------------------------------------------------------------------
@@ -2007,10 +2003,14 @@
       });
     });
 
+    // Delimitado al .tab-panel contenedor: ahora hay dos grupos de
+    // subpestañas independientes (GEE y Requisitos) en la misma página —
+    // sin esto, cambiar de subpestaña en uno desactivaría el estado del otro.
     qsa(".subtab-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        qsa(".subtab-btn").forEach((b) => b.classList.remove("active"));
-        qsa(".subtab-panel").forEach((p) => p.classList.remove("active"));
+        const scope = btn.closest(".tab-panel") || document;
+        qsa(".subtab-btn", scope).forEach((b) => b.classList.remove("active"));
+        qsa(".subtab-panel", scope).forEach((p) => p.classList.remove("active"));
         btn.classList.add("active");
         qs("#" + btn.dataset.subtab).classList.add("active");
         resizeAllCharts();

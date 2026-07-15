@@ -110,6 +110,8 @@ Ante la duda entre descartar y registrar como zona de incertidumbre: si hay la m
 
 ### g) Formato de salida de los 4 archivos
 
+Estos 4 archivos son editables desde el dashboard (pestaña Requisitos, subpestañas Peticiones/RF/RNF/Zonas) — respeta los nombres de columna exactos indicados aquí, son los que leen los parsers/writers del dashboard.
+
 **`peticiones-cliente.md`**
 
 ```markdown
