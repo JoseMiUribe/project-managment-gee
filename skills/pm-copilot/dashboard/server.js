@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 
 const { PROJECT_PATH, PROJECT_NAME, PORT, CACHE_FILE, PORT_FILE } = require('./lib/config');
-const { buildSnapshot } = require('./lib/buildSnapshot');
 const { getLockedHuIds } = require('./lib/sprintLock');
 const { generatePdf, generatePdfDeDocumento } = require('./lib/pdf');
 const { renderPrintView } = require('./lib/printView');
@@ -14,39 +13,23 @@ const { stripContenidoInterno } = require('./lib/markdownClientStrip');
 const { isJiraConfigured, credentialsAvailable, readProjectConfig, fetchJiraSnapshot } = require('./lib/jiraClient');
 const { writeJiraSnapshotRecord } = require('./lib/writers/jiraSnapshotWriter');
 
-const { writeRiesgo } = require('./lib/writers/riesgos');
-const { writeDependencia } = require('./lib/writers/dependencias');
-const { writeAccion } = require('./lib/writers/acciones');
-const { writeImpedimento } = require('./lib/writers/impedimentos');
-const { writeChangelogEntry } = require('./lib/writers/changelog');
-const { appendDailylogNota } = require('./lib/writers/dailylog');
-const { writePeticion } = require('./lib/writers/peticiones');
-const { writeFuncional } = require('./lib/writers/funcionales');
-const { writeNoFuncional } = require('./lib/writers/nofuncionales');
-const { writeZonaIncertidumbre } = require('./lib/writers/zonasIncertidumbre');
-const { logCambioPendiente } = require('./lib/writers/cambiosPendientes');
+const { getBackend } = require('./lib/dataBackend');
+const { TIPO_DESCRIPTORS } = require('./lib/dataBackend/tipoDescriptors');
 
 const app = express();
 app.use(express.json());
 
-const WRITERS = {
-  riesgos: writeRiesgo,
-  dependencias: writeDependencia,
-  acciones: writeAccion,
-  impedimentos: writeImpedimento,
-  changelog: writeChangelogEntry,
-  peticiones: writePeticion,
-  funcionales: writeFuncional,
-  nofuncionales: writeNoFuncional,
-  zonas: writeZonaIncertidumbre,
-};
+// Resuelto una vez al arrancar el proceso: lee .pm-copilot.json si existe y
+// decide local vs. cloud, con degradación automática a local si el modo
+// cloud no está disponible por cualquier motivo — ver lib/dataBackend/index.js.
+const backend = getBackend(PROJECT_PATH);
 
 // Tipos cuyas ediciones se registran en el ledger de cambios pendientes
 // (ver output-transversal/cambios-pendientes-dashboard.md) para que
 // actualizar-cascada.md sepa qué cambió sin re-escanear todo el proyecto.
 // El daily log queda fuera a propósito: no es un artefacto del que dependa
 // ningún otro paso del pipeline (no aparece en la tabla de esa cascada).
-const TIPOS_CON_CAMBIOS_PENDIENTES = new Set(Object.keys(WRITERS));
+const TIPOS_CON_CAMBIOS_PENDIENTES = new Set(Object.keys(TIPO_DESCRIPTORS));
 
 function readCacheIfExists() {
   if (fs.existsSync(CACHE_FILE)) {
@@ -61,13 +44,13 @@ function readCacheIfExists() {
 }
 
 // --- GET /api/data ---------------------------------------------------------
-app.get('/api/data', (req, res) => {
+app.get('/api/data', async (req, res) => {
   const cached = readCacheIfExists();
   if (cached) {
     return res.json(cached);
   }
   try {
-    const snapshot = buildSnapshot(PROJECT_PATH);
+    const snapshot = await backend.readSnapshot(PROJECT_PATH);
     res.json(snapshot);
   } catch (err) {
     console.error('[server] Error generando snapshot:', err);
@@ -109,7 +92,7 @@ app.post('/api/sync', async (req, res) => {
   }
 
   try {
-    const snapshot = buildSnapshot(PROJECT_PATH, { liveJira });
+    const snapshot = await backend.readSnapshot(PROJECT_PATH, { liveJira });
     if (jiraSyncWarning) snapshot.jiraSyncWarning = jiraSyncWarning;
     res.json(snapshot);
   } catch (err) {
@@ -119,22 +102,21 @@ app.post('/api/sync', async (req, res) => {
 });
 
 // --- Escritura GEE: PUT/POST /api/gee/:tipo(/:id) ---------------------------
-app.put('/api/gee/:tipo/:id', (req, res) => {
+app.put('/api/gee/:tipo/:id', async (req, res) => {
   const { tipo, id } = req.params;
-  const writer = WRITERS[tipo];
-  if (!writer) {
-    return res.status(404).json({ error: `Tipo de registro GEE desconocido: "${tipo}". Válidos: ${Object.keys(WRITERS).join(', ')}` });
+  if (!TIPO_DESCRIPTORS[tipo]) {
+    return res.status(404).json({ error: `Tipo de registro GEE desconocido: "${tipo}". Válidos: ${Object.keys(TIPO_DESCRIPTORS).join(', ')}` });
   }
   if (req.body.confirm !== true) {
     return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, ...campos } para aplicar el cambio.' });
   }
   try {
     const { confirm, ...fields } = req.body;
-    writer(PROJECT_PATH, id, fields);
+    await backend.writeRow(PROJECT_PATH, tipo, id, fields, { origen: 'dashboard' });
     if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
-      logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
+      await backend.logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
     }
-    const snapshot = buildSnapshot(PROJECT_PATH);
+    const snapshot = await backend.readSnapshot(PROJECT_PATH);
     res.json(snapshot);
   } catch (err) {
     console.error(`[server] Error actualizando ${tipo}/${id}:`, err);
@@ -142,22 +124,21 @@ app.put('/api/gee/:tipo/:id', (req, res) => {
   }
 });
 
-app.post('/api/gee/:tipo', (req, res) => {
+app.post('/api/gee/:tipo', async (req, res) => {
   const { tipo } = req.params;
-  const writer = WRITERS[tipo];
-  if (!writer) {
-    return res.status(404).json({ error: `Tipo de registro GEE desconocido: "${tipo}". Válidos: ${Object.keys(WRITERS).join(', ')}` });
+  if (!TIPO_DESCRIPTORS[tipo]) {
+    return res.status(404).json({ error: `Tipo de registro GEE desconocido: "${tipo}". Válidos: ${Object.keys(TIPO_DESCRIPTORS).join(', ')}` });
   }
   if (req.body.confirm !== true) {
     return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, ...campos } para crear el registro.' });
   }
   try {
     const { confirm, ...fields } = req.body;
-    const result = writer(PROJECT_PATH, null, fields);
+    const result = await backend.writeRow(PROJECT_PATH, tipo, null, fields, { origen: 'dashboard' });
     if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
-      logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: result.id, camposModificados: [] });
+      await backend.logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: result.id, camposModificados: [] });
     }
-    const snapshot = buildSnapshot(PROJECT_PATH);
+    const snapshot = await backend.readSnapshot(PROJECT_PATH);
     res.status(201).json({ createdId: result.id, snapshot });
   } catch (err) {
     console.error(`[server] Error creando registro en ${tipo}:`, err);
@@ -178,14 +159,14 @@ app.delete('/api/gee/*', (req, res) => {
 // falta) sin pasar por el skill — disponible desde el primer día del
 // proyecto, no solo con un sprint activo. Requiere confirm:true igual que el
 // resto de escrituras del GEE.
-app.post('/api/dailylog', (req, res) => {
+app.post('/api/dailylog', async (req, res) => {
   if (req.body.confirm !== true) {
     return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, autor, texto } para añadir la nota.' });
   }
   try {
     const { confirm, fecha, ...payload } = req.body;
-    const result = appendDailylogNota(PROJECT_PATH, fecha || null, payload);
-    const snapshot = buildSnapshot(PROJECT_PATH);
+    const result = await backend.appendDailylog(PROJECT_PATH, fecha || null, payload);
+    const snapshot = await backend.readSnapshot(PROJECT_PATH);
     res.status(201).json({ fecha: result.fecha, creado: result.created, snapshot });
   } catch (err) {
     console.error('[server] Error añadiendo nota al daily log:', err);
@@ -231,9 +212,9 @@ app.post('/api/pdf', async (req, res) => {
 });
 
 // --- GET /print --------------------------------------------------------------
-app.get('/print', (req, res) => {
+app.get('/print', async (req, res) => {
   try {
-    const cached = readCacheIfExists() || buildSnapshot(PROJECT_PATH);
+    const cached = readCacheIfExists() || (await backend.readSnapshot(PROJECT_PATH));
     const html = renderPrintView(cached);
     res.type('html').send(html);
   } catch (err) {

@@ -18,6 +18,8 @@ function mapRow(row) {
     dependenciaOrigen: getCell(row, 'Dependencia origen') || '',
     visibilidad: getCell(row, 'Visibilidad') || '',
     motivoDescarte: getCell(row, 'Motivo (descarte/eliminación)') || '',
+    ultimaModificacion: getCell(row, 'Última modificación') || '',
+    modificadoPor: getCell(row, 'Modificado por') || '',
   };
 }
 

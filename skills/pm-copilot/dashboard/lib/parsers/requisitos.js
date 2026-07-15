@@ -34,6 +34,8 @@ function mapPeticionRow(row) {
     peticion: getCell(row, 'Petición') || getCell(row, 'Peticion') || '',
     loDijoElCliente: getCell(row, 'Lo dijo el cliente') || '',
     prioridadSubjetiva: getCell(row, 'Prioridad subjetiva') || '',
+    ultimaModificacion: getCell(row, 'Última modificación') || '',
+    modificadoPor: getCell(row, 'Modificado por') || '',
   };
 }
 
@@ -70,6 +72,8 @@ function mapFuncionalRow(row) {
     prioridad: getCell(row, 'Prioridad (MoSCoW)') || getCell(row, 'Prioridad') || '',
     origen: getCell(row, 'Origen') || '',
     dependencias: getCell(row, 'Dependencias') || '',
+    ultimaModificacion: getCell(row, 'Última modificación') || '',
+    modificadoPor: getCell(row, 'Modificado por') || '',
   };
 }
 
@@ -128,6 +132,8 @@ function mapNoFuncionalRow(row) {
     origen,
     prioridad: getCell(row, 'Prioridad (MoSCoW)') || getCell(row, 'Prioridad') || '',
     implicito: esImplicito(origen),
+    ultimaModificacion: getCell(row, 'Última modificación') || '',
+    modificadoPor: getCell(row, 'Modificado por') || '',
   };
 }
 
@@ -163,6 +169,8 @@ function mapZonaRow(row) {
     afecta: getCell(row, 'Afecta a') || '',
     pregunta: getCell(row, 'Pregunta para resolverlo') || '',
     recomendacionPorDefecto: getCell(row, 'Recomendación por defecto (80/20)') || getCell(row, 'Recomendación por defecto') || '',
+    ultimaModificacion: getCell(row, 'Última modificación') || '',
+    modificadoPor: getCell(row, 'Modificado por') || '',
   };
 }
 

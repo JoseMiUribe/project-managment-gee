@@ -31,6 +31,8 @@ function mapRow(row) {
     fechaUpdate: getCell(row, 'Fecha update') || '',
     visibilidad: getCell(row, 'Visibilidad') || '',
     motivoDescarte: getCell(row, 'Motivo (descarte/eliminación)') || '',
+    ultimaModificacion: getCell(row, 'Última modificación') || '',
+    modificadoPor: getCell(row, 'Modificado por') || '',
   };
 }
 
