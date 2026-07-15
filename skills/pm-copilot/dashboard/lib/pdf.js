@@ -53,9 +53,11 @@ async function generatePdf(projectPath, port) {
  * @param {string} rutaAbsolutaMd ruta absoluta del .md ya validada (dentro del proyecto)
  * @param {string} rutaRelativaMd ruta relativa tal cual la envió el cliente (para la URL)
  * @param {number} port puerto en el que está escuchando el servidor Express
+ * @param {"completa"|"cliente"} [version] "cliente" genera un PDF separado (sufijo -cliente) sin el
+ *   contenido marcado como interno — ver dashboard/lib/markdownClientStrip.js
  * @returns {Promise<string>} ruta absoluta del PDF generado
  */
-async function generatePdfDeDocumento(rutaAbsolutaMd, rutaRelativaMd, port) {
+async function generatePdfDeDocumento(rutaAbsolutaMd, rutaRelativaMd, port, version) {
   let chromium;
   try {
     ({ chromium } = require('playwright'));
@@ -66,14 +68,17 @@ async function generatePdfDeDocumento(rutaAbsolutaMd, rutaRelativaMd, port) {
     );
   }
 
+  const esCliente = version === 'cliente';
   const dir = path.dirname(rutaAbsolutaMd);
   const nombreBase = path.basename(rutaAbsolutaMd, path.extname(rutaAbsolutaMd));
-  const outputPath = path.join(dir, `${nombreBase}.pdf`);
+  const outputPath = path.join(dir, `${nombreBase}${esCliente ? '-cliente' : ''}.pdf`);
 
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    const url = `http://localhost:${port}/print/documento?ruta=${encodeURIComponent(rutaRelativaMd)}`;
+    const url =
+      `http://localhost:${port}/print/documento?ruta=${encodeURIComponent(rutaRelativaMd)}` +
+      (esCliente ? '&version=cliente' : '');
     await page.goto(url, { waitUntil: 'networkidle' });
     await page.pdf({
       path: outputPath,
