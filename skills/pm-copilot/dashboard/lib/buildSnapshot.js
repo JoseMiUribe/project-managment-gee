@@ -19,6 +19,7 @@ const { parseAnalisisJira } = require('./parsers/analisisJira');
 const { parseLegacy } = require('./parsers/legacy');
 const { parseRequisitos } = require('./parsers/requisitos');
 const { parseCambiosPendientes } = require('./parsers/cambiosPendientes');
+const { listarDocumentos } = require('./parsers/documentos');
 const { getLockedHuIds, isSprintActive } = require('./sprintLock');
 
 const CACHE_FILE_NAME = '.pm-copilot-cache.json';
@@ -170,6 +171,7 @@ function buildSnapshot(projectPath, options) {
   const legacy = parseLegacy(projectPath);
   const paso0 = parseRequisitos(projectPath);
   const cambiosPendientes = parseCambiosPendientes(projectPath);
+  const documentos = listarDocumentos(projectPath);
 
   const sprintActivo = sprints.find((s) => s.activo) || null;
 
@@ -213,6 +215,7 @@ function buildSnapshot(projectPath, options) {
       paso0,
     },
     cambiosPendientes,
+    documentos,
     metricas,
   };
 

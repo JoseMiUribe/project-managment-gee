@@ -10,6 +10,7 @@ const { getLockedHuIds } = require('./lib/sprintLock');
 const { generatePdf, generatePdfDeDocumento } = require('./lib/pdf');
 const { renderPrintView } = require('./lib/printView');
 const { renderDocumentoView, resolveRutaDocumento } = require('./lib/printDocumento');
+const { stripContenidoInterno } = require('./lib/markdownClientStrip');
 const { isJiraConfigured, credentialsAvailable, readProjectConfig, fetchJiraSnapshot } = require('./lib/jiraClient');
 const { writeJiraSnapshotRecord } = require('./lib/writers/jiraSnapshotWriter');
 
@@ -263,12 +264,50 @@ app.get('/print/documento', (req, res) => {
   }
 
   try {
-    const markdown = fs.readFileSync(rutaAbsoluta, 'utf8');
-    const html = renderDocumentoView(markdown, rutaRelativa);
+    const version = req.query.version === 'cliente' ? 'cliente' : 'completa';
+    const markdownRaw = fs.readFileSync(rutaAbsoluta, 'utf8');
+    const markdown = version === 'cliente' ? stripContenidoInterno(markdownRaw) : markdownRaw;
+    const html = renderDocumentoView(markdown, rutaRelativa, version);
     res.type('html').send(html);
   } catch (err) {
     console.error('[server] Error renderizando /print/documento:', err);
     res.status(500).send(`<pre>Error renderizando el documento: ${err.message}</pre>`);
+  }
+});
+
+// --- GET /api/documento/md -------------------------------------------------
+// Descarga el markdown crudo de un documento suelto, completo o en su
+// versión cliente (sin los bloques marcados como "interno", ver
+// lib/markdownClientStrip.js) — para cuando el destinatario quiere el .md,
+// no un PDF.
+app.get('/api/documento/md', (req, res) => {
+  const rutaRelativa = req.query.ruta;
+  if (!rutaRelativa || typeof rutaRelativa !== 'string') {
+    return res.status(400).send('Falta el parámetro "ruta" (ruta relativa al .md dentro del proyecto).');
+  }
+
+  let rutaAbsoluta;
+  try {
+    rutaAbsoluta = resolveRutaDocumento(PROJECT_PATH, rutaRelativa);
+  } catch (err) {
+    return res.status(400).send(err.message);
+  }
+
+  if (!fs.existsSync(rutaAbsoluta) || !fs.statSync(rutaAbsoluta).isFile()) {
+    return res.status(404).send(`No se ha encontrado el archivo: ${rutaRelativa}`);
+  }
+
+  try {
+    const version = req.query.version === 'cliente' ? 'cliente' : 'completa';
+    const markdownRaw = fs.readFileSync(rutaAbsoluta, 'utf8');
+    const markdown = version === 'cliente' ? stripContenidoInterno(markdownRaw) : markdownRaw;
+    const nombreBase = path.basename(rutaAbsoluta, '.md');
+    const sufijo = version === 'cliente' ? '-cliente' : '';
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreBase}${sufijo}.md"`);
+    res.type('text/markdown').send(markdown);
+  } catch (err) {
+    console.error('[server] Error sirviendo /api/documento/md:', err);
+    res.status(500).send(`Error leyendo el documento: ${err.message}`);
   }
 });
 
@@ -291,7 +330,8 @@ app.post('/api/pdf/documento', async (req, res) => {
   }
 
   try {
-    const outputPath = await generatePdfDeDocumento(rutaAbsoluta, rutaRelativa, PORT);
+    const version = req.body && req.body.version === 'cliente' ? 'cliente' : 'completa';
+    const outputPath = await generatePdfDeDocumento(rutaAbsoluta, rutaRelativa, PORT, version);
     res.json({ path: outputPath });
   } catch (err) {
     console.error('[server] Error generando PDF de documento:', err);

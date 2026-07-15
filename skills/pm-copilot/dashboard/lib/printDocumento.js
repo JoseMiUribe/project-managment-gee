@@ -65,8 +65,14 @@ function esc(value) {
  * estuviera instalado (p.ej. instalación a medias sin `npm install`), cae a
  * un fallback muy simple (envolver el markdown crudo en un <pre>) en vez de
  * tumbar el servidor.
+ *
+ * @param {string} markdown ya debe venir filtrado (ver stripContenidoInterno)
+ *   si `version` es "cliente" — esta función no filtra nada por sí misma,
+ *   solo pinta el aviso visual de qué versión es.
+ * @param {string} rutaRelativa
+ * @param {"completa"|"cliente"} [version]
  */
-function renderDocumentoView(markdown, rutaRelativa) {
+function renderDocumentoView(markdown, rutaRelativa, version) {
   let cuerpoHtml;
   try {
     const { marked } = require('marked');
@@ -78,6 +84,10 @@ function renderDocumentoView(markdown, rutaRelativa) {
   }
 
   const titulo = path.basename(rutaRelativa, '.md');
+  const esCliente = version === 'cliente';
+  const avisoVersion = esCliente
+    ? '<p class="aviso-version">Versión cliente — sin contenido de uso interno del equipo.</p>'
+    : '';
 
   return `<!doctype html>
 <html lang="es">
@@ -92,6 +102,7 @@ function renderDocumentoView(markdown, rutaRelativa) {
   h3 { font-size: 15px; margin-top: 20px; }
   h4 { font-size: 13px; margin-top: 16px; }
   .meta { color: #555; margin-bottom: 16px; font-size: 12px; }
+  .aviso-version { color: #9a3412; background: #fff7ed; border: 1px solid #fdba74; border-radius: 4px; padding: 6px 10px; font-size: 12px; display: inline-block; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
   th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
   th { background: #f0f0f0; }
@@ -108,6 +119,7 @@ function renderDocumentoView(markdown, rutaRelativa) {
 </head>
 <body>
   <p class="meta">${esc(rutaRelativa)}</p>
+  ${avisoVersion}
   ${cuerpoHtml}
 </body>
 </html>`;

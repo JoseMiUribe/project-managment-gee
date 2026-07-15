@@ -34,6 +34,7 @@
   <button class="tab-btn" data-tab="tab-proyecto">Proyecto</button>
   <button class="tab-btn" data-tab="tab-gee">GEE</button>
   <button class="tab-btn" data-tab="tab-requisitos">Requisitos</button>
+  <button class="tab-btn" data-tab="tab-documentos">Documentos</button>
 </nav>
 
 <!-- ======================= TAB: SPRINT ACTUAL ======================= -->
@@ -330,6 +331,23 @@
     </div>
   </div>
 
+</section>
+
+<!-- ======================= TAB: DOCUMENTOS ======================= -->
+<!-- Lista cada .md que el skill ha generado en el proyecto, agrupado por
+     paso, con una explicación de qué es cada uno (ver dashboard/lib/
+     documentCatalog.js). Cada documento se puede ver, descargar como .md o
+     exportar a PDF, en su versión completa o "versión cliente" (sin el
+     contenido marcado como interno mediante la convención de comentarios
+     HTML documentada en dashboard/lib/markdownClientStrip.js). -->
+<section id="tab-documentos" class="tab-panel">
+  <div class="section-header">
+    <h2 style="margin:0;">Documentos generados</h2>
+  </div>
+  <p class="text-muted">
+    "Versión cliente" retira cualquier bloque marcado en el propio documento como uso interno del equipo — el resto del contenido es idéntico.
+  </p>
+  <div id="documentos-lista"></div>
 </section>
 
 <!-- ECharts servido localmente por el backend/setup. Ver app.js para el fallback si no existe. -->

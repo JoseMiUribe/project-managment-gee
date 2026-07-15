@@ -255,6 +255,20 @@
     }
   }
 
+  async function doGeneratePdfDocumento(ruta, version, triggerBtn) {
+    setBtnLoading(triggerBtn, true, "Generando…");
+    try {
+      const result = await apiSend("POST", "/api/pdf/documento", { ruta, version });
+      const path = result && result.path ? result.path : "(ruta no informada por el servidor)";
+      showToast("PDF generado en: " + path, "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Error al generar el PDF: " + err.message, "error");
+    } finally {
+      setBtnLoading(triggerBtn, false);
+    }
+  }
+
   function renderFatalError(err) {
     const main = document.querySelector(".tabs-nav");
     if (main) main.insertAdjacentHTML(
@@ -277,6 +291,77 @@
     renderProyectoTab();
     renderGeeAll();
     renderRequisitosTab();
+    renderDocumentosTab();
+  }
+
+  // ------------------------------------------------------------------
+  // TAB: Documentos
+  // ------------------------------------------------------------------
+
+  function renderDocumentosTab() {
+    const container = qs("#documentos-lista");
+    const items = state.documentos || [];
+    if (items.length === 0) {
+      container.innerHTML = emptyState(
+        "📁",
+        "Todavía no hay documentos generados.",
+        "Aparecerán aquí a medida que avances por los pasos del pipeline."
+      );
+      return;
+    }
+
+    const grupos = {};
+    const orden = [];
+    items.forEach((doc) => {
+      if (!grupos[doc.paso]) {
+        grupos[doc.paso] = [];
+        orden.push(doc.paso);
+      }
+      grupos[doc.paso].push(doc);
+    });
+
+    container.innerHTML = orden
+      .map((paso) => {
+        const filas = grupos[paso].map((doc) => renderDocumentoRow(doc)).join("");
+        return (
+          '<div class="card"><h3>' +
+          escapeHtml(paso) +
+          '</h3><table class="data-table"><thead><tr>' +
+          "<th>Documento</th><th>Ruta</th><th>Modificado</th><th></th>" +
+          "</tr></thead><tbody>" +
+          filas +
+          "</tbody></table></div>"
+        );
+      })
+      .join("");
+
+    qsa("[data-pdf-doc]", container).forEach((btn) => {
+      btn.addEventListener("click", () => doGeneratePdfDocumento(btn.dataset.pdfDoc, btn.dataset.pdfVersion, btn));
+    });
+  }
+
+  function renderDocumentoRow(doc) {
+    const rutaEnc = encodeURIComponent(doc.ruta);
+    const modificado = doc.modificadoEn ? doc.modificadoEn.slice(0, 16).replace("T", " ") : "—";
+    return (
+      "<tr><td><strong>" +
+      escapeHtml(doc.titulo) +
+      '</strong><div class="text-muted" style="font-size:12px;">' +
+      escapeHtml(doc.descripcion) +
+      "</div></td>" +
+      "<td><code>" +
+      escapeHtml(doc.ruta) +
+      "</code></td>" +
+      "<td>" +
+      escapeHtml(modificado) +
+      '</td><td class="cell-actions">' +
+      '<a class="btn btn-sm" href="/print/documento?ruta=' + rutaEnc + '" target="_blank">Ver</a> ' +
+      '<a class="btn btn-sm" href="/api/documento/md?ruta=' + rutaEnc + '&version=completa">MD</a> ' +
+      '<a class="btn btn-sm" href="/api/documento/md?ruta=' + rutaEnc + '&version=cliente">MD cliente</a> ' +
+      '<button class="btn btn-sm" data-pdf-doc="' + escapeHtml(doc.ruta) + '" data-pdf-version="completa">PDF</button> ' +
+      '<button class="btn btn-sm" data-pdf-doc="' + escapeHtml(doc.ruta) + '" data-pdf-version="cliente">PDF cliente</button>' +
+      "</td></tr>"
+    );
   }
 
   function renderHeader() {
