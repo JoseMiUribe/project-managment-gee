@@ -13,6 +13,8 @@ const FIELD_MAP = {
   responsable: 'Responsable',
   riesgoOrigen: 'Riesgo origen',
   dependenciaOrigen: 'Dependencia origen',
+  visibilidad: 'Visibilidad',
+  motivoDescarte: 'Motivo (descarte/eliminación)',
 };
 
 function toColumnFields(payload) {

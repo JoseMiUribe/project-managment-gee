@@ -1005,7 +1005,10 @@
   function renderGeeTable(tipo) {
     const cfg = GEE_CONFIG[tipo];
     const wrap = qs("#" + cfg.tablaWrap);
-    const rows = (state.gee && state.gee[cfg.dataKey]) || [];
+    // "Eliminado" nunca se ve en el dashboard (aunque sigue en el archivo,
+    // nunca se borra de verdad) — "Descartado" sí se ve, tachado, ver
+    // buildGeeRowPair. Ver Descartar/Eliminar más abajo.
+    const rows = ((state.gee && state.gee[cfg.dataKey]) || []).filter((r) => r.visibilidad !== "Eliminado");
 
     if (!rows || rows.length === 0) {
       wrap.innerHTML = emptyState("📭", "Todavía no hay ningún registro de " + cfg.titulo + ".", 'Usa el botón "+ Nuevo ' + cfg.titulo + '" para crear el primero.');
@@ -1040,8 +1043,12 @@
 
   function buildGeeRowPair(tipo, cfg, row, resumenCols) {
     const colspan = resumenCols.length + 2;
+    const descartado = row.visibilidad === "Descartado";
 
-    const summaryTr = el("tr", { "data-id": String(row.id), class: "gee-row-summary" });
+    const summaryTr = el("tr", {
+      "data-id": String(row.id),
+      class: "gee-row-summary" + (descartado ? " gee-row-descartada" : ""),
+    });
     summaryTr.appendChild(el("td", { text: fmt(row.id) }));
     resumenCols.forEach((col) => {
       const td = el("td");
@@ -1049,6 +1056,7 @@
       summaryTr.appendChild(td);
     });
     const tdToggle = el("td", { class: "cell-actions" });
+    if (descartado) tdToggle.appendChild(el("span", { class: "badge-descartado", text: "Descartado" }));
     const btnToggle = el("button", { class: "btn btn-sm", text: "Ver detalle" });
     tdToggle.appendChild(btnToggle);
     summaryTr.appendChild(tdToggle);
@@ -1057,9 +1065,19 @@
     const detailTd = el("td", { colspan: String(colspan) });
     const panel = el("div", { class: "detail-panel" });
 
+    if (descartado) {
+      const banner = el("div", { class: "descarte-banner form-field-wide" });
+      banner.appendChild(el("strong", { text: "Descartado" }));
+      banner.appendChild(document.createTextNode(" — " + fmt(row.motivoDescarte, "sin motivo registrado")));
+      panel.appendChild(banner);
+    }
+
     const btnEdit = el("button", { class: "btn btn-sm", text: "Editar" });
     const btnSave = el("button", { class: "btn btn-sm btn-primary hidden", text: "Guardar cambios" });
     const btnCancel = el("button", { class: "btn btn-sm hidden", text: "Cancelar" });
+    const btnDescartar = el("button", { class: "btn btn-sm", text: "Descartar" });
+    const btnEliminar = el("button", { class: "btn btn-sm btn-danger-text", text: "Eliminar" });
+    const btnReactivar = el("button", { class: "btn btn-sm btn-primary", text: "Reactivar" });
 
     cfg.columns.forEach((col) => {
       if (col.key === "id") return; // ya se muestra en la fila resumen
@@ -1072,9 +1090,17 @@
     });
 
     const actions = el("div", { class: "detail-actions" });
-    actions.appendChild(btnEdit);
-    actions.appendChild(btnSave);
-    actions.appendChild(btnCancel);
+    if (descartado) {
+      // Un registro descartado no se edita "en caliente" — primero se
+      // reactiva (vuelve a Activo) y luego se edita con normalidad.
+      actions.appendChild(btnReactivar);
+    } else {
+      actions.appendChild(btnEdit);
+      actions.appendChild(btnSave);
+      actions.appendChild(btnCancel);
+      actions.appendChild(btnDescartar);
+      actions.appendChild(btnEliminar);
+    }
     panel.appendChild(actions);
 
     detailTd.appendChild(panel);
@@ -1085,11 +1111,102 @@
       detailTr.classList.toggle("hidden");
       btnToggle.textContent = estabaOculto ? "Ocultar detalle" : "Ver detalle";
     });
-    btnEdit.addEventListener("click", () => enterEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel));
-    btnCancel.addEventListener("click", () => exitEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel));
-    btnSave.addEventListener("click", () => saveRowEdits(tipo, cfg, row, panel, btnEdit, btnSave, btnCancel));
+
+    if (descartado) {
+      btnReactivar.addEventListener("click", () => reactivarRegistro(tipo, cfg, row));
+    } else {
+      btnEdit.addEventListener("click", () => {
+        enterEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel);
+        btnDescartar.classList.add("hidden");
+        btnEliminar.classList.add("hidden");
+      });
+      btnCancel.addEventListener("click", () => {
+        exitEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel);
+        btnDescartar.classList.remove("hidden");
+        btnEliminar.classList.remove("hidden");
+      });
+      btnSave.addEventListener("click", () => saveRowEdits(tipo, cfg, row, panel, btnEdit, btnSave, btnCancel));
+      btnDescartar.addEventListener("click", () => abrirMotivoForm(tipo, cfg, row, panel, actions, "Descartado"));
+      btnEliminar.addEventListener("click", () => abrirMotivoForm(tipo, cfg, row, panel, actions, "Eliminado"));
+    }
 
     return { summaryTr, detailTr };
+  }
+
+  // ---------- Descartar / Eliminar (nunca borrado real del archivo) ----------
+  //
+  // "Descartar" marca el registro como tachado pero sigue visible en el
+  // dashboard (para que quede constancia a simple vista de que se descartó).
+  // "Eliminar" lo oculta del dashboard por completo, pero la fila sigue
+  // físicamente en el archivo — este skill nunca borra datos de verdad (ver
+  // el 405 explícito en server.js para cualquier DELETE). Ambas acciones
+  // exigen un motivo, y ambas usan el mismo endpoint PUT genérico que ya
+  // existe para editar cualquier campo del GEE.
+
+  function abrirMotivoForm(tipo, cfg, row, panel, actionsContainer, accion) {
+    const existente = panel.querySelector(".motivo-inline-form");
+    if (existente) {
+      existente.remove();
+      return;
+    }
+
+    const esDescarte = accion === "Descartado";
+    const form = el("div", { class: "motivo-inline-form form-field-wide" });
+    form.appendChild(el("label", { text: esDescarte ? "Motivo del descarte" : "Motivo de la eliminación" }));
+    const textarea = el("textarea", { rows: "2" });
+    form.appendChild(textarea);
+
+    const formActions = el("div", { class: "form-actions" });
+    const btnConfirmar = el("button", {
+      class: "btn btn-sm btn-primary",
+      text: esDescarte ? "Confirmar descarte" : "Confirmar eliminación",
+    });
+    const btnCancelarMotivo = el("button", { class: "btn btn-sm", text: "Cancelar" });
+    formActions.appendChild(btnConfirmar);
+    formActions.appendChild(btnCancelarMotivo);
+    form.appendChild(formActions);
+
+    btnCancelarMotivo.addEventListener("click", () => form.remove());
+    btnConfirmar.addEventListener("click", async () => {
+      const motivo = textarea.value.trim();
+      if (!motivo) {
+        showToast("Escribe un motivo antes de confirmar.", "error");
+        return;
+      }
+      setBtnLoading(btnConfirmar, true, "Guardando…");
+      try {
+        state = await apiSend("PUT", "/api/gee/" + cfg.apiTipo + "/" + encodeURIComponent(row.id), {
+          confirm: true,
+          visibilidad: accion,
+          motivoDescarte: motivo,
+        });
+        renderAll();
+        showToast((esDescarte ? "Registro descartado: " : "Registro eliminado del dashboard: ") + row.id, "success");
+      } catch (err) {
+        console.error(err);
+        showToast("No se pudo aplicar el cambio: " + err.message, "error");
+        setBtnLoading(btnConfirmar, false);
+      }
+    });
+
+    panel.insertBefore(form, actionsContainer);
+  }
+
+  async function reactivarRegistro(tipo, cfg, row) {
+    const confirmed = window.confirm("¿Confirmas reactivar este " + cfg.titulo + " (" + row.id + ")? Volverá a aparecer como activo.");
+    if (!confirmed) return;
+    try {
+      state = await apiSend("PUT", "/api/gee/" + cfg.apiTipo + "/" + encodeURIComponent(row.id), {
+        confirm: true,
+        visibilidad: "",
+        motivoDescarte: "",
+      });
+      renderAll();
+      showToast("Registro reactivado: " + row.id, "success");
+    } catch (err) {
+      console.error(err);
+      showToast("No se pudo reactivar: " + err.message, "error");
+    }
   }
 
   function renderCellReadonly(el_, col, row) {

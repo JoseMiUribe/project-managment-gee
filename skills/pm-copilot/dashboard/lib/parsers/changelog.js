@@ -21,6 +21,8 @@ function mapRow(row) {
     riesgosGenerados: getCell(row, 'Riesgos generados') || '',
     dependenciasGeneradas: getCell(row, 'Dependencias generadas') || '',
     accionesGeneradas: getCell(row, 'Acciones generadas') || '',
+    visibilidad: getCell(row, 'Visibilidad') || '',
+    motivoDescarte: getCell(row, 'Motivo (descarte/eliminación)') || '',
   };
 }
 

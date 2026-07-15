@@ -29,6 +29,8 @@ function mapRow(row) {
     consideraciones: getCell(row, 'Consideraciones') || '',
     relacionadoCon: getCell(row, 'Relacionado con') || '',
     fechaUpdate: getCell(row, 'Fecha update') || '',
+    visibilidad: getCell(row, 'Visibilidad') || '',
+    motivoDescarte: getCell(row, 'Motivo (descarte/eliminación)') || '',
   };
 }
 

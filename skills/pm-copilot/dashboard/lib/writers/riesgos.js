@@ -26,6 +26,8 @@ const FIELD_MAP = {
   consideraciones: 'Consideraciones',
   relacionadoCon: 'Relacionado con',
   fechaUpdate: 'Fecha update',
+  visibilidad: 'Visibilidad',
+  motivoDescarte: 'Motivo (descarte/eliminación)',
 };
 
 function toColumnFields(payload) {

@@ -16,6 +16,8 @@ function mapRow(row) {
     responsable: getCell(row, 'Responsable') || '',
     riesgoOrigen: getCell(row, 'Riesgo origen') || '',
     dependenciaOrigen: getCell(row, 'Dependencia origen') || '',
+    visibilidad: getCell(row, 'Visibilidad') || '',
+    motivoDescarte: getCell(row, 'Motivo (descarte/eliminación)') || '',
   };
 }
 

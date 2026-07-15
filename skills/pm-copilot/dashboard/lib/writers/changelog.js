@@ -18,6 +18,8 @@ const FIELD_MAP = {
   riesgosGenerados: 'Riesgos generados',
   dependenciasGeneradas: 'Dependencias generadas',
   accionesGeneradas: 'Acciones generadas',
+  visibilidad: 'Visibilidad',
+  motivoDescarte: 'Motivo (descarte/eliminación)',
 };
 
 function toColumnFields(payload) {

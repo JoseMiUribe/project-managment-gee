@@ -17,6 +17,8 @@ function mapRow(row) {
     riesgosAsociados: getCell(row, 'Riesgos asociados') || '',
     tareaGestionJira: getCell(row, 'Tarea de gestión (Jira)') || '',
     comentarios: getCell(row, 'Comentarios') || '',
+    visibilidad: getCell(row, 'Visibilidad') || '',
+    motivoDescarte: getCell(row, 'Motivo (descarte/eliminación)') || '',
   };
 }
 
