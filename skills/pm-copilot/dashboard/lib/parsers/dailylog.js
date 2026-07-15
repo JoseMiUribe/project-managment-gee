@@ -31,9 +31,14 @@ function parseProgresoRow(row) {
 }
 
 function parseActualizacionesGee(text) {
-  const match = text.match(/^##\s+Actualizaciones GEE\s*\n+([\s\S]*?)(?:\n##\s|$)/m);
-  if (!match) return [];
-  const lines = match[1].split(/\r?\n/);
+  // Mismo bug de /$/m que en parseNotas: se resuelve igual, sin depender de
+  // que "$" distinga fin-de-texto de fin-de-línea bajo el flag "m".
+  const headingMatch = text.match(/^##\s+Actualizaciones GEE\s*$/m);
+  if (!headingMatch) return [];
+  const afterHeading = text.slice(headingMatch.index + headingMatch[0].length);
+  const nextHeadingIdx = afterHeading.search(/\n##\s/);
+  const body = nextHeadingIdx === -1 ? afterHeading : afterHeading.slice(0, nextHeadingIdx);
+  const lines = body.split(/\r?\n/);
   const items = [];
   for (const line of lines) {
     const trimmed = line.trim();
@@ -44,9 +49,51 @@ function parseActualizacionesGee(text) {
   return items;
 }
 
+/**
+ * "## Notas" es una lista de notas individuales, cada una
+ * "- **[YYYY-MM-DD HH:MM] Autor:** texto" (ver prompts/paso-4/daily-log.md),
+ * para poder atribuir cada nota a quién la escribió (PM/ADL o el propio
+ * skill) y permitir añadir notas sueltas sin regenerar el daily entero.
+ *
+ * Compatibilidad: dailylogs antiguos (de antes de este formato) tienen la
+ * sección como un párrafo de texto libre sin la lista — se devuelven como
+ * una única nota con autor y fecha desconocidos en vez de perder el texto.
+ */
 function parseNotas(text) {
-  const match = text.match(/^##\s+Notas\s*\n+([\s\S]*?)(?:\n##\s|$)/m);
-  return match ? match[1].trim() : '';
+  // OJO: no usar /([\s\S]*?)(?:\n##\s|$)/m para capturar el cuerpo — bajo el
+  // flag "m", "$" coincide con el final de CUALQUIER línea, no solo el final
+  // del texto, así que la captura perezosa se corta en la primera nota y
+  // descarta el resto (mismo bug ya corregido en roadmapCliente.js). En su
+  // lugar, localizamos la cabecera y buscamos el siguiente "## " por
+  // separado con .search(), que no tiene esa ambigüedad.
+  const headingMatch = text.match(/^##\s+Notas\s*$/m);
+  if (!headingMatch) return [];
+  const afterHeading = text.slice(headingMatch.index + headingMatch[0].length);
+  const nextHeadingIdx = afterHeading.search(/\n##\s/);
+  const body = (nextHeadingIdx === -1 ? afterHeading : afterHeading.slice(0, nextHeadingIdx)).trim();
+  if (!body) return [];
+
+  const lineRe = /^-\s*\*\*\[([^\]]+)\]\s*([^:]+):\*\*\s*(.*)$/;
+  const lines = body.split(/\r?\n/);
+  const notas = [];
+  let huboFormatoNuevo = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const m = trimmed.match(lineRe);
+    if (m) {
+      huboFormatoNuevo = true;
+      notas.push({ fechaHora: m[1].trim(), autor: m[2].trim(), texto: m[3].trim() });
+    } else if (huboFormatoNuevo && trimmed.startsWith('-')) {
+      // continuación improbable de una nota anterior con formato distinto: se ignora en vez de romper el parseo
+      continue;
+    }
+  }
+
+  if (notas.length > 0) return notas;
+  // Formato antiguo (texto libre, sin lista) — no se pierde el contenido.
+  return [{ fechaHora: '', autor: '', texto: body }];
 }
 
 function parseSprintDia(text) {

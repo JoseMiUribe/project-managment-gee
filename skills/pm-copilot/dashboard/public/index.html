@@ -209,7 +209,31 @@
   <!-- ---------- DAILY LOG ---------- -->
   <div id="sub-dailylog" class="subtab-panel">
     <div class="card">
-      <h2>Daily Log</h2>
+      <div class="card-header-row">
+        <h2>Daily Log</h2>
+        <button id="btn-nueva-nota" class="btn btn-sm btn-primary">+ Añadir nota</button>
+      </div>
+      <p class="text-muted">Disponible desde el primer día del proyecto — no hace falta esperar a tener un sprint activo para dejar una nota.</p>
+      <div id="form-nueva-nota" class="new-record-form">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Fecha (por defecto, hoy)</label>
+            <input type="date" id="nota-fecha" />
+          </div>
+          <div class="form-field">
+            <label>Autor</label>
+            <input type="text" id="nota-autor" placeholder="Tu nombre" />
+          </div>
+          <div class="form-field form-field-wide">
+            <label>Nota</label>
+            <textarea id="nota-texto" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button id="btn-crear-nota" class="btn btn-primary btn-sm">Añadir nota</button>
+          <button id="btn-cancelar-nota" class="btn btn-sm">Cancelar</button>
+        </div>
+      </div>
       <div id="dailylog-lista"></div>
     </div>
   </div>

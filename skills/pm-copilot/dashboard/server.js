@@ -18,6 +18,7 @@ const { writeDependencia } = require('./lib/writers/dependencias');
 const { writeAccion } = require('./lib/writers/acciones');
 const { writeImpedimento } = require('./lib/writers/impedimentos');
 const { writeChangelogEntry } = require('./lib/writers/changelog');
+const { appendDailylogNota } = require('./lib/writers/dailylog');
 
 const app = express();
 app.use(express.json());
@@ -147,6 +148,26 @@ app.delete('/api/gee/*', (req, res) => {
     error:
       'Este skill nunca borra automáticamente. Si hay que eliminar un registro, edita el markdown directamente o pide al PM que lo confirme explícitamente por otro canal.',
   });
+});
+
+// --- POST /api/dailylog -----------------------------------------------------
+// Añade una nota suelta al daily log del día (creando el archivo si hace
+// falta) sin pasar por el skill — disponible desde el primer día del
+// proyecto, no solo con un sprint activo. Requiere confirm:true igual que el
+// resto de escrituras del GEE.
+app.post('/api/dailylog', (req, res) => {
+  if (req.body.confirm !== true) {
+    return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, autor, texto } para añadir la nota.' });
+  }
+  try {
+    const { confirm, fecha, ...payload } = req.body;
+    const result = appendDailylogNota(PROJECT_PATH, fecha || null, payload);
+    const snapshot = buildSnapshot(PROJECT_PATH);
+    res.status(201).json({ fecha: result.fecha, creado: result.created, snapshot });
+  } catch (err) {
+    console.error('[server] Error añadiendo nota al daily log:', err);
+    res.status(500).json({ error: 'Error añadiendo la nota al daily log', detail: err.message });
+  }
 });
 
 // --- PUT /api/sprint/hu/:id --------------------------------------------------

@@ -140,11 +140,6 @@
     return '<span class="badge-rag rag-' + r.key + '">' + r.emoji + " " + escapeHtml(r.label) + "</span>";
   }
 
-  function estadoBadge(raw) {
-    if (!raw) return '<span class="badge-estado">—</span>';
-    return '<span class="badge-estado">' + escapeHtml(raw) + "</span>";
-  }
-
   function emptyState(icon, title, subtitle) {
     return (
       '<div class="empty-state"><div class="empty-icon">' +
@@ -851,23 +846,24 @@
       tablaWrap: "riesgos-tabla-wrap",
       formId: "form-nuevo-riesgo",
       titulo: "riesgo",
+      resumenKeys: ["riesgo", "rag"],
       columns: [
         { key: "id", label: "ID", editable: false },
         { key: "fechaAlta", label: "Fecha alta", type: "date" },
         { key: "riesgo", label: "Riesgo", type: "textarea" },
         { key: "consecuencia", label: "Consecuencia", type: "textarea" },
-        { key: "tipo", label: "Tipo", type: "text" },
-        { key: "probabilidad", label: "Probabilidad", type: "text" },
-        { key: "impacto", label: "Impacto", type: "text" },
-        { key: "ambito", label: "Ámbito", type: "text" },
-        { key: "respuesta", label: "Respuesta", type: "text" },
-        { key: "estado", label: "Estado", type: "text" },
+        { key: "tipo", label: "Tipo", type: "select", options: ["alcance", "cliente", "equipo", "plazos", "logístico", "técnico", "seguridad-legal", "penalizaciones", "terceros", "adopción", "costes", "dependencias"] },
+        { key: "probabilidad", label: "Probabilidad", type: "select", options: ["Muy Baja (0.1)", "Baja (0.3)", "Media (0.5)", "Alta (0.7)", "Muy Alta (0.9)"] },
+        { key: "impacto", label: "Impacto", type: "select", options: ["Muy Bajo (0.05)", "Bajo (0.1)", "Medio (0.2)", "Alto (0.4)", "Muy Alto (0.8)"] },
+        { key: "ambito", label: "Ámbito", type: "select", options: ["Interno", "Externo"] },
+        { key: "respuesta", label: "Respuesta", type: "select", options: ["Evitarlo", "Reducirlo", "Aceptarlo", "Transferirlo"] },
+        { key: "estado", label: "Estado", type: "select", options: ["Abierto", "Impacto", "Cerrado"] },
         { key: "rag", label: "RAG", type: "select", options: ["🟢 Verde", "🟡 Amarillo", "🔴 Rojo"], render: (v) => ragBadge(v) },
         { key: "mitigacion", label: "Mitigación", type: "textarea" },
         { key: "responsable", label: "Responsable", type: "text" },
         { key: "peso", label: "Peso", type: "text" },
         { key: "consideraciones", label: "Consideraciones", type: "textarea" },
-        { key: "relacionadoCon", label: "Relacionado con", type: "text" },
+        { key: "relacionadoCon", label: "Relacionado con", type: "relacion", relTipos: ["dependencias", "acciones", "changelog"] },
         { key: "fechaUpdate", label: "Últ. actualización", type: "date", editable: false },
       ],
     },
@@ -877,15 +873,15 @@
       tablaWrap: "dependencias-tabla-wrap",
       formId: "form-nueva-dependencia",
       titulo: "dependencia",
+      resumenKeys: ["dependencia", "criticidadRag"],
       columns: [
         { key: "id", label: "ID", editable: false },
         { key: "equipo", label: "Equipo", type: "text" },
         { key: "dependencia", label: "Dependencia", type: "textarea" },
         { key: "criticidadRag", label: "Criticidad", type: "select", options: ["🟢 Verde", "🟡 Amarillo", "🔴 Rojo"], render: (v) => ragBadge(v) },
-        { key: "sistemas", label: "Sistemas", editable: false },
-        { key: "estado", label: "Estado", type: "text" },
+        { key: "estado", label: "Estado", type: "select", options: ["Detectada", "Comunicada", "Negociada", "En Resolución", "Resuelta"] },
         { key: "fechaCompromiso", label: "Fecha compromiso", type: "date" },
-        { key: "riesgosAsociados", label: "Riesgos asociados", type: "text" },
+        { key: "riesgosAsociados", label: "Riesgos asociados", type: "relacion", relTipos: ["riesgos"] },
         { key: "tareaGestionJira", label: "Tarea de gestión (Jira)", type: "text" },
         { key: "comentarios", label: "Comentarios", type: "textarea" },
       ],
@@ -896,15 +892,16 @@
       tablaWrap: "acciones-tabla-wrap",
       formId: "form-nueva-accion",
       titulo: "acción",
+      resumenKeys: ["accion", "estado"],
       columns: [
         { key: "id", label: "ID", editable: false },
         { key: "accion", label: "Acción", type: "textarea" },
-        { key: "tipo", label: "Tipo", type: "text" },
-        { key: "riesgoAsociado", label: "Riesgo asociado", type: "text" },
-        { key: "dependenciaAsociada", label: "Dependencia asociada", type: "text" },
+        { key: "tipo", label: "Tipo", type: "select", options: ["Preventiva", "Correctiva", "Mitigación", "Contingencia"] },
+        { key: "riesgoAsociado", label: "Riesgo asociado", type: "relacion", relTipos: ["riesgos"] },
+        { key: "dependenciaAsociada", label: "Dependencia asociada", type: "relacion", relTipos: ["dependencias"] },
         { key: "responsable", label: "Responsable", type: "text" },
         { key: "deadline", label: "Deadline", type: "date" },
-        { key: "estado", label: "Estado", type: "text" },
+        { key: "estado", label: "Estado", type: "select", options: ["Pendiente", "En curso", "Bloqueada", "Cerrada"] },
       ],
     },
     impedimentos: {
@@ -913,6 +910,7 @@
       tablaWrap: "impedimentos-tabla-wrap",
       formId: "form-nuevo-impedimento",
       titulo: "impedimento",
+      resumenKeys: ["impedimento", "criticidad"],
       columns: [
         { key: "id", label: "ID", editable: false },
         { key: "impedimento", label: "Impedimento", type: "textarea" },
@@ -920,8 +918,8 @@
         { key: "fechaInicio", label: "Fecha inicio", type: "date" },
         { key: "fechaFin", label: "Fecha fin", type: "date" },
         { key: "responsable", label: "Responsable", type: "text" },
-        { key: "riesgoOrigen", label: "Riesgo origen", type: "text" },
-        { key: "dependenciaOrigen", label: "Dependencia origen", type: "text" },
+        { key: "riesgoOrigen", label: "Riesgo origen", type: "relacion", relTipos: ["riesgos"] },
+        { key: "dependenciaOrigen", label: "Dependencia origen", type: "relacion", relTipos: ["dependencias"] },
       ],
     },
     changelog: {
@@ -930,20 +928,21 @@
       tablaWrap: "changelog-tabla-wrap",
       formId: "form-nuevo-changelog",
       titulo: "cambio de alcance",
+      resumenKeys: ["titulo", "decision"],
       columns: [
         { key: "id", label: "ID", editable: false },
         { key: "titulo", label: "Título", type: "text" },
         { key: "descripcion", label: "Descripción", type: "textarea" },
-        { key: "impacto", label: "Impacto", type: "text" },
+        { key: "impacto", label: "Impacto", type: "textarea" },
         { key: "coste", label: "Coste", type: "text" },
         { key: "alcance", label: "Alcance", type: "text" },
         { key: "plazo", label: "Plazo", type: "text" },
         { key: "calidad", label: "Calidad", type: "text" },
         { key: "decision", label: "Decisión", type: "text" },
         { key: "comentarios", label: "Comentarios", type: "textarea" },
-        { key: "riesgosGenerados", label: "Riesgos generados", type: "text" },
-        { key: "dependenciasGeneradas", label: "Dependencias generadas", type: "text" },
-        { key: "accionesGeneradas", label: "Acciones generadas", type: "text" },
+        { key: "riesgosGenerados", label: "Riesgos generados", type: "relacion", relTipos: ["riesgos"], relCreable: true },
+        { key: "dependenciasGeneradas", label: "Dependencias generadas", type: "relacion", relTipos: ["dependencias"], relCreable: true },
+        { key: "accionesGeneradas", label: "Acciones generadas", type: "relacion", relTipos: ["acciones"], relCreable: true },
       ],
     },
   };
@@ -992,6 +991,17 @@
 
   // ---------- Render genérico de tabla editable GEE ----------
 
+  // ---------- Tabla compacta + panel de detalle desplegable ----------
+  //
+  // Antes cada fila mostraba TODAS las columnas (hasta ~20 en Riesgos) en una
+  // única fila ancha, con el botón "Editar" al final — en la práctica quedaba
+  // fuera de la vista sin hacer scroll horizontal, y el scroll horizontal en
+  // tablas es poco usable. Ahora cada registro es una fila resumen (2-3
+  // columnas clave) + una fila de detalle desplegable con todos los campos en
+  // formato vertical (etiqueta encima del valor), donde vive también el botón
+  // de edición — más fácil de encontrar, y con sitio de sobra para selects,
+  // selector de fecha y desplegables relacionales.
+
   function renderGeeTable(tipo) {
     const cfg = GEE_CONFIG[tipo];
     const wrap = qs("#" + cfg.tablaWrap);
@@ -1003,17 +1013,22 @@
       return;
     }
 
-    const table = el("table", { class: "data-table" });
+    const resumenCols = cfg.columns.filter((c) => (cfg.resumenKeys || []).includes(c.key));
+
+    const table = el("table", { class: "data-table data-table-compact" });
     const thead = el("thead");
     const headRow = el("tr");
-    cfg.columns.forEach((col) => headRow.appendChild(el("th", { text: col.label })));
+    headRow.appendChild(el("th", { text: "ID" }));
+    resumenCols.forEach((col) => headRow.appendChild(el("th", { text: col.label })));
     headRow.appendChild(el("th", { text: "" }));
     thead.appendChild(headRow);
     table.appendChild(thead);
 
     const tbody = el("tbody");
     rows.forEach((row) => {
-      tbody.appendChild(buildGeeRow(tipo, cfg, row));
+      const { summaryTr, detailTr } = buildGeeRowPair(tipo, cfg, row, resumenCols);
+      tbody.appendChild(summaryTr);
+      tbody.appendChild(detailTr);
     });
     table.appendChild(tbody);
 
@@ -1023,51 +1038,91 @@
     ensureNewRecordForm(tipo);
   }
 
-  function buildGeeRow(tipo, cfg, row) {
-    const tr = el("tr", { "data-id": String(row.id) });
-    tr.dataset.editing = "false";
+  function buildGeeRowPair(tipo, cfg, row, resumenCols) {
+    const colspan = resumenCols.length + 2;
 
-    cfg.columns.forEach((col) => {
-      const td = el("td", { "data-key": col.key });
-      td.appendChild(document.createTextNode(""));
+    const summaryTr = el("tr", { "data-id": String(row.id), class: "gee-row-summary" });
+    summaryTr.appendChild(el("td", { text: fmt(row.id) }));
+    resumenCols.forEach((col) => {
+      const td = el("td");
       renderCellReadonly(td, col, row);
-      tr.appendChild(td);
+      summaryTr.appendChild(td);
     });
+    const tdToggle = el("td", { class: "cell-actions" });
+    const btnToggle = el("button", { class: "btn btn-sm", text: "Ver detalle" });
+    tdToggle.appendChild(btnToggle);
+    summaryTr.appendChild(tdToggle);
 
-    const tdActions = el("td", { class: "cell-actions" });
+    const detailTr = el("tr", { class: "gee-row-detail hidden" });
+    const detailTd = el("td", { colspan: String(colspan) });
+    const panel = el("div", { class: "detail-panel" });
+
     const btnEdit = el("button", { class: "btn btn-sm", text: "Editar" });
     const btnSave = el("button", { class: "btn btn-sm btn-primary hidden", text: "Guardar cambios" });
     const btnCancel = el("button", { class: "btn btn-sm hidden", text: "Cancelar" });
 
-    btnEdit.addEventListener("click", () => enterEditMode(tr, cfg, row, btnEdit, btnSave, btnCancel));
-    btnCancel.addEventListener("click", () => exitEditMode(tr, cfg, row, btnEdit, btnSave, btnCancel));
-    btnSave.addEventListener("click", () => saveRowEdits(tipo, cfg, row, tr, btnEdit, btnSave, btnCancel));
+    cfg.columns.forEach((col) => {
+      if (col.key === "id") return; // ya se muestra en la fila resumen
+      const field = el("div", { class: "detail-field", "data-key": col.key });
+      field.appendChild(el("label", { text: col.label }));
+      const valueEl = el("div", { class: "detail-value" });
+      renderCellReadonly(valueEl, col, row);
+      field.appendChild(valueEl);
+      panel.appendChild(field);
+    });
 
-    tdActions.appendChild(btnEdit);
-    tdActions.appendChild(btnSave);
-    tdActions.appendChild(btnCancel);
-    tr.appendChild(tdActions);
+    const actions = el("div", { class: "detail-actions" });
+    actions.appendChild(btnEdit);
+    actions.appendChild(btnSave);
+    actions.appendChild(btnCancel);
+    panel.appendChild(actions);
 
-    return tr;
+    detailTd.appendChild(panel);
+    detailTr.appendChild(detailTd);
+
+    btnToggle.addEventListener("click", () => {
+      const estabaOculto = detailTr.classList.contains("hidden");
+      detailTr.classList.toggle("hidden");
+      btnToggle.textContent = estabaOculto ? "Ocultar detalle" : "Ver detalle";
+    });
+    btnEdit.addEventListener("click", () => enterEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel));
+    btnCancel.addEventListener("click", () => exitEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel));
+    btnSave.addEventListener("click", () => saveRowEdits(tipo, cfg, row, panel, btnEdit, btnSave, btnCancel));
+
+    return { summaryTr, detailTr };
   }
 
-  function renderCellReadonly(td, col, row) {
+  function renderCellReadonly(el_, col, row) {
     const value = row[col.key];
     if (col.render) {
-      td.innerHTML = col.render(value);
+      el_.innerHTML = col.render(value);
     } else {
-      td.textContent = fmt(value, "—");
+      el_.textContent = fmt(value, "—");
     }
   }
 
-  function enterEditMode(tr, cfg, row, btnEdit, btnSave, btnCancel) {
-    tr.dataset.editing = "true";
+  /** "2026-07-06" o similar -> "YYYY-MM-DD" exacto que exige <input type="date">.
+   *  Vacío si no hay nada parseable (el input simplemente queda sin valor,
+   *  no rompe nada). */
+  function normalizarFechaParaInput(value) {
+    const match = String(value || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+    return match ? match[0] : "";
+  }
+
+  function enterEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel) {
     cfg.columns.forEach((col) => {
-      const td = tr.querySelector('td[data-key="' + col.key + '"]');
-      if (col.editable === false) {
-        return; // permanece readonly (ID, fechaUpdate, etc.)
-      }
+      if (col.key === "id" || col.editable === false) return; // permanece readonly (ID, fechaUpdate, etc.)
+      const field = panel.querySelector('.detail-field[data-key="' + col.key + '"]');
+      if (!field) return;
+      const valueEl = field.querySelector(".detail-value");
       const currentValue = row[col.key] || "";
+
+      if (col.type === "relacion") {
+        valueEl.innerHTML = "";
+        valueEl.appendChild(buildRelacionPicker(col, currentValue));
+        return;
+      }
+
       let input;
       if (col.type === "textarea") {
         input = el("textarea");
@@ -1083,36 +1138,45 @@
           if (opcionCoincideConValor(opt, currentValue)) optionEl.selected = true;
           input.appendChild(optionEl);
         });
+      } else if (col.type === "date") {
+        input = el("input", { type: "date" });
+        input.value = normalizarFechaParaInput(currentValue);
       } else {
-        input = el("input", { type: col.type === "date" ? "text" : "text" });
+        input = el("input", { type: "text" });
         input.value = currentValue;
-        if (col.type === "date") input.placeholder = "YYYY-MM-DD";
       }
       input.dataset.fieldKey = col.key;
-      td.innerHTML = "";
-      td.appendChild(input);
+      valueEl.innerHTML = "";
+      valueEl.appendChild(input);
     });
     btnEdit.classList.add("hidden");
     btnSave.classList.remove("hidden");
     btnCancel.classList.remove("hidden");
   }
 
-  function exitEditMode(tr, cfg, row, btnEdit, btnSave, btnCancel) {
-    tr.dataset.editing = "false";
+  function exitEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel) {
     cfg.columns.forEach((col) => {
-      const td = tr.querySelector('td[data-key="' + col.key + '"]');
-      renderCellReadonly(td, col, row);
+      if (col.key === "id") return;
+      const field = panel.querySelector('.detail-field[data-key="' + col.key + '"]');
+      if (!field) return;
+      const valueEl = field.querySelector(".detail-value");
+      renderCellReadonly(valueEl, col, row);
     });
     btnEdit.classList.remove("hidden");
     btnSave.classList.add("hidden");
     btnCancel.classList.add("hidden");
   }
 
-  async function saveRowEdits(tipo, cfg, row, tr, btnEdit, btnSave, btnCancel) {
+  async function saveRowEdits(tipo, cfg, row, panel, btnEdit, btnSave, btnCancel) {
     const updates = {};
     cfg.columns.forEach((col) => {
       if (col.editable === false) return;
-      const input = tr.querySelector('[data-field-key="' + col.key + '"]');
+      if (col.type === "relacion") {
+        const field = panel.querySelector('.detail-field[data-key="' + col.key + '"]');
+        if (field) updates[col.key] = collectRelacionValue(field);
+        return;
+      }
+      const input = panel.querySelector('[data-field-key="' + col.key + '"]');
       if (input) updates[col.key] = input.value;
     });
 
@@ -1132,6 +1196,154 @@
     }
   }
 
+  // ---------- Desplegables relacionales (0..n IDs de otros tipos de GEE) ----------
+  //
+  // Sustituye los campos de texto libre para IDs cruzados (ej. "Riesgos
+  // asociados" de una dependencia) por una lista de checkboxes con los
+  // registros reales ya existentes — no se puede escribir un ID que no
+  // exista ni desalinear el formato de separación por comas.
+
+  function parseRelacionValue(value) {
+    return String(value || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s && s !== "—");
+  }
+
+  function datosGeeDeTipo(tipo) {
+    const cfg = GEE_CONFIG[tipo];
+    return (state.gee && state.gee[cfg.dataKey]) || [];
+  }
+
+  /** Texto corto para mostrar junto al ID en el desplegable relacional (usa
+   *  la primera columna "de resumen" de ese tipo como descripción). */
+  function resumenTextoDeFila(tipoRel, row) {
+    const cfg = GEE_CONFIG[tipoRel];
+    const key = (cfg.resumenKeys || [])[0];
+    const texto = key ? fmt(row[key], "") : "";
+    return texto ? texto.slice(0, 60) : "";
+  }
+
+  function buildRelacionPicker(col, currentValue) {
+    const seleccionados = new Set(parseRelacionValue(currentValue));
+    const container = el("div", { class: "rel-picker" });
+
+    (col.relTipos || []).forEach((tipoRel) => {
+      const cfgRel = GEE_CONFIG[tipoRel];
+      const datos = datosGeeDeTipo(tipoRel);
+      const grupo = el("div", { class: "rel-picker-grupo" });
+      if (col.relTipos.length > 1) {
+        grupo.appendChild(el("div", { class: "rel-picker-grupo-titulo", text: cfgRel.titulo }));
+      }
+      if (datos.length === 0) {
+        grupo.appendChild(el("div", { class: "text-muted", text: "Sin registros de " + cfgRel.titulo + " todavía." }));
+      }
+      datos.forEach((row) => {
+        const item = el("label", { class: "rel-picker-item" });
+        const checkbox = el("input", { type: "checkbox", value: row.id });
+        if (seleccionados.has(String(row.id))) checkbox.checked = true;
+        item.appendChild(checkbox);
+        const desc = resumenTextoDeFila(tipoRel, row);
+        item.appendChild(document.createTextNode(" " + row.id + (desc ? " — " + desc : "")));
+        grupo.appendChild(item);
+      });
+      if (col.relCreable) {
+        const btnAdd = el("button", { class: "btn btn-sm rel-picker-add", text: "+ Nuevo " + cfgRel.titulo });
+        btnAdd.addEventListener("click", () => abrirCreacionInlineRelacion(tipoRel, grupo));
+        grupo.appendChild(btnAdd);
+      }
+      container.appendChild(grupo);
+    });
+
+    return container;
+  }
+
+  function collectRelacionValue(field) {
+    const checked = qsa('input[type="checkbox"]:checked', field);
+    if (checked.length === 0) return "—";
+    return checked.map((c) => c.value).join(", ");
+  }
+
+  /** "+ Nuevo <tipo>" dentro de un desplegable relacional (hoy solo en
+   *  Cambios de alcance, ver relCreable): abre un mini-formulario con los
+   *  campos de ese tipo, lo crea vía la misma API que su pestaña, y añade el
+   *  ID recién creado ya marcado en este mismo picker — sin recargar toda la
+   *  tabla de Cambios de alcance (perdería el panel de edición abierto). */
+  function abrirCreacionInlineRelacion(tipoRel, grupo) {
+    const existente = grupo.querySelector(".rel-picker-inline-form");
+    if (existente) {
+      existente.remove();
+      return;
+    }
+
+    const cfgRel = GEE_CONFIG[tipoRel];
+    const form = el("div", { class: "rel-picker-inline-form" });
+    const editableCols = cfgRel.columns.filter((c) => c.editable !== false && c.type !== "relacion");
+    const inputs = [];
+
+    editableCols.forEach((col) => {
+      const field = el("div", { class: "form-field" });
+      field.appendChild(el("label", { text: col.label }));
+      let input;
+      if (col.type === "textarea") {
+        input = el("textarea");
+      } else if (col.type === "select") {
+        input = el("select");
+        input.appendChild(el("option", { value: "", text: "—" }));
+        (col.options || []).forEach((opt) => input.appendChild(el("option", { value: opt, text: opt })));
+      } else if (col.type === "date") {
+        input = el("input", { type: "date" });
+      } else {
+        input = el("input", { type: "text" });
+      }
+      input.dataset.fieldKey = col.key;
+      field.appendChild(input);
+      form.appendChild(field);
+      inputs.push(input);
+    });
+
+    const btnCrear = el("button", { class: "btn btn-sm btn-primary", text: "Crear y asociar" });
+    const btnCancelarInline = el("button", { class: "btn btn-sm", text: "Cancelar" });
+    const actions = el("div", { class: "form-actions" });
+    actions.appendChild(btnCrear);
+    actions.appendChild(btnCancelarInline);
+    form.appendChild(actions);
+
+    btnCancelarInline.addEventListener("click", () => form.remove());
+    btnCrear.addEventListener("click", async () => {
+      const payload = { confirm: true };
+      inputs.forEach((input) => {
+        payload[input.dataset.fieldKey] = input.value;
+      });
+      setBtnLoading(btnCrear, true, "Creando…");
+      try {
+        const resp = await apiSend("POST", "/api/gee/" + cfgRel.apiTipo, payload);
+        state = resp.snapshot || state;
+        const createdId = resp.createdId;
+        // Refresca las demás pestañas GEE con el nuevo dato, pero no la que
+        // se está editando ahora mismo (perdería el panel abierto).
+        Object.keys(GEE_CONFIG).forEach((t) => {
+          if (t !== "changelog") renderGeeTable(t);
+        });
+        const item = el("label", { class: "rel-picker-item" });
+        const checkbox = el("input", { type: "checkbox", value: createdId });
+        checkbox.checked = true;
+        item.appendChild(checkbox);
+        item.appendChild(document.createTextNode(" " + createdId + " (recién creado)"));
+        grupo.insertBefore(item, form);
+        form.remove();
+        showToast("Nuevo " + cfgRel.titulo + " (" + createdId + ") creado y asociado.", "success");
+      } catch (err) {
+        console.error(err);
+        showToast("No se pudo crear: " + err.message, "error");
+      } finally {
+        setBtnLoading(btnCrear, false);
+      }
+    });
+
+    grupo.appendChild(form);
+  }
+
   // ---------- Formulario "+ Nuevo registro" ----------
 
   function ensureNewRecordForm(tipo) {
@@ -1143,8 +1355,18 @@
     const grid = el("div", { class: "form-grid" });
     const editableCols = cfg.columns.filter((c) => c.editable !== false);
     editableCols.forEach((col) => {
-      const field = el("div", { class: "form-field" });
+      const esAncho = col.type === "textarea" || col.type === "relacion";
+      const field = el("div", { class: "form-field" + (esAncho ? " form-field-wide" : "") });
       field.appendChild(el("label", { text: col.label }));
+
+      if (col.type === "relacion") {
+        const picker = buildRelacionPicker(col, "");
+        picker.dataset.fieldKeyRelacion = col.key;
+        field.appendChild(picker);
+        grid.appendChild(field);
+        return;
+      }
+
       let input;
       if (col.type === "textarea") {
         input = el("textarea");
@@ -1152,9 +1374,10 @@
         input = el("select");
         input.appendChild(el("option", { value: "", text: "—" }));
         (col.options || []).forEach((opt) => input.appendChild(el("option", { value: opt, text: opt })));
+      } else if (col.type === "date") {
+        input = el("input", { type: "date" });
       } else {
         input = el("input", { type: "text" });
-        if (col.type === "date") input.placeholder = "YYYY-MM-DD";
       }
       input.dataset.fieldKey = col.key;
       field.appendChild(input);
@@ -1178,13 +1401,21 @@
     inputs.forEach((input) => {
       payload[input.dataset.fieldKey] = input.value;
     });
+    qsa("[data-field-key-relacion]", container).forEach((picker) => {
+      payload[picker.dataset.fieldKeyRelacion] = collectRelacionValue(picker);
+    });
 
     const confirmed = window.confirm("¿Confirmas la creación de este nuevo " + cfg.titulo + "?");
     if (!confirmed) return;
 
     setBtnLoading(btnCreate, true, "Creando…");
     try {
-      state = await apiSend("POST", "/api/gee/" + cfg.apiTipo, payload);
+      // OJO: este endpoint (POST) devuelve { createdId, snapshot } — a
+      // diferencia de PUT, que devuelve el snapshot directamente. Asignar la
+      // respuesta entera a "state" (como hacía la versión anterior) dejaba
+      // el dashboard entero en blanco tras crear cualquier registro nuevo.
+      const resp = await apiSend("POST", "/api/gee/" + cfg.apiTipo, payload);
+      state = resp.snapshot;
       renderAll();
       showToast("Nuevo " + cfg.titulo + " creado.", "success");
       container.classList.remove("open");
@@ -1222,7 +1453,26 @@
       ? "<ul>" + actualizaciones.map((a) => "<li>" + escapeHtml(a) + "</li>").join("") + "</ul>"
       : "";
 
-    const notasHtml = entry.notas ? "<p>" + escapeHtml(entry.notas) + "</p>" : "";
+    // "notas" es una lista de {fechaHora, autor, texto} (ver
+    // prompts/paso-4/daily-log.md) — cada nota atribuida a quién la escribió.
+    // Los dailylogs de antes de este formato llegan como una única nota sin
+    // autor/fechaHora (ver dailylog.js, compatibilidad hacia atrás).
+    const notas = entry.notas || [];
+    const notasHtml = notas.length
+      ? "<ul class=\"notas-lista\">" +
+        notas
+          .map((n) => {
+            const meta = [n.fechaHora, n.autor].filter(Boolean).join(" · ");
+            return (
+              "<li>" +
+              (meta ? "<span class=\"nota-meta\">" + escapeHtml(meta) + "</span> " : "") +
+              escapeHtml(n.texto) +
+              "</li>"
+            );
+          })
+          .join("") +
+        "</ul>"
+      : "";
 
     return (
       "<p><em>" + escapeHtml(cabecera) + "</em></p>" +
@@ -1236,7 +1486,11 @@
     const container = qs("#dailylog-lista");
     const logs = (state.gee && state.gee.dailylogs) || [];
     if (!logs || logs.length === 0) {
-      container.innerHTML = emptyState("📓", "Todavía no hay entradas de daily log.", "Se generan con el prompt paso-4/daily-log.");
+      container.innerHTML = emptyState(
+        "📓",
+        "Todavía no hay entradas de daily log.",
+        'Disponible desde el primer día del proyecto — usa "+ Añadir nota" arriba, no hace falta esperar a un sprint activo.'
+      );
       return;
     }
     const sorted = logs.slice().sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
@@ -1250,6 +1504,44 @@
           "</details>"
       )
       .join("");
+  }
+
+  function setupNuevaNotaForm() {
+    const btnAbrir = qs("#btn-nueva-nota");
+    const form = qs("#form-nueva-nota");
+    const btnCrear = qs("#btn-crear-nota");
+    const btnCancelar = qs("#btn-cancelar-nota");
+    if (!btnAbrir || !form) return;
+
+    btnAbrir.addEventListener("click", () => form.classList.toggle("open"));
+    btnCancelar.addEventListener("click", () => form.classList.remove("open"));
+
+    btnCrear.addEventListener("click", async () => {
+      const fecha = qs("#nota-fecha").value || null;
+      const autor = qs("#nota-autor").value;
+      const texto = qs("#nota-texto").value;
+      if (!texto.trim()) {
+        showToast("Escribe algo en la nota antes de añadirla.", "error");
+        return;
+      }
+      setBtnLoading(btnCrear, true, "Añadiendo…");
+      try {
+        // OJO: igual que el resto de endpoints POST del GEE, la respuesta
+        // envuelve el snapshot ({ fecha, creado, snapshot }) en vez de
+        // devolverlo directamente — ver createNewRecord() para el mismo caso.
+        const resp = await apiSend("POST", "/api/dailylog", { confirm: true, fecha, autor, texto });
+        state = resp.snapshot;
+        renderAll();
+        showToast("Nota añadida al daily log.", "success");
+        qs("#nota-texto").value = "";
+        form.classList.remove("open");
+      } catch (err) {
+        console.error(err);
+        showToast("No se pudo añadir la nota: " + err.message, "error");
+      } finally {
+        setBtnLoading(btnCrear, false);
+      }
+    });
   }
 
   // ------------------------------------------------------------------
@@ -1658,6 +1950,7 @@
     setupTabs();
     setupHeaderButtons();
     setupSprintTabButtons();
+    setupNuevaNotaForm();
     loadInitial();
   });
 })();
