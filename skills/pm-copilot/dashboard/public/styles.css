@@ -590,6 +590,57 @@ tr.gee-row-detail td {
   gap: 8px;
 }
 
+/* ---------- Descartar / Eliminar ---------- */
+
+tr.gee-row-summary.gee-row-descartada td {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.badge-descartado {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-rojo);
+  margin-right: 8px;
+}
+
+.descarte-banner {
+  grid-column: 1 / -1;
+  background: var(--color-gris-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.motivo-inline-form {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.motivo-inline-form label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.motivo-inline-form textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+
 /* ---------- Badges RAG ---------- */
 
 .badge-rag {

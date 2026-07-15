@@ -13,6 +13,8 @@ const FIELD_MAP = {
   responsable: 'Responsable',
   deadline: 'Deadline',
   estado: 'Estado',
+  visibilidad: 'Visibilidad',
+  motivoDescarte: 'Motivo (descarte/eliminación)',
 };
 
 function toColumnFields(payload) {

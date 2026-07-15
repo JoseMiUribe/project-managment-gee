@@ -16,6 +16,8 @@ function mapRow(row) {
     responsable: getCell(row, 'Responsable') || '',
     deadline: getCell(row, 'Deadline') || '',
     estado: getCell(row, 'Estado') || '',
+    visibilidad: getCell(row, 'Visibilidad') || '',
+    motivoDescarte: getCell(row, 'Motivo (descarte/eliminación)') || '',
   };
 }
 

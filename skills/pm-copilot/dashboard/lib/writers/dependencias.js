@@ -9,14 +9,13 @@ const FIELD_MAP = {
   equipo: 'Equipo',
   dependencia: 'Dependencia',
   criticidadRag: 'Criticidad RAG',
-  sistema1: 'Sistema 1',
-  sistema2: 'Sistema 2',
-  sistema3: 'Sistema 3',
   estado: 'Estado',
   fechaCompromiso: 'Fecha compromiso',
   riesgosAsociados: 'Riesgos asociados',
   tareaGestionJira: 'Tarea de gestión (Jira)',
   comentarios: 'Comentarios',
+  visibilidad: 'Visibilidad',
+  motivoDescarte: 'Motivo (descarte/eliminación)',
 };
 
 function toColumnFields(payload) {
