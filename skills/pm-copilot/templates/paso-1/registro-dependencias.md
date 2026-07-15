@@ -4,12 +4,13 @@
 
 ## Dependencias
 
-| ID | Equipo | Dependencia | Criticidad RAG | Estado | Fecha compromiso | Riesgos asociados | Tarea de gestión (Jira) | Comentarios | Visibilidad | Motivo (descarte/eliminación) |
-|---|---|---|---|---|---|---|---|---|---|---|
-| DP-001 | Equipo de Infraestructura del cliente | Aprovisionamiento del entorno cloud de preproducción (Azure, VPN corporativa) | 🔴 Rojo | Detectada | 2026-07-20 | R-002 | — (pendiente, sin Jira conectado) | 2026-07-06: dependencia identificada en kickoff, pendiente de interlocutor asignado por el cliente | | |
+| ID | Equipo | Dependencia | Criticidad RAG | Estado | Fecha compromiso | Riesgos asociados | Tarea de gestión (Jira) | Comentarios | Visibilidad | Motivo (descarte/eliminación) | Última modificación | Modificado por |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| DP-001 | Equipo de Infraestructura del cliente | Aprovisionamiento del entorno cloud de preproducción (Azure, VPN corporativa) | 🔴 Rojo | Detectada | 2026-07-20 | R-002 | — (pendiente, sin Jira conectado) | 2026-07-06: dependencia identificada en kickoff, pendiente de interlocutor asignado por el cliente | | | | |
 
 **Notas de uso:**
 - **Visibilidad / Motivo (descarte/eliminación):** vacías por defecto (dependencia activa). El dashboard las gestiona automáticamente al usar "Descartar" o "Eliminar" — no las rellenes a mano. Ningún registro se borra nunca físicamente de esta tabla.
+- **Última modificación / Modificado por:** metadatos de auditoría que gestiona el propio dashboard en cada escritura — no las rellenes a mano.
 - Numeración correlativa de tres dígitos (DP-001, DP-002...).
 - Estado avanza en el orden: Detectada → Comunicada → Negociada → En Resolución → Resuelta.
 - Criticidad RAG: 🔴 bloquea entregas si no se resuelve pronto / 🟡 afecta pero hay margen / 🟢 deseable, no bloqueante.

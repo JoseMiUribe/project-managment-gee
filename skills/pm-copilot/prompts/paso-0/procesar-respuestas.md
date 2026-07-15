@@ -110,7 +110,7 @@ Ante la duda entre descartar y registrar como zona de incertidumbre: si hay la m
 
 ### g) Formato de salida de los 4 archivos
 
-Estos 4 archivos son editables desde el dashboard (pestaña Requisitos, subpestañas Peticiones/RF/RNF/Zonas) — respeta los nombres de columna exactos indicados aquí, son los que leen los parsers/writers del dashboard.
+Estos 4 archivos son editables desde el dashboard (pestaña Requisitos, subpestañas Peticiones/RF/RNF/Zonas) — respeta los nombres de columna exactos indicados aquí, son los que leen los parsers/writers del dashboard. Las columnas "Última modificación"/"Modificado por" son metadatos de auditoría que gestiona el propio dashboard en cada escritura — déjalas vacías al generar el archivo, no las rellenes tú.
 
 **`peticiones-cliente.md`**
 
@@ -122,9 +122,9 @@ Estos 4 archivos son editables desde el dashboard (pestaña Requisitos, subpesta
 
 ## Peticiones del cliente
 
-| ID | Petición | Lo dijo el cliente | Prioridad subjetiva |
-|---|---|---|---|
-| PC-001 | ... | "cita textual o resumen fiel" | Alta/Media/Baja |
+| ID | Petición | Lo dijo el cliente | Prioridad subjetiva | Última modificación | Modificado por |
+|---|---|---|---|---|---|
+| PC-001 | ... | "cita textual o resumen fiel" | Alta/Media/Baja | | |
 
 ## Notas adicionales
 
@@ -142,9 +142,9 @@ Estos 4 archivos son editables desde el dashboard (pestaña Requisitos, subpesta
 
 ## Requisitos funcionales
 
-| ID | Módulo/Área | Descripción | Actor/Rol | Prioridad (MoSCoW) | Origen | Dependencias |
-|---|---|---|---|---|---|---|
-| RF-001 | ... | ... | ... | Must/Should/Could/Won't | PC-XXX | RF-XXX o "—" |
+| ID | Módulo/Área | Descripción | Actor/Rol | Prioridad (MoSCoW) | Origen | Dependencias | Última modificación | Modificado por |
+|---|---|---|---|---|---|---|---|---|
+| RF-001 | ... | ... | ... | Must/Should/Could/Won't | PC-XXX | RF-XXX o "—" | | |
 
 ## Reglas de negocio detectadas
 
@@ -165,9 +165,9 @@ Si el proyecto tiene legacy con RFs previos numerados, no reutilices sus IDs: co
 
 ## Requisitos no funcionales
 
-| ID | Descripción | Categoría | Origen | Prioridad (MoSCoW) |
-|---|---|---|---|---|
-| RNF-001 | ... | Rendimiento/Seguridad/Disponibilidad/Normativa/Usabilidad/Mantenibilidad/Escalabilidad | Explícito - PC-XXX / Derivado de RF-XXX / Normativa - [nombre] / Implícito, no confirmado por el cliente | Must/Should/Could/Won't |
+| ID | Descripción | Categoría | Origen | Prioridad (MoSCoW) | Última modificación | Modificado por |
+|---|---|---|---|---|---|---|
+| RNF-001 | ... | Rendimiento/Seguridad/Disponibilidad/Normativa/Usabilidad/Mantenibilidad/Escalabilidad | Explícito - PC-XXX / Derivado de RF-XXX / Normativa - [nombre] / Implícito, no confirmado por el cliente | Must/Should/Could/Won't | | |
 ```
 
 **`zonas-incertidumbre.md`**
@@ -180,9 +180,9 @@ Si el proyecto tiene legacy con RFs previos numerados, no reutilices sus IDs: co
 
 ## Zonas identificadas
 
-| ID | Zona | Descripción | Por qué es incierto | Afecta a | Pregunta para resolverlo | Recomendación por defecto (80/20) |
-|---|---|---|---|---|---|---|
-| ZI-001 | ... | ... | Ambigüedad/Contradicción/Decisión pendiente/Asunción IA | RF-XXX / RNF-XXX | ... | ... |
+| ID | Zona | Descripción | Por qué es incierto | Afecta a | Pregunta para resolverlo | Recomendación por defecto (80/20) | Última modificación | Modificado por |
+|---|---|---|---|---|---|---|---|---|
+| ZI-001 | ... | ... | Ambigüedad/Contradicción/Decisión pendiente/Asunción IA | RF-XXX / RNF-XXX | ... | ... | | |
 
 ## Resumen
 
