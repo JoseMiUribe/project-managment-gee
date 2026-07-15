@@ -15,6 +15,7 @@
     <div class="project-meta" id="project-ruta" title=""></div>
   </div>
   <div class="header-actions">
+    <span id="badge-cambios-pendientes" class="badge-cambios-pendientes hidden"></span>
     <span class="header-actualizado">Actualizado: <code id="project-generado-en">—</code></span>
     <button id="btn-sync" class="btn btn-primary">
       <span class="btn-icon">🔄</span> <span class="btn-label">Actualizar</span>
@@ -241,10 +242,11 @@
 </section>
 
 <!-- ======================= TAB: REQUISITOS ======================= -->
-<!-- Pestaña de solo lectura: datos de Paso -1 (análisis legacy) y Paso 0
-     (requisitos del cliente). No incluye edición ni formularios "+ Nuevo",
-     a diferencia de la pestaña GEE — ver public/app.js, sección "TAB:
-     Requisitos" para más contexto. -->
+<!-- Legacy (Paso -1) es solo lectura (análisis histórico, no se edita desde
+     el dashboard). Peticiones/RF/RNF/Zonas (Paso 0) son editables con el
+     mismo patrón de tabla compacta + panel de detalle que el GEE (ver
+     REQUISITOS_CONFIG en app.js) — sin Descartar/Eliminar ni desplegables
+     relacionales, que son específicos del GEE. -->
 <section id="tab-requisitos" class="tab-panel">
 
   <div class="section-header">
@@ -254,44 +256,78 @@
     </button>
   </div>
 
-  <!-- ---------- Análisis Legacy (Paso -1) ---------- -->
-  <div class="card">
-    <h2>Análisis Legacy (Paso -1)</h2>
-    <div id="legacy-sin-datos" class="hidden"></div>
-    <div id="legacy-contenido" class="hidden">
-      <p class="text-muted" id="legacy-version-nota"></p>
-      <div class="grid-2">
-        <div id="chart-legacy-resumen" class="chart-box chart-sm"></div>
-        <div id="legacy-resumen-lateral" class="text-muted"></div>
+  <nav class="subtabs-nav">
+    <button class="subtab-btn active" data-subtab="sub-req-legacy">Legacy</button>
+    <button class="subtab-btn" data-subtab="sub-req-peticiones">Peticiones</button>
+    <button class="subtab-btn" data-subtab="sub-req-rf">Requisitos Funcionales</button>
+    <button class="subtab-btn" data-subtab="sub-req-rnf">Requisitos No Funcionales</button>
+    <button class="subtab-btn" data-subtab="sub-req-zonas">Zonas de Incertidumbre</button>
+  </nav>
+
+  <!-- ---------- Análisis Legacy (Paso -1), solo lectura ---------- -->
+  <div id="sub-req-legacy" class="subtab-panel active">
+    <div class="card">
+      <div id="legacy-sin-datos" class="hidden"></div>
+      <div id="legacy-contenido" class="hidden">
+        <p class="text-muted" id="legacy-version-nota"></p>
+        <div class="grid-2">
+          <div id="chart-legacy-resumen" class="chart-box chart-sm"></div>
+          <div id="legacy-resumen-lateral" class="text-muted"></div>
+        </div>
+        <div class="table-wrap" id="legacy-tabla-wrap"></div>
       </div>
-      <div class="table-wrap" id="legacy-tabla-wrap"></div>
     </div>
   </div>
 
-  <!-- ---------- Requisitos del cliente (Paso 0) ---------- -->
-  <div class="card">
-    <h2>Requisitos del cliente (Paso 0)</h2>
-    <div id="paso0-resumen" class="text-muted"></div>
+  <!-- ---------- Peticiones del cliente ---------- -->
+  <div id="sub-req-peticiones" class="subtab-panel">
+    <div class="card">
+      <div id="paso0-resumen" class="text-muted"></div>
+    </div>
+    <div class="card">
+      <div class="section-header">
+        <h2>Peticiones del cliente</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-peticion">+ Nueva petición</button>
+      </div>
+      <div id="form-nueva-peticion" class="new-record-form"></div>
+      <div id="peticiones-tabla-wrap" class="table-wrap"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Peticiones del cliente</h2>
-    <div class="table-wrap" id="peticiones-tabla-wrap"></div>
+  <!-- ---------- Requisitos Funcionales ---------- -->
+  <div id="sub-req-rf" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Requisitos Funcionales</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-rf">+ Nuevo RF</button>
+      </div>
+      <div id="form-nuevo-rf" class="new-record-form"></div>
+      <div id="rf-tabla-wrap" class="table-wrap"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Requisitos Funcionales</h2>
-    <div class="table-wrap" id="rf-tabla-wrap"></div>
+  <!-- ---------- Requisitos No Funcionales ---------- -->
+  <div id="sub-req-rnf" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Requisitos No Funcionales</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-rnf">+ Nuevo RNF</button>
+      </div>
+      <div id="form-nuevo-rnf" class="new-record-form"></div>
+      <div id="rnf-tabla-wrap" class="table-wrap"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Requisitos No Funcionales</h2>
-    <div class="table-wrap" id="rnf-tabla-wrap"></div>
-  </div>
-
-  <div class="card">
-    <h2>Zonas de Incertidumbre</h2>
-    <div id="zi-lista"></div>
+  <!-- ---------- Zonas de Incertidumbre ---------- -->
+  <div id="sub-req-zonas" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Zonas de Incertidumbre</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-zona">+ Nueva zona</button>
+      </div>
+      <div id="form-nueva-zona" class="new-record-form"></div>
+      <div id="zonas-tabla-wrap" class="table-wrap"></div>
+    </div>
   </div>
 
 </section>

@@ -23,6 +23,8 @@ No lo actives por matices que no cambian ninguna conclusión ya tomada (principi
 
 ¿A qué paso y qué artefacto concreto afecta la información nueva? Sé preciso — no digas "esto afecta a todo", localiza el artefacto exacto (ej. `output-paso-0/requisitos-funcionales.md`, `output-paso-1/registro-riesgos.md`, `output-paso-2/config/dod-definition.md`).
 
+**Si el PM te pide "haz el análisis" sin especificar qué cambió**, no re-escanees todo el proyecto para averiguarlo: lee primero `output-transversal/cambios-pendientes-dashboard.md` (si existe). Es un registro append-only de cada edición hecha directamente desde el dashboard (Riesgos/Dependencias/Acciones/Impedimentos/Changelog/Peticiones/RF/RNF/Zonas de Incertidumbre) — cada fila indica artefacto, ID del registro y campos modificados, con una columna "Procesado" (No/Sí). Filtra por `Procesado: No` para saber exactamente qué cambió sin inspeccionar cada archivo del proyecto. El dashboard ya avisa en su cabecera cuántos cambios pendientes hay, precisamente para que sepas si merece la pena venir a mirar.
+
 ### 2. Consulta el mapa de dependencias y determina qué regenerar
 
 | Si cambia esto... | ...revisa/regenera esto, en este orden |
@@ -48,6 +50,8 @@ Al regenerar cada artefacto de la cadena, no lo sustituyas en silencio: indica e
 ### 5. Vuelve al paso que estabas validando
 
 Cierra la cascada volviendo a presentar el artefacto que el PM estaba a punto de validar (ej. el roadmap), ya con los datos actualizados, y sé explícito sobre qué cambió en él como consecuencia de la cascada — no lo presentes como si fuera la primera vez.
+
+Si la cascada arrancó a partir de `cambios-pendientes-dashboard.md` (paso 1), marca ahí mismo cada fila que ya has tenido en cuenta cambiando su columna "Procesado" de "No" a "Sí" — edítalo a mano, este archivo no tiene prompt generador propio. No lo hagas fila a fila mientras regeneras (rompería la trazabilidad de qué versión del artefacto corresponde a qué cambio); hazlo de una vez al cerrar la cascada, cuando ya sepas qué quedó realmente incorporado.
 
 ### 6. Si algo queda desactualizado sin regenerar todavía
 

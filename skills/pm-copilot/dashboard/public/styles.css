@@ -90,6 +90,17 @@ button {
   white-space: nowrap;
 }
 
+.badge-cambios-pendientes {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
 .header-actualizado code {
   background: var(--color-gris-bg);
   padding: 1px 5px;

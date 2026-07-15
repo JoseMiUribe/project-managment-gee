@@ -19,6 +19,11 @@ const { writeAccion } = require('./lib/writers/acciones');
 const { writeImpedimento } = require('./lib/writers/impedimentos');
 const { writeChangelogEntry } = require('./lib/writers/changelog');
 const { appendDailylogNota } = require('./lib/writers/dailylog');
+const { writePeticion } = require('./lib/writers/peticiones');
+const { writeFuncional } = require('./lib/writers/funcionales');
+const { writeNoFuncional } = require('./lib/writers/nofuncionales');
+const { writeZonaIncertidumbre } = require('./lib/writers/zonasIncertidumbre');
+const { logCambioPendiente } = require('./lib/writers/cambiosPendientes');
 
 const app = express();
 app.use(express.json());
@@ -29,7 +34,18 @@ const WRITERS = {
   acciones: writeAccion,
   impedimentos: writeImpedimento,
   changelog: writeChangelogEntry,
+  peticiones: writePeticion,
+  funcionales: writeFuncional,
+  nofuncionales: writeNoFuncional,
+  zonas: writeZonaIncertidumbre,
 };
+
+// Tipos cuyas ediciones se registran en el ledger de cambios pendientes
+// (ver output-transversal/cambios-pendientes-dashboard.md) para que
+// actualizar-cascada.md sepa qué cambió sin re-escanear todo el proyecto.
+// El daily log queda fuera a propósito: no es un artefacto del que dependa
+// ningún otro paso del pipeline (no aparece en la tabla de esa cascada).
+const TIPOS_CON_CAMBIOS_PENDIENTES = new Set(Object.keys(WRITERS));
 
 function readCacheIfExists() {
   if (fs.existsSync(CACHE_FILE)) {
@@ -114,6 +130,9 @@ app.put('/api/gee/:tipo/:id', (req, res) => {
   try {
     const { confirm, ...fields } = req.body;
     writer(PROJECT_PATH, id, fields);
+    if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
+      logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
+    }
     const snapshot = buildSnapshot(PROJECT_PATH);
     res.json(snapshot);
   } catch (err) {
@@ -134,6 +153,9 @@ app.post('/api/gee/:tipo', (req, res) => {
   try {
     const { confirm, ...fields } = req.body;
     const result = writer(PROJECT_PATH, null, fields);
+    if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
+      logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: result.id, camposModificados: [] });
+    }
     const snapshot = buildSnapshot(PROJECT_PATH);
     res.status(201).json({ createdId: result.id, snapshot });
   } catch (err) {

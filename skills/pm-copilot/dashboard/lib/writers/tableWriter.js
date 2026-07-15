@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 
 /**
  * Helper genérico para escritura de filas en tablas markdown, compartido por
@@ -113,10 +114,18 @@ function updateFechaActualizacion(lines, fechaISO) {
  * @param {Object} [options]
  * @param {string} [options.idPrefix] prefijo del ID (ej. "R") usado para generar el siguiente correlativo si id es null
  * @param {number} [options.idPadding] longitud del número correlativo (por defecto 3)
+ * @param {() => string} [options.plantillaSiNoExiste] si el archivo no existe todavía (ej. un proyecto que
+ *   arranca el Paso 0 dando de alta su primera petición directamente desde el dashboard, antes de que el
+ *   prompt genere el archivo), se crea con este contenido antes de insertar la fila. Sin esto, dar de alta
+ *   el primer registro de un archivo inexistente falla con ENOENT.
  * @returns {{ id: string, created: boolean }}
  */
 function upsertRow(filePath, headingCandidates, id, fields, options = {}) {
   const idPadding = options.idPadding || 3;
+  if (!fs.existsSync(filePath) && options.plantillaSiNoExiste) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, options.plantillaSiNoExiste(), 'utf8');
+  }
   const text = fs.readFileSync(filePath, 'utf8');
   const lines = text.split(/\r?\n/);
 
