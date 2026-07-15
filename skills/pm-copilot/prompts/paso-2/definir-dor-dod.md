@@ -75,7 +75,7 @@ Con las respuestas, genera:
 1. `investigar/[proyecto]/output-paso-2/config/dor-definition.md` con los criterios acordados
 2. `investigar/[proyecto]/output-paso-2/config/dod-definition.md` con los criterios acordados
 
-Usa los templates base de `templates/paso-3/` (DoR/DoD genéricos del Paso 3) como estructura de partida, pero personaliza cada criterio según las respuestas obtenidas aquí. No dejes criterios genéricos sin adaptar al proyecto: cada fila de la tabla debe reflejar una decisión real tomada con el PM, no el placeholder de la plantilla.
+Usa los templates base de `templates/paso-4/` (DoR/DoD genéricos, junto con las variantes por tipo de proyecto en `templates/paso-4/por-tipo/`) como estructura de partida, pero personaliza cada criterio según las respuestas obtenidas aquí. No dejes criterios genéricos sin adaptar al proyecto: cada fila de la tabla debe reflejar una decisión real tomada con el PM, no el placeholder de la plantilla.
 
 ### Fase 4: Explicar impacto en roadmap
 
@@ -99,8 +99,8 @@ Estos son valores de referencia acumulativos: quédate con el escalón más alto
 ### Modo Plantilla
 
 Si el PM elige plantilla, entrégale los templates base:
-- `templates/paso-3/dor-definition.md`
-- `templates/paso-3/dod-definition.md`
+- `templates/paso-4/dor-definition.md`
+- `templates/paso-4/dod-definition.md`
 
 Indica: "Rellena esto con tu equipo y devuélvemelo. Cuando lo tenga, genero los documentos de capacidad y roadmap."
 
