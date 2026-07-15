@@ -6,11 +6,21 @@ const { parseMarkdownTables, findTableByHeading, getCell } = require('../markdow
 const { parseKeyValueBlock, getValue } = require('../keyValueBlock');
 
 const OUTPUT_PASO_4_DIR = 'output-paso-4';
+const OUTPUT_PASO_5_DIR = 'output-paso-5';
 
 /**
  * Convención de nombres (documentada en README.md):
  *   investigar/[proyecto]/output-paso-4/sprint-backlog-{N}.md   -> uno por sprint
- *   investigar/[proyecto]/output-paso-4/review-sprint-{N}.md    -> cierre de ese sprint
+ *   investigar/[proyecto]/output-paso-5/review-sprint-{N}.md    -> cierre de ese sprint
+ *
+ * OJO: "review-sprint-{N}.md" vive en output-paso-5 (donde lo escriben
+ * `prompts/paso-5/sprint-review.md` y `retrospectiva.md`), NO en
+ * output-paso-4 junto al backlog — son pasos distintos del pipeline desde
+ * el rediseño que separó "Generación y validación de HU" (Paso 3) de
+ * "Gestión de Sprints" (Paso 4) y dejó Paso 5 (Review+Retro) aparte. Antes
+ * de corregirse (ver mejoras-pendientes.md), esta función buscaba en
+ * output-paso-4 y por tanto nunca encontraba ninguna review real, así que
+ * un sprint con fecha fin ya pasada nunca se marcaba cerrado.
  *
  * Nota: antes de la reestructuración del pipeline (Paso 3 pasó a ser
  * "Generación y validación de HU" y esto se convirtió en Paso 4 "Gestión de
@@ -49,7 +59,7 @@ function listSprintBacklogFiles(projectPath) {
 }
 
 function reviewExistsForSprint(projectPath, numero) {
-  const dir = path.join(projectPath, OUTPUT_PASO_4_DIR);
+  const dir = path.join(projectPath, OUTPUT_PASO_5_DIR);
   if (!fs.existsSync(dir)) return false;
   if (numero === null || numero === undefined) return false;
   const candidate = path.join(dir, `review-sprint-${numero}.md`);

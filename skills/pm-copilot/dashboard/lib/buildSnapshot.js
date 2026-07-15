@@ -13,7 +13,6 @@ const { parseEpicas } = require('./parsers/epicas');
 const { parseCapacidad } = require('./parsers/capacidad');
 const { parseRoadmapTecnico } = require('./parsers/roadmapTecnico');
 const { parseRoadmapCliente } = require('./parsers/roadmapCliente');
-const { parseBacklogDetalle } = require('./parsers/backlogDetalle');
 const { parseSprintBacklogs } = require('./parsers/sprintBacklog');
 const { parseAnalisisJira } = require('./parsers/analisisJira');
 const { parseLegacy } = require('./parsers/legacy');
@@ -124,7 +123,6 @@ function buildSnapshot(projectPath, options) {
   const capacidadActual = parseCapacidad(projectPath);
   const roadmapTecnico = parseRoadmapTecnico(projectPath);
   const roadmapCliente = parseRoadmapCliente(projectPath);
-  const backlogDetalle = parseBacklogDetalle(projectPath);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -204,7 +202,6 @@ function buildSnapshot(projectPath, options) {
       capacidadActual,
       roadmapTecnico,
       roadmapCliente,
-      backlogDetalle,
     },
     sprint: {
       sprints,

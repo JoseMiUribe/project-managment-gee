@@ -237,11 +237,14 @@ dashboard/
     parsers/
       riesgos.js, dependencias.js, acciones.js, impedimentos.js,
       changelog.js, sprintBacklog.js, roadmapTecnico.js,
-      roadmapCliente.js, epicas.js, backlogDetalle.js, capacidad.js,
-      dailylog.js, analisisJira.js
+      roadmapCliente.js, epicas.js, capacidad.js,
+      dailylog.js, analisisJira.js, requisitos.js, legacy.js,
+      cambiosPendientes.js, documentos.js
     writers/
       tableWriter.js (helper compartido de lectura/escritura de filas)
-      riesgos.js, dependencias.js, acciones.js, impedimentos.js, changelog.js
+      riesgos.js, dependencias.js, acciones.js, impedimentos.js, changelog.js,
+      peticiones.js, funcionales.js, nofuncionales.js, zonasIncertidumbre.js,
+      dailylog.js, cambiosPendientes.js
   public/
     index.html, app.js, styles.css   → dashboard interactivo (frontend)
     vendor/echarts.min.js             → generado por `npm run setup`
@@ -259,7 +262,7 @@ arranque, `.port`.
 {
   proyecto: { nombre, rutaAbsoluta, generadoEn },
   gee: { riesgos, dependencias, acciones, impedimentos, changelog, dailylogs },
-  roadmap: { epicas, capacidadActual, roadmapTecnico, roadmapCliente, backlogDetalle },
+  roadmap: { epicas, capacidadActual, roadmapTecnico, roadmapCliente },
   sprint: { sprints, analisisJira },
   metricas: {
     sprintCompletionPct, riesgosPorRag, dependenciasPorCriticidad,
@@ -322,11 +325,12 @@ más arriba para el contrato completo.
   (`sprint-planning.md`) o editando el markdown a mano.
 - **No existe parser ni pestaña para `output-paso-3/historias-generadas-*.md`**
   (el formato de HU vigente desde el rediseño de Paso 3, con Verdict de DoR
-  `✅ Ready`/`❌ No Ready`). `lib/parsers/backlogDetalle.js` sigue existiendo
-  pero lee un formato y una ruta anteriores (`output-paso-2/backlog-detalle.md`)
-  que ya no genera ningún prompt — no rompe nada (devuelve `[]`), pero el
-  dashboard no muestra el backlog de HU real del proyecto. Ver
-  `mejoras-pendientes.md`, entrada 2026-07-09.
+  `✅ Ready`/`❌ No Ready`) — el dashboard no muestra el backlog completo de
+  HU del proyecto, solo las ya seleccionadas para un sprint
+  (`sprint-backlog-{N}.md`, vía `sprintBacklog.js`). `lib/parsers/backlogDetalle.js`
+  (que leía una ruta y formato anteriores, `output-paso-2/backlog-detalle.md`,
+  que ya no genera ningún prompt) se eliminó por muerto — ver
+  `mejoras-pendientes.md`, entrada 2026-07-09 (actualizada) y 2026-07-15.
 - ~~`output-paso-1/changelog.md` — desajuste de formato~~ **Resuelto
   (2026-07-13):** el PM confirmó que el Changelog debe comportarse como
   cualquier otra pestaña del GEE (tabla plana, editable en línea) — el

@@ -55,17 +55,17 @@ Si detectas que alguna pregunta genérica ya tiene respuesta implícita en la do
 
 ## Combinación con guía del legacy
 
-Si el proyecto viene de un Paso -1 (análisis de legacy), existe `output-paso-legacy/guia-para-paso-0.md` con las preguntas específicas que quedaron pendientes de resolver con el cliente (contradicciones, ambigüedades, vacíos detectados en la documentación existente).
+Si el proyecto viene de un Paso -1 (análisis de legacy), existe `output-paso-legacy/guia-paso-0.md` con las preguntas específicas que quedaron pendientes de resolver con el cliente (contradicciones, ambigüedades, vacíos detectados en la documentación existente).
 
 ```
-output-paso-legacy/guia-para-paso-0.md  +  guia-estandar-paso-0.md
+output-paso-legacy/guia-paso-0.md  +  guia-estandar-paso-0.md
             │                                       │
             └───────────────────┬───────────────────┘
                                  ▼
                     cuestionario-combinado.md
 
 Orden de la entrevista:
-1. Primero: resolver contradicciones del legacy (guia-para-paso-0.md)
+1. Primero: resolver contradicciones del legacy (guia-paso-0.md)
    - El cliente aclara dudas, corrige información desfasada
 2. Segundo: preguntar requisitos nuevos (guia-estandar-paso-0.md)
    - Capturar qué quiere construir
@@ -74,11 +74,11 @@ Orden de la entrevista:
    - Detecta conflictos: "esto que pides choca con el componente X que ya existe"
 ```
 
-Si `output-paso-legacy/guia-para-paso-0.md` no existe (proyecto nuevo sin legacy), usa únicamente la guía estándar.
+Si `output-paso-legacy/guia-paso-0.md` no existe (proyecto nuevo sin legacy), usa únicamente la guía estándar.
 
 ## Pasos de ejecución
 
-1. Comprueba si existe `investigar/[proyecto]/output-paso-legacy/guia-para-paso-0.md`. Si existe, léelo antes de generar nada.
+1. Comprueba si existe `investigar/[proyecto]/output-paso-legacy/guia-paso-0.md`. Si existe, léelo antes de generar nada.
 2. Genera la guía estándar adaptada al proyecto (nombre, sector, terminología).
 3. Si hay guía del legacy, combínala siguiendo el orden indicado arriba: primero contradicciones/huecos del legacy, después requisitos nuevos.
 4. Marca claramente en el documento combinado qué preguntas vienen del legacy (huecos a cerrar) y cuáles son de descubrimiento de lo nuevo, para que el PM sepa distinguirlas durante la entrevista.
@@ -86,7 +86,7 @@ Si `output-paso-legacy/guia-para-paso-0.md` no existe (proyecto nuevo sin legacy
 
 ## Input del usuario
 
-[El usuario indica el nombre del proyecto y, si aplica, confirma que existe `output-paso-legacy/guia-para-paso-0.md`]
+[El usuario indica el nombre del proyecto y, si aplica, confirma que existe `output-paso-legacy/guia-paso-0.md`]
 
 ## Output esperado
 
