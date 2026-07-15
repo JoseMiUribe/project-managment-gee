@@ -4,6 +4,8 @@
 
 **Propósito:** Registrar el progreso diario del sprint y mantener actualizado el GEE.
 
+**Disponible desde el primer día del proyecto, no solo durante un sprint activo.** Aunque su contenido más rico (Progreso de HU, puntos restantes) solo tiene sentido con un sprint en marcha, la sección "Notas" es una libreta de trabajo general del PM/ADL — sirve para dejar constancia de decisiones, recordatorios o contexto en cualquier momento del proyecto, incluso antes del Paso 4. El dashboard permite añadir una nota cualquier día desde su propio formulario (no solo cuando este prompt genera el daily completo) — no le des la impresión al PM de que tiene que "esperar al Paso 4" para poder anotar algo.
+
 ## Instrucciones para la IA
 
 1. Para cada día del sprint (de lunes a viernes), pregunta o ayuda a registrar:
@@ -49,8 +51,11 @@
 
 ## Notas
 
-[Observaciones adicionales, recordatorios, decisiones tomadas]
+- **[YYYY-MM-DD HH:MM] [Autor]:** [Observación, recordatorio o decisión tomada]
+- **[YYYY-MM-DD HH:MM] Skill:** [Nota que añades tú mismo si detectas algo relevante al generar el daily]
 ```
+
+**Formato de "Notas" (importante):** es una lista de notas individuales, no un párrafo único — una nota por línea, con timestamp y autor explícitos (`- **[fecha hora] Autor:**`). Esto permite que el PM añada notas sueltas cualquier día desde el dashboard (una por una, sin regenerar el daily entero) y que quede trazabilidad de quién escribió cada una — el propio skill se identifica como autor `Skill` cuando es él quien añade la nota (nunca se hace pasar por una persona). Añade notas nuevas al final de la lista existente; no reescribas ni resumas las anteriores.
 
 ## Reglas
 

@@ -108,7 +108,7 @@ Toda dependencia dada de alta aquí (`DP-XXX`) es, por definición, **externa** 
 
 Para cada dependencia:
 - **Criticidad RAG**: usa el mismo criterio de semáforo, evaluando cualitativamente cuánto bloquea el proyecto si no se resuelve a tiempo (Rojo = bloquea entregas si no se resuelve pronto; Amarillo = afecta pero hay margen; Verde = deseable pero no bloqueante)
-- **Sistemas implicados**: nombra los sistemas/equipos concretos (hasta 3 campos, Sistema 1/2/3)
+- **Sistemas implicados**: si hay sistemas concretos (Azure, VPN, un API de terceros...), menciónalos dentro del propio texto de "Dependencia" — no tienen columna propia
 - **Estado inicial**: siempre "Detectada" al darla de alta en este paso
 - **Fecha de compromiso**: si se conoce; si no, márcala como pendiente de negociar
 - **Riesgos asociados**: ID del riesgo (`R-XXX`) que esa dependencia genera si no se resuelve
@@ -141,9 +141,9 @@ No cierres el paso ni actualices `documentacion-proyecto.md` hasta tener la conf
 
 ### `registro-dependencias.md`
 
-| ID | Equipo | Dependencia | Criticidad RAG | Sistema 1 | Sistema 2 | Sistema 3 | Estado | Fecha compromiso | Riesgos asociados | Tarea de gestión (Jira) | Comentarios |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| DP-001 | | | | | | | Detectada | | | — (pendiente, sin Jira conectado) | |
+| ID | Equipo | Dependencia | Criticidad RAG | Estado | Fecha compromiso | Riesgos asociados | Tarea de gestión (Jira) | Comentarios |
+|---|---|---|---|---|---|---|---|---|
+| DP-001 | | | | Detectada | | | — (pendiente, sin Jira conectado) | |
 
 ### `registro-acciones.md`
 
