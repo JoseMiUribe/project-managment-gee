@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PM Copilot — Dashboard (nube)</title>
+<?!= include('Styles'); ?>
+</head>
+<body>
+<script>
+  // Inyectado por Code.gs#doGet al evaluar esta plantilla (ver
+  // dashboard/cloud-apps-script/README.md, sección "doGet"). AppJs.html
+  // (incluido al final de este archivo) lo lee como window.PM_CLOUD_CONFIG
+  // para saber qué Google Sheet/proyecto consultar en cada google.script.run.
+  window.PM_CLOUD_CONFIG = { sheetId: <?!= JSON.stringify(sheetId) ?>, proyectoId: <?!= JSON.stringify(proyectoId) ?> };
+</script>
+
+<!-- ======================= HEADER GLOBAL ======================= -->
+<header class="app-header">
+  <div class="project-info">
+    <h1 id="project-nombre">Cargando proyecto…</h1>
+    <div class="project-meta" id="project-ruta" title=""></div>
+  </div>
+  <div class="header-actions">
+    <span id="badge-cambios-pendientes" class="badge-cambios-pendientes hidden"></span>
+    <span class="header-actualizado">Actualizado: <code id="project-generado-en">—</code></span>
+    <button id="btn-sync" class="btn btn-primary">
+      <span class="btn-icon">🔄</span> <span class="btn-label">Actualizar</span>
+    </button>
+    <button id="btn-pdf" class="btn">
+      <span class="btn-icon">📄</span> <span class="btn-label">Generar informe PDF</span>
+    </button>
+  </div>
+</header>
+
+<div id="toast-container"></div>
+
+<!-- ======================= TABS NAV ======================= -->
+<nav class="tabs-nav">
+  <button class="tab-btn active" data-tab="tab-sprint">Sprint actual</button>
+  <button class="tab-btn" data-tab="tab-proyecto">Proyecto</button>
+  <button class="tab-btn" data-tab="tab-gee">GEE</button>
+  <button class="tab-btn" data-tab="tab-requisitos">Requisitos</button>
+  <button class="tab-btn" data-tab="tab-documentos">Documentos</button>
+</nav>
+
+<!-- ======================= TAB: SPRINT ACTUAL ======================= -->
+<section id="tab-sprint" class="tab-panel active">
+
+  <div id="sprint-sin-datos" class="card hidden">
+    <div class="empty-state">
+      <div class="empty-icon">🏁</div>
+      <p><strong>Todavía no hay ningún sprint activo.</strong></p>
+      <p>Cuando se planifique un sprint (paso 3 — sprint planning), aparecerá aquí.</p>
+    </div>
+  </div>
+
+  <div id="sprint-contenido" class="hidden">
+    <div class="card">
+      <div class="sprint-header-grid">
+        <div>
+          <h3>Objetivo del sprint <span id="sprint-numero"></span></h3>
+          <p class="sprint-objetivo" id="sprint-objetivo">—</p>
+          <p class="text-muted" id="sprint-fechas"></p>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Capacidad disponible</div>
+          <div class="stat-value" id="sprint-cap-disponible">—</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Capacidad ocupada</div>
+          <div class="stat-value" id="sprint-cap-ocupada">—</div>
+        </div>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="sprint-progress-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-bar-label" id="sprint-progress-label"></div>
+    </div>
+
+    <div id="sprint-jira-card" class="card card-highlight hidden">
+      <h2>📊 Último análisis Jira</h2>
+      <div id="sprint-jira-resumen"></div>
+    </div>
+
+    <div class="card">
+      <h2>Burndown del sprint</h2>
+      <div id="chart-sprint-burndown" class="chart-box"></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>HU por estado</h2>
+        <div id="chart-sprint-estado" class="chart-box chart-sm"></div>
+      </div>
+      <div class="card">
+        <h2>Resumen</h2>
+        <div id="sprint-resumen-lateral" class="text-muted"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header-row">
+        <h2>Historias de usuario del sprint, por épica</h2>
+        <div class="card-header-actions">
+          <button id="btn-sprint-expandir-todo" class="btn btn-sm">Desplegar todas</button>
+          <button id="btn-sprint-contraer-todo" class="btn btn-sm">Contraer todas</button>
+        </div>
+      </div>
+      <div id="sprint-hu-por-epica"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= TAB: PROYECTO ======================= -->
+<section id="tab-proyecto" class="tab-panel">
+
+  <div class="card">
+    <h2>Roadmap cliente</h2>
+    <div id="chart-roadmap-cliente" class="chart-box"></div>
+    <div id="roadmap-cliente-detalle"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Épicas del roadmap</h2>
+      <div id="epicas-lista"></div>
+    </div>
+
+    <div class="card">
+      <h2>Velocidad por sprint</h2>
+      <div id="chart-velocidad" class="chart-box chart-sm"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Capacidad actual</h2>
+    <div id="capacidad-actual-contenido"></div>
+  </div>
+
+</section>
+
+<!-- ======================= TAB: GEE ======================= -->
+<section id="tab-gee" class="tab-panel">
+
+  <nav class="subtabs-nav">
+    <button class="subtab-btn active" data-subtab="sub-riesgos">Riesgos</button>
+    <button class="subtab-btn" data-subtab="sub-dependencias">Dependencias</button>
+    <button class="subtab-btn" data-subtab="sub-acciones">Acciones</button>
+    <button class="subtab-btn" data-subtab="sub-impedimentos">Impedimentos</button>
+    <button class="subtab-btn" data-subtab="sub-changelog">Cambios de alcance</button>
+    <button class="subtab-btn" data-subtab="sub-dailylog">Daily Log</button>
+  </nav>
+
+  <!-- ---------- RIESGOS ---------- -->
+  <div id="sub-riesgos" class="subtab-panel active">
+    <div class="card">
+      <h2>Riesgos por RAG</h2>
+      <div id="chart-riesgos-rag" class="chart-box chart-sm"></div>
+    </div>
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de riesgos</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-riesgo">+ Nuevo riesgo</button>
+      </div>
+      <div id="form-nuevo-riesgo" class="new-record-form"></div>
+      <div id="riesgos-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- DEPENDENCIAS ---------- -->
+  <div id="sub-dependencias" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de dependencias</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-dependencia">+ Nueva dependencia</button>
+      </div>
+      <div id="form-nueva-dependencia" class="new-record-form"></div>
+      <div id="dependencias-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- ACCIONES ---------- -->
+  <div id="sub-acciones" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de acciones</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-accion">+ Nueva acción</button>
+      </div>
+      <div id="form-nueva-accion" class="new-record-form"></div>
+      <div id="acciones-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- IMPEDIMENTOS ---------- -->
+  <div id="sub-impedimentos" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Registro de impedimentos</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-impedimento">+ Nuevo impedimento</button>
+      </div>
+      <div id="form-nuevo-impedimento" class="new-record-form"></div>
+      <div id="impedimentos-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- CHANGELOG ---------- -->
+  <div id="sub-changelog" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Cambios de alcance (changelog)</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-changelog">+ Nuevo cambio</button>
+      </div>
+      <div id="form-nuevo-changelog" class="new-record-form"></div>
+      <div id="changelog-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- DAILY LOG ---------- -->
+  <div id="sub-dailylog" class="subtab-panel">
+    <div class="card">
+      <div class="card-header-row">
+        <h2>Daily Log</h2>
+        <button id="btn-nueva-nota" class="btn btn-sm btn-primary">+ Añadir nota</button>
+      </div>
+      <p class="text-muted">Disponible desde el primer día del proyecto — no hace falta esperar a tener un sprint activo para dejar una nota.</p>
+      <div id="form-nueva-nota" class="new-record-form">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Fecha (por defecto, hoy)</label>
+            <input type="date" id="nota-fecha" />
+          </div>
+          <div class="form-field">
+            <label>Autor</label>
+            <input type="text" id="nota-autor" placeholder="Tu nombre" />
+          </div>
+          <div class="form-field form-field-wide">
+            <label>Nota</label>
+            <textarea id="nota-texto" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button id="btn-crear-nota" class="btn btn-primary btn-sm">Añadir nota</button>
+          <button id="btn-cancelar-nota" class="btn btn-sm">Cancelar</button>
+        </div>
+      </div>
+      <div id="dailylog-lista"></div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ======================= TAB: REQUISITOS ======================= -->
+<!-- Legacy (Paso -1) es solo lectura (análisis histórico, no se edita desde
+     el dashboard). Peticiones/RF/RNF/Zonas (Paso 0) son editables con el
+     mismo patrón de tabla compacta + panel de detalle que el GEE (ver
+     REQUISITOS_CONFIG en app.js) — sin Descartar/Eliminar ni desplegables
+     relacionales, que son específicos del GEE. -->
+<section id="tab-requisitos" class="tab-panel">
+
+  <div class="section-header">
+    <h2 style="margin:0;">Requisitos</h2>
+    <button id="btn-pdf-requisitos" class="btn btn-sm">
+      <span class="btn-icon">📄</span> <span class="btn-label">Exportar requisitos a PDF</span>
+    </button>
+  </div>
+
+  <nav class="subtabs-nav">
+    <button class="subtab-btn active" data-subtab="sub-req-legacy">Legacy</button>
+    <button class="subtab-btn" data-subtab="sub-req-peticiones">Peticiones</button>
+    <button class="subtab-btn" data-subtab="sub-req-rf">Requisitos Funcionales</button>
+    <button class="subtab-btn" data-subtab="sub-req-rnf">Requisitos No Funcionales</button>
+    <button class="subtab-btn" data-subtab="sub-req-zonas">Zonas de Incertidumbre</button>
+  </nav>
+
+  <!-- ---------- Análisis Legacy (Paso -1), solo lectura ---------- -->
+  <div id="sub-req-legacy" class="subtab-panel active">
+    <div class="card">
+      <div id="legacy-sin-datos" class="hidden"></div>
+      <div id="legacy-contenido" class="hidden">
+        <p class="text-muted" id="legacy-version-nota"></p>
+        <div class="grid-2">
+          <div id="chart-legacy-resumen" class="chart-box chart-sm"></div>
+          <div id="legacy-resumen-lateral" class="text-muted"></div>
+        </div>
+        <div class="table-wrap" id="legacy-tabla-wrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Peticiones del cliente ---------- -->
+  <div id="sub-req-peticiones" class="subtab-panel">
+    <div class="card">
+      <div id="paso0-resumen" class="text-muted"></div>
+    </div>
+    <div class="card">
+      <div class="section-header">
+        <h2>Peticiones del cliente</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-peticion">+ Nueva petición</button>
+      </div>
+      <div id="form-nueva-peticion" class="new-record-form"></div>
+      <div id="peticiones-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- Requisitos Funcionales ---------- -->
+  <div id="sub-req-rf" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Requisitos Funcionales</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-rf">+ Nuevo RF</button>
+      </div>
+      <div id="form-nuevo-rf" class="new-record-form"></div>
+      <div id="rf-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- Requisitos No Funcionales ---------- -->
+  <div id="sub-req-rnf" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Requisitos No Funcionales</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-rnf">+ Nuevo RNF</button>
+      </div>
+      <div id="form-nuevo-rnf" class="new-record-form"></div>
+      <div id="rnf-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ---------- Zonas de Incertidumbre ---------- -->
+  <div id="sub-req-zonas" class="subtab-panel">
+    <div class="card">
+      <div class="section-header">
+        <h2>Zonas de Incertidumbre</h2>
+        <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-zona">+ Nueva zona</button>
+      </div>
+      <div id="form-nueva-zona" class="new-record-form"></div>
+      <div id="zonas-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ======================= TAB: DOCUMENTOS ======================= -->
+<!-- Lista cada .md que el skill ha generado en el proyecto, agrupado por
+     paso, con una explicación de qué es cada uno (ver dashboard/lib/
+     documentCatalog.js). Cada documento se puede ver, descargar como .md o
+     exportar a PDF, en su versión completa o "versión cliente" (sin el
+     contenido marcado como interno mediante la convención de comentarios
+     HTML documentada en dashboard/lib/markdownClientStrip.js). -->
+<section id="tab-documentos" class="tab-panel">
+  <div class="section-header">
+    <h2 style="margin:0;">Documentos generados</h2>
+  </div>
+  <p class="text-muted">
+    "Versión cliente" retira cualquier bloque marcado en el propio documento como uso interno del equipo — el resto del contenido es idéntico.
+  </p>
+  <div id="documentos-lista"></div>
+</section>
+
+<!-- MODO NUBE: ECharts se carga desde un CDN público en vez de vendorizado
+     (a diferencia del modo local) porque este dashboard ya requiere conexión
+     a internet para existir — cargar aquí también el ~1MB de echarts.min.js
+     como archivo de Apps Script era un riesgo de límite de tamaño evitable.
+     AppJs.html ya comprueba typeof echarts !== "undefined" y degrada sin
+     romper el resto del dashboard si el CDN no cargara. -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<?!= include('AppJs'); ?>
+</body>
+</html>
