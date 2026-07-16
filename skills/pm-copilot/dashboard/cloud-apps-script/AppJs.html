@@ -1,0 +1,2356 @@
+<script>
+/* ==========================================================================
+   PM Copilot Dashboard — lógica de frontend (MODO NUBE, Apps Script)
+
+   Copia adaptada de dashboard/public/app.js. El contrato de API "URLs REST"
+   original (GET /api/data, PUT /api/gee/:tipo/:id, ...) se conserva tal cual
+   como vocabulario interno — apiGet/apiSend siguen aceptando esas mismas
+   cadenas — pero la implementación ya no hace fetch() a un Express local:
+   traduce cada URL a una llamada google.script.run contra Code.gs, que lee/
+   escribe la Google Sheet del cliente en vez de markdown. Ver la tabla RUTAS
+   más abajo. El resto de este archivo (2000+ líneas: render de pestañas,
+   formularios, gráficos) es una copia sin cambios del modo local — solo se
+   tocaron apiGet/apiSend, doGeneratePdf/doGeneratePdfDocumento (PDF con
+   Playwright no existe aquí, se sustituye por "imprimir desde el navegador")
+   y renderDocumentoRow (el contenido de los documentos sueltos no viaja a la
+   nube, solo su metadato — ver README.md de esta carpeta).
+   ========================================================================== */
+
+(function () {
+  "use strict";
+
+  /** Estado global en memoria con el último snapshot recibido del backend. */
+  let state = null;
+
+  /** Charts ECharts instanciados, indexados por id de contenedor, para poder hacer resize/dispose. */
+  const chartInstances = {};
+
+  const ECHARTS_AVAILABLE = typeof echarts !== "undefined";
+
+  // ------------------------------------------------------------------
+  // Utilidades genéricas
+  // ------------------------------------------------------------------
+
+  function qs(sel, root) {
+    return (root || document).querySelector(sel);
+  }
+  function qsa(sel, root) {
+    return Array.from((root || document).querySelectorAll(sel));
+  }
+
+  /** Extrae el primer número de un valor que puede venir como texto libre,
+   *  p.ej. "30 pts (según `output-paso-2/capacidad-equipo/` v1)" -> 30.
+   *  Los campos de capacidad/roadmap se redactan en markdown, no son
+   *  garantizados como número puro. */
+  function extraerNumero(value) {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+    const match = String(value).match(/-?\d+([.,]\d+)?/);
+    if (!match) return 0;
+    return Number(match[0].replace(",", ".")) || 0;
+  }
+
+  function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  /** Devuelve texto seguro para mostrar, con un placeholder si no hay dato. */
+  function fmt(value, placeholder) {
+    if (value === null || value === undefined || value === "") {
+      return placeholder !== undefined ? placeholder : "—";
+    }
+    return String(value);
+  }
+
+  function el(tag, attrs, children) {
+    const node = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach((key) => {
+        if (key === "class") node.className = attrs[key];
+        else if (key === "html") node.innerHTML = attrs[key];
+        else if (key === "text") node.textContent = attrs[key];
+        else node.setAttribute(key, attrs[key]);
+      });
+    }
+    (children || []).forEach((c) => {
+      if (c) node.appendChild(c);
+    });
+    return node;
+  }
+
+  function showToast(message, type) {
+    const container = qs("#toast-container");
+    const toast = el("div", { class: "toast" + (type ? " toast-" + type : "") });
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity 0.3s ease";
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
+  function setBtnLoading(btn, loading, loadingText) {
+    if (!btn) return;
+    if (loading) {
+      btn.dataset.originalHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner"></span> <span class="btn-label">' + (loadingText || "Cargando…") + "</span>";
+      btn.disabled = true;
+    } else {
+      if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+      btn.disabled = false;
+    }
+  }
+
+  /** RAG normalizado: acepta "verde"/"green"/"🟢" etc. y devuelve clave canónica + emoji. */
+  function normalizeRag(raw) {
+    if (!raw) return { key: "gris", emoji: "⚪", label: "Sin dato" };
+    const v = String(raw).toLowerCase();
+    if (v.includes("verde") || v.includes("green") || v.includes("🟢")) {
+      return { key: "verde", emoji: "🟢", label: "Verde" };
+    }
+    if (v.includes("amarillo") || v.includes("yellow") || v.includes("ambar") || v.includes("ámbar") || v.includes("🟡")) {
+      return { key: "amarillo", emoji: "🟡", label: "Amarillo" };
+    }
+    if (v.includes("rojo") || v.includes("red") || v.includes("🔴")) {
+      return { key: "rojo", emoji: "🔴", label: "Rojo" };
+    }
+    return { key: "gris", emoji: "⚪", label: fmt(raw) };
+  }
+
+  /** Compara la palabra "núcleo" de una opción de <select> contra el valor
+   *  guardado, ignorando emoji/prefijos en cualquiera de los dos lados
+   *  (el markdown puede guardar "🟡 Amarillo" o "Amarillo" a secas). Evita
+   *  que un desajuste de formato deje el <select> en su primera opción por
+   *  defecto y sobrescriba el valor real al guardar. */
+  function palabraNucleo(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .trim();
+  }
+  function opcionCoincideConValor(opcion, valorActual) {
+    const opcionNucleo = palabraNucleo(opcion);
+    const valorNucleo = palabraNucleo(valorActual);
+    if (!opcionNucleo || !valorNucleo) return false;
+    return valorNucleo.includes(opcionNucleo) || opcionNucleo.includes(valorNucleo);
+  }
+
+  function ragBadge(raw) {
+    const r = normalizeRag(raw);
+    return '<span class="badge-rag rag-' + r.key + '">' + r.emoji + " " + escapeHtml(r.label) + "</span>";
+  }
+
+  function emptyState(icon, title, subtitle) {
+    return (
+      '<div class="empty-state"><div class="empty-icon">' +
+      icon +
+      "</div><p><strong>" +
+      escapeHtml(title) +
+      "</strong></p>" +
+      (subtitle ? "<p>" + escapeHtml(subtitle) + "</p>" : "") +
+      "</div>"
+    );
+  }
+
+  function emptyInline(text) {
+    return '<div class="empty-state-inline">' + escapeHtml(text) + "</div>";
+  }
+
+  // ------------------------------------------------------------------
+  // Llamadas a la API (MODO NUBE: google.script.run, no fetch)
+  // ------------------------------------------------------------------
+
+  /** Inyectado por Index.html en tiempo de render (ver <?!= ... ?> al inicio del body). */
+  const CLOUD = window.PM_CLOUD_CONFIG || {};
+
+  // Traduce cada URL del contrato original a una función expuesta en Code.gs.
+  // Los grupos capturados por la regex se pasan como argumentos adicionales,
+  // en el mismo orden en que aparecen en la URL, decodificados con
+  // decodeURIComponent (igual que antes hacía el propio Express router).
+  const RUTAS = [
+    { method: "POST", re: /^\/api\/sync$/, fn: "apiPostSync" },
+    { method: "GET", re: /^\/api\/data$/, fn: "apiGetData" },
+    { method: "PUT", re: /^\/api\/gee\/([^/]+)\/(.+)$/, fn: "apiPutGee" },
+    { method: "POST", re: /^\/api\/gee\/([^/]+)$/, fn: "apiPostGee" },
+    { method: "POST", re: /^\/api\/dailylog$/, fn: "apiPostDailylog" },
+    { method: "PUT", re: /^\/api\/sprint\/hu\/(.+)$/, fn: "apiPutSprintHu" },
+  ];
+
+  function matchRuta(method, url) {
+    const rawPath = url.split("?")[0];
+    for (const r of RUTAS) {
+      if (r.method !== method) continue;
+      const m = rawPath.match(r.re);
+      if (m) return { fn: r.fn, params: m.slice(1).map((p) => decodeURIComponent(p)) };
+    }
+    return null;
+  }
+
+  /** Envuelve google.script.run (basado en callbacks) en una Promise.
+   *  Code.gs nunca lanza excepciones a través del puente RPC (los detalles de
+   *  error no sobreviven bien esa frontera) — siempre devuelve
+   *  { ok: true, data } o { ok: false, status, error }, que aquí se
+   *  desempaqueta a exactamente lo mismo que devolvía res.json()/ApiError en
+   *  modo local, para que el resto de este archivo no necesite saberlo. */
+  function runGoogleScript(fnName, args) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((result) => {
+          if (result && result.ok === false) {
+            reject(new ApiError(result.status || 500, result.error ? { error: result.error } : null));
+          } else {
+            resolve(result && result.data !== undefined ? result.data : result);
+          }
+        })
+        .withFailureHandler((err) => {
+          reject(new ApiError(500, { error: (err && err.message) || "Error inesperado del servidor." }));
+        })
+        [fnName].apply(null, [CLOUD.sheetId, CLOUD.proyectoId].concat(args));
+    });
+  }
+
+  async function apiGet(url) {
+    const match = matchRuta("GET", url);
+    if (!match) throw new ApiError(404, { error: "Ruta no soportada en modo nube: GET " + url });
+    return runGoogleScript(match.fn, match.params);
+  }
+
+  async function apiSend(method, url, body) {
+    const match = matchRuta(method, url);
+    if (!match) throw new ApiError(404, { error: "Ruta no soportada en modo nube: " + method + " " + url });
+    return runGoogleScript(match.fn, match.params.concat([body || {}]));
+  }
+
+  function ApiError(status, body) {
+    this.status = status;
+    this.body = body;
+    this.message = (body && (body.error || body.message)) || "Error de red (" + status + ")";
+  }
+  ApiError.prototype = Object.create(Error.prototype);
+
+  // ------------------------------------------------------------------
+  // Carga inicial y sync
+  // ------------------------------------------------------------------
+
+  async function loadInitial() {
+    try {
+      // Al cargar la página forzamos un sync completo, tal como pide el contrato.
+      state = await apiSend("POST", "/api/sync");
+      renderAll();
+    } catch (err) {
+      console.error("Fallo cargando /api/sync inicial, probando /api/data", err);
+      try {
+        state = await apiGet("/api/data");
+        renderAll();
+        showToast("No se pudo forzar la sincronización inicial, mostrando el último snapshot disponible.", "warn");
+      } catch (err2) {
+        console.error(err2);
+        renderFatalError(err2);
+      }
+    }
+  }
+
+  async function doSync() {
+    const btn = qs("#btn-sync");
+    setBtnLoading(btn, true, "Actualizando…");
+    try {
+      state = await apiSend("POST", "/api/sync");
+      renderAll();
+      if (state.jiraSyncWarning) {
+        showToast(state.jiraSyncWarning, "warn");
+      } else if (state.proyecto && state.proyecto.jiraFuenteViva) {
+        showToast("Datos actualizados, incluyendo estado en vivo de Jira.", "success");
+      } else {
+        showToast("Datos actualizados.", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error al actualizar: " + err.message, "error");
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  // MODO NUBE: no hay Playwright/Chromium headless disponible en Apps Script.
+  // En vez de generar el PDF en el servidor, se abre la vista de impresión
+  // (misma plantilla HTML que /print en modo local, ver PrintView.gs) en una
+  // pestaña nueva — el usuario hace Ctrl+P / Cmd+P y elige "Guardar como PDF"
+  // con el propio Chromium de su navegador (mismo motor de renderizado que
+  // usaba Playwright, misma fidelidad visual). Decisión confirmada con el PM.
+  function urlVista(vista) {
+    const base = window.location.href.split("?")[0];
+    const params = new URLSearchParams({ sheet: CLOUD.sheetId, proyecto: CLOUD.proyectoId, vista: vista });
+    return base + "?" + params.toString();
+  }
+
+  function doGeneratePdf() {
+    window.open(urlVista("informe"), "_blank");
+    showToast('Se abrió el informe en una pestaña nueva — usa Ctrl+P (Cmd+P en Mac) y elige "Guardar como PDF".', "success");
+  }
+
+  function renderFatalError(err) {
+    const main = document.querySelector(".tabs-nav");
+    if (main) main.insertAdjacentHTML(
+      "afterend",
+      '<div class="card" style="margin:24px;"><div class="empty-state"><div class="empty-icon">⚠️</div>' +
+        "<p><strong>No se pudo cargar el dashboard.</strong></p>" +
+        "<p>" + escapeHtml(err.message || String(err)) + "</p>" +
+        "<p>Comprueba que el servidor Express local esté en marcha.</p></div></div>"
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Render orquestador
+  // ------------------------------------------------------------------
+
+  function renderAll() {
+    if (!state) return;
+    renderHeader();
+    renderSprintTab();
+    renderProyectoTab();
+    renderGeeAll();
+    renderRequisitosTab();
+    renderDocumentosTab();
+  }
+
+  // ------------------------------------------------------------------
+  // TAB: Documentos
+  // ------------------------------------------------------------------
+
+  function renderDocumentosTab() {
+    const container = qs("#documentos-lista");
+    const items = state.documentos || [];
+    if (items.length === 0) {
+      container.innerHTML = emptyState(
+        "📁",
+        "Todavía no hay documentos generados.",
+        "Aparecerán aquí a medida que avances por los pasos del pipeline."
+      );
+      return;
+    }
+
+    const grupos = {};
+    const orden = [];
+    items.forEach((doc) => {
+      if (!grupos[doc.paso]) {
+        grupos[doc.paso] = [];
+        orden.push(doc.paso);
+      }
+      grupos[doc.paso].push(doc);
+    });
+
+    container.innerHTML = orden
+      .map((paso) => {
+        const filas = grupos[paso].map((doc) => renderDocumentoRow(doc)).join("");
+        return (
+          '<div class="card"><h3>' +
+          escapeHtml(paso) +
+          '</h3><table class="data-table"><thead><tr>' +
+          "<th>Documento</th><th>Ruta</th><th>Modificado</th><th></th>" +
+          "</tr></thead><tbody>" +
+          filas +
+          "</tbody></table></div>"
+        );
+      })
+      .join("");
+  }
+
+  // MODO NUBE: el catálogo de Documentos solo guarda metadatos (título, ruta,
+  // tamaño, fecha) — el contenido real del .md sigue viviendo donde ya vivía
+  // (disco local o carpeta sincronizada con Drive Desktop), sin integración
+  // nueva con la API de Drive (decisión ya tomada, ver SKILL.md). Por eso no
+  // hay aquí botones "Ver"/"MD"/"PDF": no hay contenido que este dashboard
+  // pueda servir de forma remota, solo el catálogo de qué existe y dónde.
+  function renderDocumentoRow(doc) {
+    const modificado = doc.modificadoEn ? doc.modificadoEn.slice(0, 16).replace("T", " ") : "—";
+    return (
+      "<tr><td><strong>" +
+      escapeHtml(doc.titulo) +
+      '</strong><div class="text-muted" style="font-size:12px;">' +
+      escapeHtml(doc.descripcion) +
+      "</div></td>" +
+      "<td><code>" +
+      escapeHtml(doc.ruta) +
+      "</code></td>" +
+      "<td>" +
+      escapeHtml(modificado) +
+      '</td><td class="cell-actions text-muted" style="font-size:12px;">El contenido vive en tu carpeta local/Drive — este catálogo solo muestra metadatos.</td></tr>'
+    );
+  }
+
+  function renderHeader() {
+    const proyecto = state.proyecto || {};
+    qs("#project-nombre").textContent = fmt(proyecto.nombre, "Proyecto sin nombre");
+    // La ruta absoluta puede ser muy larga (rutas de Windows anidadas) — se
+    // trunca visualmente con CSS (text-overflow: ellipsis) y queda completa
+    // en el title (tooltip al pasar el ratón), en vez de forzar el ancho del
+    // header o partirse en dos líneas.
+    const ruta = fmt(proyecto.rutaAbsoluta, "");
+    const rutaEl = qs("#project-ruta");
+    rutaEl.textContent = ruta;
+    rutaEl.title = ruta;
+    qs("#project-generado-en").textContent = fmt(proyecto.generadoEn, "nunca");
+    renderBadgeCambiosPendientes();
+  }
+
+  /**
+   * Muestra cuántas ediciones hechas desde el dashboard aún no se han
+   * procesado en una sesión de Claude (ver output-transversal/
+   * cambios-pendientes-dashboard.md y prompts/transversal/actualizar-cascada.md).
+   * No dispara ningún análisis por sí solo — es solo la señal para que una
+   * futura sesión ("haz el análisis") sepa que hay algo que revisar sin
+   * tener que re-escanear todo el proyecto.
+   */
+  function renderBadgeCambiosPendientes() {
+    const badge = qs("#badge-cambios-pendientes");
+    const count = (state.cambiosPendientes && state.cambiosPendientes.pendientesCount) || 0;
+    if (count === 0) {
+      badge.classList.add("hidden");
+      return;
+    }
+    badge.classList.remove("hidden");
+    badge.textContent = "🟠 " + count + (count === 1 ? " cambio pendiente de análisis" : " cambios pendientes de análisis");
+  }
+
+  // ------------------------------------------------------------------
+  // TAB: Sprint actual
+  // ------------------------------------------------------------------
+
+  function getSprintActivo() {
+    const sprints = (state.sprint && state.sprint.sprints) || [];
+    return sprints.find((s) => s.activo) || null;
+  }
+
+  function renderSprintTab() {
+    const sprintActivo = getSprintActivo();
+    const sinDatos = qs("#sprint-sin-datos");
+    const contenido = qs("#sprint-contenido");
+
+    if (!sprintActivo) {
+      sinDatos.classList.remove("hidden");
+      contenido.classList.add("hidden");
+      return;
+    }
+    sinDatos.classList.add("hidden");
+    contenido.classList.remove("hidden");
+
+    qs("#sprint-numero").textContent = sprintActivo.numero !== undefined ? "#" + sprintActivo.numero : "";
+    qs("#sprint-objetivo").textContent = fmt(sprintActivo.objetivo, "Sin objetivo definido");
+    qs("#sprint-fechas").textContent = fmt(sprintActivo.fechas, "");
+
+    const disponible = extraerNumero(sprintActivo.capacidadDisponible);
+    const ocupada = extraerNumero(sprintActivo.capacidadOcupada);
+    qs("#sprint-cap-disponible").textContent = disponible ? disponible : "—";
+    qs("#sprint-cap-ocupada").textContent = ocupada ? ocupada : "—";
+
+    const pct = disponible > 0 ? Math.round((ocupada / disponible) * 100) : 0;
+    const fill = qs("#sprint-progress-fill");
+    fill.style.width = Math.min(pct, 100) + "%";
+    fill.classList.toggle("over", pct > 100);
+    qs("#sprint-progress-label").textContent =
+      disponible > 0
+        ? ocupada + " / " + disponible + " pts ocupados (" + pct + "%)"
+        : "Sin capacidad disponible registrada";
+
+    // Análisis Jira reciente
+    const analisis = (state.sprint && state.sprint.analisisJira) || [];
+    const jiraCard = qs("#sprint-jira-card");
+    if (analisis.length > 0) {
+      const ultimo = analisis[analisis.length - 1];
+      jiraCard.classList.remove("hidden");
+      const resumen = ultimo.resumenEjecutivo || ultimo.resumen || ultimo.texto || JSON.stringify(ultimo);
+      qs("#sprint-jira-resumen").innerHTML =
+        "<p>" + escapeHtml(typeof resumen === "string" ? resumen : JSON.stringify(resumen)) + "</p>";
+    } else {
+      jiraCard.classList.add("hidden");
+    }
+
+    const hus = sprintActivo.hu || [];
+    renderSprintBurndownChart(sprintActivo);
+    renderSprintEstadoChart(hus);
+    renderSprintResumenLateral(hus);
+    renderSprintHuPorEpica(hus);
+  }
+
+  /** "YYYY-MM-DD" | "YYYY-MM-DD ...texto..." -> Date a medianoche local, o null. */
+  function parseFechaSimple(str) {
+    if (!str) return null;
+    const match = String(str).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null;
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
+  /** "YYYY-MM-DD" en huso horario LOCAL — nunca toISOString() aquí: convierte
+   *  a UTC, y con timezones por delante de UTC (ej. Europa) desplaza la
+   *  fecha un día hacia atrás (medianoche local cae en el día anterior en
+   *  UTC), rompiendo el eje de fechas del burndown. */
+  function formatFechaLocal(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  function enumerarDiasSprint(inicioStr, finStr) {
+    const inicio = parseFechaSimple(inicioStr);
+    const fin = parseFechaSimple(finStr);
+    if (!inicio || !fin || fin < inicio) return [];
+    const dias = [];
+    const cursor = new Date(inicio);
+    while (cursor <= fin) {
+      dias.push(formatFechaLocal(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return dias;
+  }
+
+  /**
+   * Burndown real: línea ideal (interpolación lineal desde los puntos
+   * comprometidos al inicio del sprint hasta 0 en la fecha fin) vs línea real
+   * (campo "Puntos restantes del sprint" de cada daily log de este sprint,
+   * ver prompts/paso-4/daily-log.md). Si no hay dailylogs con ese campo
+   * todavía, la línea real queda vacía (no rota el gráfico) hasta que se
+   * empiece a rellenar.
+   */
+  function renderSprintBurndownChart(sprintActivo) {
+    const container = qs("#chart-sprint-burndown");
+    const dias = enumerarDiasSprint(sprintActivo.fechaInicio, sprintActivo.fechaFin);
+    const totalComprometido = extraerNumero(sprintActivo.capacidadOcupada);
+
+    if (!dias.length || !totalComprometido) {
+      container.innerHTML = emptyInline(
+        "Sin fechas de sprint o capacidad ocupada suficientes para dibujar el burndown."
+      );
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+
+    const idealData = dias.map((_, idx) => {
+      const frac = dias.length > 1 ? idx / (dias.length - 1) : 1;
+      return Math.round(totalComprometido * (1 - frac) * 10) / 10;
+    });
+
+    const dailylogs = (state.gee && state.gee.dailylogs) || [];
+    const numeroSprint = String(sprintActivo.numero !== undefined ? sprintActivo.numero : "");
+    const puntosPorFecha = {};
+    dailylogs.forEach((log) => {
+      if (String(log.sprint || "").trim() === numeroSprint && log.puntosRestantes !== "" && log.puntosRestantes !== undefined) {
+        const n = Number(log.puntosRestantes);
+        if (!Number.isNaN(n)) puntosPorFecha[log.fecha] = n;
+      }
+    });
+    const realData = dias.map((d) => (puntosPorFecha[d] !== undefined ? puntosPorFecha[d] : null));
+    const hayDatosReales = realData.some((v) => v !== null);
+
+    const chart = getOrCreateChart("chart-sprint-burndown");
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      legend: { bottom: 0 },
+      grid: { left: 48, right: 24, top: 24, bottom: 48 },
+      xAxis: { type: "category", data: dias },
+      yAxis: { type: "value", name: "Puntos restantes" },
+      series: [
+        {
+          name: "Ideal",
+          type: "line",
+          data: idealData,
+          lineStyle: { type: "dashed" },
+          symbol: "none",
+          color: "#9ca3af",
+        },
+        {
+          name: "Real",
+          type: "line",
+          data: realData,
+          connectNulls: true,
+          color: "#2563eb",
+        },
+      ],
+    });
+
+    if (!hayDatosReales) {
+      showToast(
+        "El burndown solo tiene la línea ideal — todavía no hay ningún daily log de este sprint con \"Puntos restantes del sprint\" relleno.",
+        "warn"
+      );
+    }
+  }
+
+  function renderSprintEstadoChart(hus) {
+    const counts = { Pendiente: 0, "En curso": 0, Bloqueada: 0, Hecho: 0, Descartada: 0 };
+    hus.forEach((hu) => {
+      const estado = normalizeEstadoHu(hu.estado);
+      if (counts[estado] === undefined) counts[estado] = 0;
+      counts[estado]++;
+    });
+
+    const container = qs("#chart-sprint-estado");
+    if (hus.length === 0) {
+      container.innerHTML = emptyInline("No hay HU en el sprint activo todavía.");
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const chart = getOrCreateChart("chart-sprint-estado");
+    const data = Object.keys(counts)
+      .filter((k) => counts[k] > 0)
+      .map((k) => ({ name: k, value: counts[k] }));
+
+    chart.setOption({
+      tooltip: { trigger: "item" },
+      legend: { bottom: 0 },
+      color: ["#9ca3af", "#2563eb", "#dc2626", "#16a34a", "#d1d5db"],
+      series: [
+        {
+          type: "pie",
+          radius: ["45%", "70%"],
+          data: data,
+          label: { formatter: "{b}: {c}" },
+        },
+      ],
+    });
+  }
+
+  function normalizeEstadoHu(raw) {
+    if (!raw) return "Pendiente";
+    const v = String(raw).toLowerCase();
+    if (v.includes("descarta")) return "Descartada";
+    if (v.includes("bloque")) return "Bloqueada";
+    if (v.includes("curso") || v.includes("progreso") || v.includes("progress")) return "En curso";
+    if (v.includes("hecho") || v.includes("done") || v.includes("completa")) return "Hecho";
+    return "Pendiente";
+  }
+
+  const ESTADO_HU_BADGE_CLASS = {
+    Pendiente: "badge-estado-gris",
+    "En curso": "badge-estado-azul",
+    Bloqueada: "badge-estado-rojo",
+    Hecho: "badge-estado-verde",
+    Descartada: "badge-estado-muted",
+  };
+
+  function estadoBadge(raw) {
+    const norm = normalizeEstadoHu(raw);
+    const clase = ESTADO_HU_BADGE_CLASS[norm] || "badge-estado-gris";
+    return '<span class="badge-estado ' + clase + '">' + escapeHtml(norm) + "</span>";
+  }
+
+  function renderSprintResumenLateral(hus) {
+    const total = hus.length;
+    const bloqueadas = hus.filter((h) => normalizeEstadoHu(h.estado) === "Bloqueada").length;
+    const hechas = hus.filter((h) => normalizeEstadoHu(h.estado) === "Hecho").length;
+    const descartadas = hus.filter((h) => normalizeEstadoHu(h.estado) === "Descartada").length;
+    const lockedCount = hus.filter((h) => h.locked).length;
+    const container = qs("#sprint-resumen-lateral");
+    if (total === 0) {
+      container.innerHTML = emptyInline("Sin HU en el sprint.");
+      return;
+    }
+    container.innerHTML =
+      "<p><strong>" + total + "</strong> historias en total</p>" +
+      "<p><strong>" + hechas + "</strong> completadas</p>" +
+      "<p><strong>" + bloqueadas + "</strong> bloqueadas</p>" +
+      (descartadas > 0 ? "<p><strong>" + descartadas + "</strong> descartadas</p>" : "") +
+      (lockedCount > 0 ? "<p>🔒 <strong>" + lockedCount + "</strong> bloqueadas para edición (sprint activo)</p>" : "");
+  }
+
+  /** Agrupa las HU del sprint activo por épica, con un acordeón desplegable
+   *  por épica y otro anidado por HU (mostrando sus subtareas técnicas). Las
+   *  HU sin épica conocida (formato antiguo, o todavía no enlazadas) caen en
+   *  un grupo "Sin épica asignada" en vez de desaparecer. */
+  function renderSprintHuPorEpica(hus) {
+    const container = qs("#sprint-hu-por-epica");
+    if (!hus.length) {
+      container.innerHTML = emptyInline("No hay historias de usuario en el sprint activo.");
+      return;
+    }
+
+    const grupos = {};
+    const orden = [];
+    hus.forEach((hu) => {
+      const epica = (hu.epica || "").trim() || "Sin épica asignada";
+      if (!grupos[epica]) {
+        grupos[epica] = [];
+        orden.push(epica);
+      }
+      grupos[epica].push(hu);
+    });
+
+    container.innerHTML = orden
+      .map((epica) => {
+        const items = grupos[epica];
+        const husHtml = items.map(renderHuItemHtml).join("");
+        return (
+          '<details class="epica-group" open><summary>' +
+          escapeHtml(epica) +
+          ' <span class="text-muted">(' + items.length + (items.length === 1 ? " HU)" : " HU)") + "</span></summary>" +
+          '<div class="epica-hu-list">' + husHtml + "</div></details>"
+        );
+      })
+      .join("");
+  }
+
+  function renderHuItemHtml(hu) {
+    const subtareas = hu.subtareas || [];
+    const subtareasHtml = subtareas.length
+      ? '<table class="data-table subtareas-table"><thead><tr><th>Subtarea</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>' +
+        subtareas
+          .map(
+            (s) =>
+              "<tr><td>" + escapeHtml(fmt(s.descripcion)) + "</td><td>" + escapeHtml(fmt(s.responsable)) + "</td><td>" +
+              estadoBadge(s.estado) + "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>"
+      : emptyInline("Sin subtareas técnicas registradas para esta HU.");
+
+    return (
+      '<details class="hu-item"><summary>' +
+      '<span class="hu-id">' + escapeHtml(fmt(hu.hu)) + "</span> " +
+      '<span class="hu-titulo">' + escapeHtml(fmt(hu.titulo)) + "</span> " +
+      estadoBadge(hu.estado) + " " +
+      '<span class="hu-puntos">' + escapeHtml(fmt(hu.tallas)) + "</span> " +
+      (hu.locked ? '<span class="locked-badge">🔒</span>' : "") +
+      "</summary>" +
+      subtareasHtml +
+      "</details>"
+    );
+  }
+
+  function setupSprintTabButtons() {
+    const btnExpandir = qs("#btn-sprint-expandir-todo");
+    const btnContraer = qs("#btn-sprint-contraer-todo");
+    if (btnExpandir) {
+      btnExpandir.addEventListener("click", () => {
+        document.querySelectorAll("#sprint-hu-por-epica details").forEach((d) => (d.open = true));
+      });
+    }
+    if (btnContraer) {
+      btnContraer.addEventListener("click", () => {
+        document.querySelectorAll("#sprint-hu-por-epica details").forEach((d) => (d.open = false));
+      });
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // TAB: Proyecto
+  // ------------------------------------------------------------------
+
+  function renderProyectoTab() {
+    renderRoadmapClienteChart();
+    renderRoadmapClienteDetalle();
+    renderEpicas();
+    renderVelocidadChart();
+    renderCapacidadActual();
+  }
+
+  function renderVelocidadChart() {
+    const container = qs("#chart-velocidad");
+    const data = (state.metricas && state.metricas.velocidadPorSprint) || [];
+    if (!data || data.length === 0) {
+      container.innerHTML = emptyInline("Todavía no hay histórico de velocidad (se necesitan sprints completados).");
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const chart = getOrCreateChart("chart-velocidad");
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      grid: { left: 40, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: "category",
+        data: data.map((d) => "Sprint " + d.sprint),
+      },
+      yAxis: { type: "value", name: "Pts" },
+      series: [
+        {
+          type: "line",
+          data: data.map((d) => d.ptsCompletados),
+          smooth: true,
+          color: "#2563eb",
+          areaStyle: { opacity: 0.08 },
+        },
+      ],
+    });
+  }
+
+  function renderEpicas() {
+    const container = qs("#epicas-lista");
+    const epicas = (state.roadmap && state.roadmap.epicas) || [];
+    if (!epicas || epicas.length === 0) {
+      container.innerHTML = emptyState("🗺️", "Todavía no se ha generado el roadmap de épicas.", "Se generará en el paso 2 del proceso (generar-epicas).");
+      return;
+    }
+    container.innerHTML = epicas
+      .map((ep) => {
+        const fase = ep.fase || ep.faseRoadmap || "";
+        const faseClass = fase && fase.toLowerCase().includes("mvp") ? " tag-fase-mvp" : "";
+        const prioridad = ep.prioridad || "";
+        const prioClass = prioridad && prioridad.toLowerCase().includes("alta") ? " tag-prioridad-alta" : "";
+        return (
+          '<div class="epica-card">' +
+          '<div class="epica-card-header">' +
+          "<strong>" + escapeHtml(fmt(ep.nombre || ep.titulo || ep.id)) + "</strong>" +
+          '<div class="epica-tags">' +
+          (fase ? '<span class="tag' + faseClass + '">' + escapeHtml(fase) + "</span>" : "") +
+          (prioridad ? '<span class="tag' + prioClass + '">' + escapeHtml(prioridad) + "</span>" : "") +
+          "</div></div>" +
+          (ep.descripcion ? '<div class="epica-desc">' + escapeHtml(ep.descripcion) + "</div>" : "") +
+          "</div>"
+        );
+      })
+      .join("");
+  }
+
+  // "Sep 2026 — Oct 2026" (o variantes con "-", "–", "a", "hasta") -> mes+año
+  // de inicio y de fin. Formato tal cual lo produce generar-roadmaps.md en
+  // el campo "Ventana estimada" de cada hito.
+  const MESES_ES = {
+    ene: 0, enero: 0, feb: 1, febrero: 1, mar: 2, marzo: 2, abr: 3, abril: 3,
+    may: 4, mayo: 4, jun: 5, junio: 5, jul: 6, julio: 6, ago: 7, agosto: 7,
+    sep: 8, sept: 8, septiembre: 8, oct: 9, octubre: 9, nov: 10, noviembre: 10,
+    dic: 11, diciembre: 11,
+    // fallback en inglés, por si el contenido viene mixto
+    jan: 0, january: 0, march: 2, april: 3, june: 5, july: 6, august: 7,
+    september: 8, october: 9, november: 10, december: 11,
+  };
+
+  /** "Agosto 2026", "ago 2026"... -> { mes, ano }. Requiere año explícito. */
+  function parseMesAno(fragmento) {
+    const m = String(fragmento || "")
+      .trim()
+      .toLowerCase()
+      .match(/([a-záéíóúñ]+)\.?\s+(\d{4})/i);
+    if (!m) return null;
+    const mes = MESES_ES[m[1]];
+    if (mes === undefined) return null;
+    return { mes, ano: Number(m[2]) };
+  }
+
+  /** "Agosto", "ago"... -> número de mes, SIN año (para el lado de un rango
+   *  que comparte el año del otro lado, ver parseVentanaEstimada). */
+  function parseSoloMes(fragmento) {
+    const m = String(fragmento || "")
+      .trim()
+      .toLowerCase()
+      .match(/^([a-záéíóúñ]+)\.?$/i);
+    if (!m) return null;
+    const mes = MESES_ES[m[1]];
+    return mes === undefined ? null : mes;
+  }
+
+  /**
+   * @returns {{inicio: Date, fin: Date}|null}
+   *
+   * Admite dos formatos, ambos usados en la práctica por generar-roadmaps.md:
+   *  - "Jul 2026 — Ago 2026": cada lado trae su propio año.
+   *  - "Julio-agosto 2026": un único año compartido, mencionado una sola vez
+   *    junto al segundo mes — el primer lado es solo el nombre del mes, sin
+   *    año propio, así que hay que tomarlo prestado del otro lado.
+   */
+  function parseVentanaEstimada(str) {
+    if (!str) return null;
+    const partes = String(str)
+      .split(/\s*[—–-]\s*|\s+(?:a|hasta)\s+/i)
+      .filter(Boolean);
+    if (partes.length === 0) return null;
+
+    if (partes.length === 1) {
+      const unico = parseMesAno(partes[0]);
+      if (!unico) return null;
+      return { inicio: new Date(unico.ano, unico.mes, 1), fin: new Date(unico.ano, unico.mes + 1, 0) };
+    }
+
+    let inicio = parseMesAno(partes[0]);
+    let fin = parseMesAno(partes[1]);
+
+    if (!inicio && fin) {
+      const soloMes = parseSoloMes(partes[0]);
+      if (soloMes !== null) inicio = { mes: soloMes, ano: fin.ano };
+    }
+    if (!fin && inicio) {
+      const soloMes = parseSoloMes(partes[1]);
+      if (soloMes !== null) fin = { mes: soloMes, ano: inicio.ano };
+    }
+    if (!inicio) return null;
+    if (!fin) fin = inicio;
+
+    const fechaInicio = new Date(inicio.ano, inicio.mes, 1);
+    // Día 0 del mes siguiente = último día del mes de fin.
+    const fechaFin = new Date(fin.ano, fin.mes + 1, 0);
+    return { inicio: fechaInicio, fin: fechaFin };
+  }
+
+  function confianzaKey(raw) {
+    const v = String(raw || "").toLowerCase();
+    if (v.includes("✅") || v.includes("alta")) return "alta";
+    if (v.includes("⚠") || v.includes("media") || v.includes("riesgo medio")) return "media";
+    if (v.includes("🔥") || v.includes("baja") || v.includes("alto riesgo")) return "baja";
+    return "desconocida";
+  }
+
+  const COLOR_CONFIANZA = { alta: "#16a34a", media: "#ca8a04", baja: "#dc2626", desconocida: "#9ca3af" };
+
+  /**
+   * Cronograma horizontal de hitos (tipo el timeline de épicas de Jira):
+   * cada hito es una barra que va de su mes de inicio a su mes de fin,
+   * coloreada por nivel de confianza. Se apoya en la convención de
+   * "Ventana estimada" ("Mes AAAA — Mes AAAA") que ya produce
+   * generar-roadmaps.md — un hito cuya ventana no se pueda interpretar como
+   * fecha simplemente no aparece en el gráfico (pero sí en el detalle de
+   * abajo, ver renderRoadmapClienteDetalle).
+   */
+  function renderRoadmapClienteChart() {
+    const container = qs("#chart-roadmap-cliente");
+    const roadmapCliente = state.roadmap && state.roadmap.roadmapCliente;
+    if (!roadmapCliente) {
+      container.innerHTML = emptyState("📅", "Todavía no se ha generado el roadmap de cliente.", "Se generará en el paso 2 del proceso (generar-roadmaps).");
+      return;
+    }
+    const hitos = roadmapCliente.hitos || roadmapCliente.milestones || [];
+    const parseados = hitos.map((h) => ({ hito: h, rango: parseVentanaEstimada(h.ventanaEstimada || h.fecha) })).filter((x) => x.rango);
+
+    if (parseados.length === 0) {
+      container.innerHTML = emptyInline(
+        hitos.length === 0
+          ? "El roadmap de cliente existe pero no tiene hitos definidos todavía."
+          : 'No se ha podido interpretar la "Ventana estimada" de ningún hito como fecha (formato esperado: "Mes AAAA — Mes AAAA"). Ver el detalle más abajo.'
+      );
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+
+    // Hito 1 arriba: en el eje de categorías de ECharts el primer elemento
+    // del array queda abajo salvo que se invierta el orden aquí.
+    const ordenados = parseados.slice().reverse();
+
+    const msPorDia = 24 * 60 * 60 * 1000;
+    const inicioEpoca = ordenados.reduce((min, x) => (x.rango.inicio < min ? x.rango.inicio : min), ordenados[0].rango.inicio);
+    const diasDesdeEpoca = (fecha) => Math.round((fecha - inicioEpoca) / msPorDia);
+
+    const categorias = ordenados.map((x) => x.hito.nombre || x.hito.titulo || "Hito " + (x.hito.numero || ""));
+    const offsets = ordenados.map((x) => diasDesdeEpoca(x.rango.inicio));
+    const duraciones = ordenados.map((x) => Math.max(1, diasDesdeEpoca(x.rango.fin) - diasDesdeEpoca(x.rango.inicio)));
+    const colores = ordenados.map((x) => COLOR_CONFIANZA[confianzaKey(x.hito.confianza)]);
+
+    const chart = getOrCreateChart("chart-roadmap-cliente");
+    chart.setOption({
+      tooltip: {
+        trigger: "item",
+        formatter: (params) => {
+          const x = ordenados[params.dataIndex];
+          if (!x) return "";
+          return (
+            "<strong>" + escapeHtml(fmt(x.hito.nombre || x.hito.titulo, "")) + "</strong><br/>" +
+            escapeHtml(fmt(x.hito.ventanaEstimada || x.hito.fecha, "")) +
+            (x.hito.queIncluye ? "<br/>" + escapeHtml(x.hito.queIncluye) : "") +
+            (x.hito.confianza ? "<br/>" + escapeHtml(x.hito.confianza) : "")
+          );
+        },
+      },
+      grid: { left: 160, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: "value",
+        min: 0,
+        axisLabel: {
+          formatter: (valorDias) => {
+            const fecha = new Date(inicioEpoca.getTime() + valorDias * msPorDia);
+            return fecha.toLocaleDateString("es-ES", { month: "short", year: "numeric" });
+          },
+        },
+      },
+      yAxis: { type: "category", data: categorias },
+      series: [
+        {
+          name: "Offset",
+          type: "bar",
+          stack: "total",
+          itemStyle: { color: "transparent" },
+          silent: true,
+          tooltip: { show: false },
+          data: offsets,
+        },
+        {
+          name: "Duración",
+          type: "bar",
+          stack: "total",
+          barWidth: "50%",
+          data: duraciones.map((d, i) => ({ value: d, itemStyle: { color: colores[i] } })),
+        },
+      ],
+    });
+  }
+
+  function renderRoadmapClienteDetalle() {
+    const container = qs("#roadmap-cliente-detalle");
+    const roadmapCliente = state.roadmap && state.roadmap.roadmapCliente;
+    if (!roadmapCliente) {
+      container.innerHTML = "";
+      return;
+    }
+    const hitos = roadmapCliente.hitos || roadmapCliente.milestones || [];
+    if (!hitos.length) {
+      container.innerHTML = "";
+      return;
+    }
+    container.innerHTML =
+      '<ul class="timeline-list">' +
+      hitos
+        .map((h) => {
+          const confianza = confianzaEmoji(h.confianza || h.nivelConfianza);
+          return (
+            "<li><span class=\"timeline-confianza\">" + confianza + "</span>" +
+            '<div class="timeline-body"><strong>' + escapeHtml(fmt(h.nombre || h.titulo)) + "</strong>" +
+            "<span>" + escapeHtml(fmt(h.ventanaEstimada || h.fecha)) + ((h.queIncluye || h.descripcion) ? " — " + escapeHtml(h.queIncluye || h.descripcion) : "") + "</span>" +
+            "</div></li>"
+          );
+        })
+        .join("") +
+      "</ul>";
+  }
+
+  function confianzaEmoji(raw) {
+    if (!raw) return "❔";
+    const v = String(raw).toLowerCase();
+    if (v.includes("✅") || v.includes("alta") || v.includes("high")) return "✅";
+    if (v.includes("⚠") || v.includes("media") || v.includes("medium")) return "⚠️";
+    if (v.includes("🔥") || v.includes("baja") || v.includes("low") || v.includes("riesgo")) return "🔥";
+    // Si ya viene el emoji tal cual en el campo, se devuelve tal cual.
+    if (raw === "✅" || raw === "⚠️" || raw === "🔥") return raw;
+    return "❔";
+  }
+
+  /** Da formato legible a un valor de capacidad que puede ser texto plano,
+   *  un objeto clave-valor (ej. composicionTecnica) o un array de fichas
+   *  (ej. miembros, disponibilidad). Nunca deja que un objeto/array llegue
+   *  a concatenarse directo en un template string (produce "[object Object]"). */
+  function formatearValorCapacidad(value) {
+    if (value === null || value === undefined || value === "") return null;
+    if (Array.isArray(value)) {
+      if (value.length === 0) return null;
+      if (typeof value[0] === "object") {
+        return value
+          .map((item) =>
+            Object.keys(item)
+              .filter((k) => item[k])
+              .map((k) => humanizeKey(k) + ": " + escapeHtml(fmt(item[k])))
+              .join(" · ")
+          )
+          .map((line) => "<div>" + line + "</div>")
+          .join("");
+      }
+      return escapeHtml(value.join(", "));
+    }
+    if (typeof value === "object") {
+      const keys = Object.keys(value).filter((k) => value[k]);
+      if (keys.length === 0) return null;
+      return keys.map((k) => humanizeKey(k) + ": " + escapeHtml(fmt(value[k]))).join(", ");
+    }
+    return escapeHtml(fmt(value));
+  }
+
+  function renderCapacidadActual() {
+    const container = qs("#capacidad-actual-contenido");
+    const cap = state.roadmap && state.roadmap.capacidadActual;
+    if (!cap) {
+      container.innerHTML = emptyState("⚙️", "Todavía no se ha calculado la capacidad del equipo.", "Se genera en el paso 2 (cuestionario/procesar-capacidad).");
+      return;
+    }
+    // "raw" es el texto original sin procesar, guardado por el backend solo
+    // como respaldo de depuración — no es apto para mostrarse en el dashboard.
+    const entries = Object.keys(cap).filter((k) => k !== "raw" && cap[k] !== null && cap[k] !== undefined);
+    const bloques = entries
+      .map((k) => ({ key: k, html: formatearValorCapacidad(cap[k]) }))
+      .filter((e) => e.html !== null);
+    if (bloques.length === 0) {
+      container.innerHTML = emptyInline("Capacidad registrada pero sin campos con datos.");
+      return;
+    }
+    container.innerHTML =
+      '<div class="grid-3">' +
+      bloques
+        .map(
+          (e) =>
+            '<div class="stat-block"><div class="stat-label">' +
+            escapeHtml(humanizeKey(e.key)) +
+            '</div><div class="stat-value" style="font-size:14px; font-weight:400;">' +
+            e.html +
+            "</div></div>"
+        )
+        .join("") +
+      "</div>";
+  }
+
+  function humanizeKey(key) {
+    return key
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/^./, (c) => c.toUpperCase());
+  }
+
+  // ------------------------------------------------------------------
+  // Charts helpers
+  // ------------------------------------------------------------------
+
+  function chartUnavailableMarkup() {
+    return (
+      '<div class="chart-unavailable">Ejecuta <code>npm run setup</code> para habilitar los gráficos (falta vendor/echarts.min.js).</div>'
+    );
+  }
+
+  function getOrCreateChart(containerId) {
+    const container = qs("#" + containerId);
+    // Aseguramos que el contenedor no tenga el markup de "no disponible" de un render previo.
+    if (!container.querySelector("canvas") && container.getAttribute("_echarts_instance_")) {
+      // ya inicializado por echarts, nada que hacer
+    }
+    if (chartInstances[containerId]) {
+      return chartInstances[containerId];
+    }
+    container.innerHTML = "";
+    const chart = echarts.init(container);
+    chartInstances[containerId] = chart;
+    return chart;
+  }
+
+  function resizeAllCharts() {
+    Object.keys(chartInstances).forEach((id) => {
+      try {
+        chartInstances[id].resize();
+      } catch (e) {
+        /* noop */
+      }
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // TAB: GEE — configuración declarativa por tipo
+  // ------------------------------------------------------------------
+
+  /**
+   * Definición de columnas por tipo GEE. Cada columna: { key, label, type, editable }
+   * type: "text" | "textarea" | "select" | "date" | "number"
+   * Estos campos se basan estrictamente en el contrato de /api/data dado.
+   */
+  const GEE_CONFIG = {
+    riesgos: {
+      apiTipo: "riesgos",
+      dataKey: "riesgos",
+      tablaWrap: "riesgos-tabla-wrap",
+      formId: "form-nuevo-riesgo",
+      titulo: "riesgo",
+      resumenKeys: ["riesgo", "rag"],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "fechaAlta", label: "Fecha alta", type: "date" },
+        { key: "riesgo", label: "Riesgo", type: "textarea" },
+        { key: "consecuencia", label: "Consecuencia", type: "textarea" },
+        { key: "tipo", label: "Tipo", type: "select", options: ["alcance", "cliente", "equipo", "plazos", "logístico", "técnico", "seguridad-legal", "penalizaciones", "terceros", "adopción", "costes", "dependencias"] },
+        { key: "probabilidad", label: "Probabilidad", type: "select", options: ["Muy Baja (0.1)", "Baja (0.3)", "Media (0.5)", "Alta (0.7)", "Muy Alta (0.9)"] },
+        { key: "impacto", label: "Impacto", type: "select", options: ["Muy Bajo (0.05)", "Bajo (0.1)", "Medio (0.2)", "Alto (0.4)", "Muy Alto (0.8)"] },
+        { key: "ambito", label: "Ámbito", type: "select", options: ["Interno", "Externo"] },
+        { key: "respuesta", label: "Respuesta", type: "select", options: ["Evitarlo", "Reducirlo", "Aceptarlo", "Transferirlo"] },
+        { key: "estado", label: "Estado", type: "select", options: ["Abierto", "Impacto", "Cerrado"] },
+        { key: "rag", label: "RAG", type: "select", options: ["🟢 Verde", "🟡 Amarillo", "🔴 Rojo"], render: (v) => ragBadge(v) },
+        { key: "mitigacion", label: "Mitigación", type: "textarea" },
+        { key: "responsable", label: "Responsable", type: "text" },
+        { key: "peso", label: "Peso", type: "text" },
+        { key: "consideraciones", label: "Consideraciones", type: "textarea" },
+        { key: "relacionadoCon", label: "Relacionado con", type: "relacion", relTipos: ["dependencias", "acciones", "changelog"] },
+        { key: "fechaUpdate", label: "Últ. actualización", type: "date", editable: false },
+      ],
+    },
+    dependencias: {
+      apiTipo: "dependencias",
+      dataKey: "dependencias",
+      tablaWrap: "dependencias-tabla-wrap",
+      formId: "form-nueva-dependencia",
+      titulo: "dependencia",
+      resumenKeys: ["dependencia", "criticidadRag"],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "equipo", label: "Equipo", type: "text" },
+        { key: "dependencia", label: "Dependencia", type: "textarea" },
+        { key: "criticidadRag", label: "Criticidad", type: "select", options: ["🟢 Verde", "🟡 Amarillo", "🔴 Rojo"], render: (v) => ragBadge(v) },
+        { key: "estado", label: "Estado", type: "select", options: ["Detectada", "Comunicada", "Negociada", "En Resolución", "Resuelta"] },
+        { key: "fechaCompromiso", label: "Fecha compromiso", type: "date" },
+        { key: "riesgosAsociados", label: "Riesgos asociados", type: "relacion", relTipos: ["riesgos"] },
+        { key: "tareaGestionJira", label: "Tarea de gestión (Jira)", type: "text" },
+        { key: "comentarios", label: "Comentarios", type: "textarea" },
+      ],
+    },
+    acciones: {
+      apiTipo: "acciones",
+      dataKey: "acciones",
+      tablaWrap: "acciones-tabla-wrap",
+      formId: "form-nueva-accion",
+      titulo: "acción",
+      resumenKeys: ["accion", "estado"],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "accion", label: "Acción", type: "textarea" },
+        { key: "tipo", label: "Tipo", type: "select", options: ["Preventiva", "Correctiva", "Mitigación", "Contingencia"] },
+        { key: "riesgoAsociado", label: "Riesgo asociado", type: "relacion", relTipos: ["riesgos"] },
+        { key: "dependenciaAsociada", label: "Dependencia asociada", type: "relacion", relTipos: ["dependencias"] },
+        { key: "responsable", label: "Responsable", type: "text" },
+        { key: "deadline", label: "Deadline", type: "date" },
+        { key: "estado", label: "Estado", type: "select", options: ["Pendiente", "En curso", "Bloqueada", "Cerrada"] },
+      ],
+    },
+    impedimentos: {
+      apiTipo: "impedimentos",
+      dataKey: "impedimentos",
+      tablaWrap: "impedimentos-tabla-wrap",
+      formId: "form-nuevo-impedimento",
+      titulo: "impedimento",
+      resumenKeys: ["impedimento", "criticidad"],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "impedimento", label: "Impedimento", type: "textarea" },
+        { key: "criticidad", label: "Criticidad", type: "select", options: ["🟢 Verde", "🟡 Amarillo", "🔴 Rojo"], render: (v) => ragBadge(v) },
+        { key: "fechaInicio", label: "Fecha inicio", type: "date" },
+        { key: "fechaFin", label: "Fecha fin", type: "date" },
+        { key: "responsable", label: "Responsable", type: "text" },
+        { key: "riesgoOrigen", label: "Riesgo origen", type: "relacion", relTipos: ["riesgos"] },
+        { key: "dependenciaOrigen", label: "Dependencia origen", type: "relacion", relTipos: ["dependencias"] },
+      ],
+    },
+    changelog: {
+      apiTipo: "changelog",
+      dataKey: "changelog",
+      tablaWrap: "changelog-tabla-wrap",
+      formId: "form-nuevo-changelog",
+      titulo: "cambio de alcance",
+      resumenKeys: ["titulo", "decision"],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "titulo", label: "Título", type: "text" },
+        { key: "descripcion", label: "Descripción", type: "textarea" },
+        { key: "impacto", label: "Impacto", type: "textarea" },
+        { key: "coste", label: "Coste", type: "text" },
+        { key: "alcance", label: "Alcance", type: "text" },
+        { key: "plazo", label: "Plazo", type: "text" },
+        { key: "calidad", label: "Calidad", type: "text" },
+        { key: "decision", label: "Decisión", type: "text" },
+        { key: "comentarios", label: "Comentarios", type: "textarea" },
+        { key: "riesgosGenerados", label: "Riesgos generados", type: "relacion", relTipos: ["riesgos"], relCreable: true },
+        { key: "dependenciasGeneradas", label: "Dependencias generadas", type: "relacion", relTipos: ["dependencias"], relCreable: true },
+        { key: "accionesGeneradas", label: "Acciones generadas", type: "relacion", relTipos: ["acciones"], relCreable: true },
+      ],
+    },
+  };
+
+  /**
+   * Config declarativa de los 4 artefactos editables del Paso 0 (Requisitos),
+   * mismo patrón que GEE_CONFIG y renderizados con las mismas funciones
+   * (renderGeeTable/buildGeeRowPair/enterEditMode/...), pero sin
+   * Descartar/Eliminar (softDelete: false — eso es específico del GEE, ver
+   * Principio de alcance de la Fase C) ni campos type:"relacion" (no se pidió
+   * referenciar cruzado entre requisitos). "Legacy" (Paso -1) no tiene
+   * entrada aquí: es un análisis histórico de solo lectura, no se edita desde
+   * el dashboard.
+   */
+  const REQUISITOS_CONFIG = {
+    peticiones: {
+      apiTipo: "peticiones",
+      tablaWrap: "peticiones-tabla-wrap",
+      formId: "form-nueva-peticion",
+      titulo: "petición",
+      softDelete: false,
+      resumenKeys: ["peticion", "prioridadSubjetiva"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.peticiones) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "peticion", label: "Petición", type: "textarea" },
+        { key: "loDijoElCliente", label: "Lo dijo el cliente", type: "textarea" },
+        { key: "prioridadSubjetiva", label: "Prioridad subjetiva", type: "select", options: ["Alta", "Media", "Baja"] },
+      ],
+    },
+    funcionales: {
+      apiTipo: "funcionales",
+      tablaWrap: "rf-tabla-wrap",
+      formId: "form-nuevo-rf",
+      titulo: "requisito funcional",
+      softDelete: false,
+      resumenKeys: ["descripcion", "prioridad"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.funcionales) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "modulo", label: "Módulo/Área", type: "text" },
+        { key: "descripcion", label: "Descripción", type: "textarea" },
+        { key: "actor", label: "Actor/Rol", type: "text" },
+        { key: "prioridad", label: "Prioridad (MoSCoW)", type: "select", options: ["Must", "Should", "Could", "Won't"], render: (v) => moscowBadge(v) },
+        { key: "origen", label: "Origen", type: "text" },
+        { key: "dependencias", label: "Dependencias", type: "text" },
+      ],
+    },
+    nofuncionales: {
+      apiTipo: "nofuncionales",
+      tablaWrap: "rnf-tabla-wrap",
+      formId: "form-nuevo-rnf",
+      titulo: "requisito no funcional",
+      softDelete: false,
+      resumenKeys: ["descripcion", "categoria"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.noFuncionales) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "descripcion", label: "Descripción", type: "textarea" },
+        {
+          key: "categoria",
+          label: "Categoría",
+          type: "select",
+          options: ["Rendimiento", "Seguridad", "Disponibilidad", "Normativa", "Usabilidad", "Mantenibilidad", "Escalabilidad"],
+        },
+        {
+          key: "origen",
+          label: "Origen",
+          type: "text",
+          render: (v, row) => (row && row.implicito ? "⚠️ " : "") + escapeHtml(fmt(v, "—")),
+        },
+        { key: "prioridad", label: "Prioridad (MoSCoW)", type: "select", options: ["Must", "Should", "Could", "Won't"], render: (v) => moscowBadge(v) },
+      ],
+    },
+    zonas: {
+      apiTipo: "zonas",
+      tablaWrap: "zonas-tabla-wrap",
+      formId: "form-nueva-zona",
+      titulo: "zona de incertidumbre",
+      softDelete: false,
+      resumenKeys: ["zona", "porQueEsIncierto"],
+      getRows: () => (state.requisitos && state.requisitos.paso0 && state.requisitos.paso0.zonasIncertidumbre) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "zona", label: "Zona", type: "text" },
+        { key: "descripcion", label: "Descripción", type: "textarea" },
+        { key: "porQueEsIncierto", label: "Por qué es incierto", type: "select", options: ["Ambigüedad", "Contradicción", "Decisión pendiente", "Asunción IA"] },
+        { key: "afecta", label: "Afecta a", type: "text" },
+        { key: "pregunta", label: "Pregunta para resolverlo", type: "textarea" },
+        { key: "recomendacionPorDefecto", label: "Recomendación por defecto (80/20)", type: "textarea" },
+      ],
+    },
+  };
+
+  /** Busca la config declarativa (GEE o Requisitos) de un tipo por su clave. */
+  function getRegistryConfig(tipo) {
+    return GEE_CONFIG[tipo] || REQUISITOS_CONFIG[tipo];
+  }
+
+  function renderGeeAll() {
+    renderRiesgosRagChart();
+    Object.keys(GEE_CONFIG).forEach((tipo) => renderGeeTable(tipo));
+    renderDailyLog();
+  }
+
+  function renderRequisitosEditableTables() {
+    Object.keys(REQUISITOS_CONFIG).forEach((tipo) => renderGeeTable(tipo));
+  }
+
+  function renderRiesgosRagChart() {
+    const container = qs("#chart-riesgos-rag");
+    const counts = (state.metricas && state.metricas.riesgosPorRag) || null;
+    if (!counts) {
+      container.innerHTML = emptyInline("Sin datos de riesgos por RAG todavía.");
+      return;
+    }
+    const total = (counts.verde || 0) + (counts.amarillo || 0) + (counts.rojo || 0);
+    if (total === 0) {
+      container.innerHTML = emptyInline("No hay riesgos registrados todavía.");
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const chart = getOrCreateChart("chart-riesgos-rag");
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      grid: { left: 40, right: 20, top: 20, bottom: 30 },
+      xAxis: { type: "category", data: ["Verde", "Amarillo", "Rojo"] },
+      yAxis: { type: "value" },
+      series: [
+        {
+          type: "bar",
+          data: [
+            { value: counts.verde || 0, itemStyle: { color: "#16a34a" } },
+            { value: counts.amarillo || 0, itemStyle: { color: "#ca8a04" } },
+            { value: counts.rojo || 0, itemStyle: { color: "#dc2626" } },
+          ],
+          barWidth: "50%",
+        },
+      ],
+    });
+  }
+
+  // ---------- Render genérico de tabla editable GEE ----------
+
+  // ---------- Tabla compacta + panel de detalle desplegable ----------
+  //
+  // Antes cada fila mostraba TODAS las columnas (hasta ~20 en Riesgos) en una
+  // única fila ancha, con el botón "Editar" al final — en la práctica quedaba
+  // fuera de la vista sin hacer scroll horizontal, y el scroll horizontal en
+  // tablas es poco usable. Ahora cada registro es una fila resumen (2-3
+  // columnas clave) + una fila de detalle desplegable con todos los campos en
+  // formato vertical (etiqueta encima del valor), donde vive también el botón
+  // de edición — más fácil de encontrar, y con sitio de sobra para selects,
+  // selector de fecha y desplegables relacionales.
+
+  function renderGeeTable(tipo) {
+    const cfg = getRegistryConfig(tipo);
+    const wrap = qs("#" + cfg.tablaWrap);
+    const rawRows = cfg.getRows ? cfg.getRows() : (state.gee && state.gee[cfg.dataKey]) || [];
+    // "Eliminado" nunca se ve en el dashboard (aunque sigue en el archivo,
+    // nunca se borra de verdad) — "Descartado" sí se ve, tachado, ver
+    // buildGeeRowPair. No aplica a tipos con softDelete:false (Requisitos):
+    // esas filas nunca tienen "visibilidad", así que el filtro es un no-op.
+    const rows = rawRows.filter((r) => r.visibilidad !== "Eliminado");
+
+    if (!rows || rows.length === 0) {
+      wrap.innerHTML = emptyState("📭", "Todavía no hay ningún registro de " + cfg.titulo + ".", 'Usa el botón "+ Nuevo ' + cfg.titulo + '" para crear el primero.');
+      ensureNewRecordForm(tipo);
+      return;
+    }
+
+    const resumenCols = cfg.columns.filter((c) => (cfg.resumenKeys || []).includes(c.key));
+
+    const table = el("table", { class: "data-table data-table-compact" });
+    const thead = el("thead");
+    const headRow = el("tr");
+    headRow.appendChild(el("th", { text: "ID" }));
+    resumenCols.forEach((col) => headRow.appendChild(el("th", { text: col.label })));
+    headRow.appendChild(el("th", { text: "" }));
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = el("tbody");
+    rows.forEach((row) => {
+      const { summaryTr, detailTr } = buildGeeRowPair(tipo, cfg, row, resumenCols);
+      tbody.appendChild(summaryTr);
+      tbody.appendChild(detailTr);
+    });
+    table.appendChild(tbody);
+
+    wrap.innerHTML = "";
+    wrap.appendChild(table);
+
+    ensureNewRecordForm(tipo);
+  }
+
+  function buildGeeRowPair(tipo, cfg, row, resumenCols) {
+    const colspan = resumenCols.length + 2;
+    const softDelete = cfg.softDelete !== false;
+    const descartado = softDelete && row.visibilidad === "Descartado";
+
+    const summaryTr = el("tr", {
+      "data-id": String(row.id),
+      class: "gee-row-summary" + (descartado ? " gee-row-descartada" : ""),
+    });
+    summaryTr.appendChild(el("td", { text: fmt(row.id) }));
+    resumenCols.forEach((col) => {
+      const td = el("td");
+      renderCellReadonly(td, col, row);
+      summaryTr.appendChild(td);
+    });
+    const tdToggle = el("td", { class: "cell-actions" });
+    if (descartado) tdToggle.appendChild(el("span", { class: "badge-descartado", text: "Descartado" }));
+    const btnToggle = el("button", { class: "btn btn-sm", text: "Ver detalle" });
+    tdToggle.appendChild(btnToggle);
+    summaryTr.appendChild(tdToggle);
+
+    const detailTr = el("tr", { class: "gee-row-detail hidden" });
+    const detailTd = el("td", { colspan: String(colspan) });
+    const panel = el("div", { class: "detail-panel" });
+
+    if (descartado) {
+      const banner = el("div", { class: "descarte-banner form-field-wide" });
+      banner.appendChild(el("strong", { text: "Descartado" }));
+      banner.appendChild(document.createTextNode(" — " + fmt(row.motivoDescarte, "sin motivo registrado")));
+      panel.appendChild(banner);
+    }
+
+    const btnEdit = el("button", { class: "btn btn-sm", text: "Editar" });
+    const btnSave = el("button", { class: "btn btn-sm btn-primary hidden", text: "Guardar cambios" });
+    const btnCancel = el("button", { class: "btn btn-sm hidden", text: "Cancelar" });
+    const btnDescartar = el("button", { class: "btn btn-sm", text: "Descartar" });
+    const btnEliminar = el("button", { class: "btn btn-sm btn-danger-text", text: "Eliminar" });
+    const btnReactivar = el("button", { class: "btn btn-sm btn-primary", text: "Reactivar" });
+
+    cfg.columns.forEach((col) => {
+      if (col.key === "id") return; // ya se muestra en la fila resumen
+      const field = el("div", { class: "detail-field", "data-key": col.key });
+      field.appendChild(el("label", { text: col.label }));
+      const valueEl = el("div", { class: "detail-value" });
+      renderCellReadonly(valueEl, col, row);
+      field.appendChild(valueEl);
+      panel.appendChild(field);
+    });
+
+    const actions = el("div", { class: "detail-actions" });
+    if (descartado) {
+      // Un registro descartado no se edita "en caliente" — primero se
+      // reactiva (vuelve a Activo) y luego se edita con normalidad.
+      actions.appendChild(btnReactivar);
+    } else {
+      actions.appendChild(btnEdit);
+      actions.appendChild(btnSave);
+      actions.appendChild(btnCancel);
+      if (softDelete) {
+        actions.appendChild(btnDescartar);
+        actions.appendChild(btnEliminar);
+      }
+    }
+    panel.appendChild(actions);
+
+    detailTd.appendChild(panel);
+    detailTr.appendChild(detailTd);
+
+    btnToggle.addEventListener("click", () => {
+      const estabaOculto = detailTr.classList.contains("hidden");
+      detailTr.classList.toggle("hidden");
+      btnToggle.textContent = estabaOculto ? "Ocultar detalle" : "Ver detalle";
+    });
+
+    if (descartado) {
+      btnReactivar.addEventListener("click", () => reactivarRegistro(tipo, cfg, row));
+    } else {
+      btnEdit.addEventListener("click", () => {
+        enterEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel);
+        btnDescartar.classList.add("hidden");
+        btnEliminar.classList.add("hidden");
+      });
+      btnCancel.addEventListener("click", () => {
+        exitEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel);
+        btnDescartar.classList.remove("hidden");
+        btnEliminar.classList.remove("hidden");
+      });
+      btnSave.addEventListener("click", () => saveRowEdits(tipo, cfg, row, panel, btnEdit, btnSave, btnCancel));
+      btnDescartar.addEventListener("click", () => abrirMotivoForm(tipo, cfg, row, panel, actions, "Descartado"));
+      btnEliminar.addEventListener("click", () => abrirMotivoForm(tipo, cfg, row, panel, actions, "Eliminado"));
+    }
+
+    return { summaryTr, detailTr };
+  }
+
+  // ---------- Descartar / Eliminar (nunca borrado real del archivo) ----------
+  //
+  // "Descartar" marca el registro como tachado pero sigue visible en el
+  // dashboard (para que quede constancia a simple vista de que se descartó).
+  // "Eliminar" lo oculta del dashboard por completo, pero la fila sigue
+  // físicamente en el archivo — este skill nunca borra datos de verdad (ver
+  // el 405 explícito en server.js para cualquier DELETE). Ambas acciones
+  // exigen un motivo, y ambas usan el mismo endpoint PUT genérico que ya
+  // existe para editar cualquier campo del GEE.
+
+  function abrirMotivoForm(tipo, cfg, row, panel, actionsContainer, accion) {
+    const existente = panel.querySelector(".motivo-inline-form");
+    if (existente) {
+      existente.remove();
+      return;
+    }
+
+    const esDescarte = accion === "Descartado";
+    const form = el("div", { class: "motivo-inline-form form-field-wide" });
+    form.appendChild(el("label", { text: esDescarte ? "Motivo del descarte" : "Motivo de la eliminación" }));
+    const textarea = el("textarea", { rows: "2" });
+    form.appendChild(textarea);
+
+    const formActions = el("div", { class: "form-actions" });
+    const btnConfirmar = el("button", {
+      class: "btn btn-sm btn-primary",
+      text: esDescarte ? "Confirmar descarte" : "Confirmar eliminación",
+    });
+    const btnCancelarMotivo = el("button", { class: "btn btn-sm", text: "Cancelar" });
+    formActions.appendChild(btnConfirmar);
+    formActions.appendChild(btnCancelarMotivo);
+    form.appendChild(formActions);
+
+    btnCancelarMotivo.addEventListener("click", () => form.remove());
+    btnConfirmar.addEventListener("click", async () => {
+      const motivo = textarea.value.trim();
+      if (!motivo) {
+        showToast("Escribe un motivo antes de confirmar.", "error");
+        return;
+      }
+      setBtnLoading(btnConfirmar, true, "Guardando…");
+      try {
+        state = await apiSend("PUT", "/api/gee/" + cfg.apiTipo + "/" + encodeURIComponent(row.id), {
+          confirm: true,
+          visibilidad: accion,
+          motivoDescarte: motivo,
+        });
+        renderAll();
+        showToast((esDescarte ? "Registro descartado: " : "Registro eliminado del dashboard: ") + row.id, "success");
+      } catch (err) {
+        console.error(err);
+        showToast("No se pudo aplicar el cambio: " + err.message, "error");
+        setBtnLoading(btnConfirmar, false);
+      }
+    });
+
+    panel.insertBefore(form, actionsContainer);
+  }
+
+  async function reactivarRegistro(tipo, cfg, row) {
+    const confirmed = window.confirm("¿Confirmas reactivar este " + cfg.titulo + " (" + row.id + ")? Volverá a aparecer como activo.");
+    if (!confirmed) return;
+    try {
+      state = await apiSend("PUT", "/api/gee/" + cfg.apiTipo + "/" + encodeURIComponent(row.id), {
+        confirm: true,
+        visibilidad: "",
+        motivoDescarte: "",
+      });
+      renderAll();
+      showToast("Registro reactivado: " + row.id, "success");
+    } catch (err) {
+      console.error(err);
+      showToast("No se pudo reactivar: " + err.message, "error");
+    }
+  }
+
+  function renderCellReadonly(el_, col, row) {
+    const value = row[col.key];
+    if (col.render) {
+      el_.innerHTML = col.render(value, row);
+    } else {
+      el_.textContent = fmt(value, "—");
+    }
+  }
+
+  /** "2026-07-06" o similar -> "YYYY-MM-DD" exacto que exige <input type="date">.
+   *  Vacío si no hay nada parseable (el input simplemente queda sin valor,
+   *  no rompe nada). */
+  function normalizarFechaParaInput(value) {
+    const match = String(value || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+    return match ? match[0] : "";
+  }
+
+  function enterEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel) {
+    cfg.columns.forEach((col) => {
+      if (col.key === "id" || col.editable === false) return; // permanece readonly (ID, fechaUpdate, etc.)
+      const field = panel.querySelector('.detail-field[data-key="' + col.key + '"]');
+      if (!field) return;
+      const valueEl = field.querySelector(".detail-value");
+      const currentValue = row[col.key] || "";
+
+      if (col.type === "relacion") {
+        valueEl.innerHTML = "";
+        valueEl.appendChild(buildRelacionPicker(col, currentValue));
+        return;
+      }
+
+      let input;
+      if (col.type === "textarea") {
+        input = el("textarea");
+        input.value = currentValue;
+      } else if (col.type === "select") {
+        input = el("select");
+        // El valor guardado puede venir con emoji/prefijo (ej. "🟡 Amarillo")
+        // mientras las opciones del <select> son texto plano ("Amarillo") —
+        // comparamos por inclusión, no por igualdad exacta, para no perder
+        // la selección real y sobrescribir sin querer con la primera opción.
+        (col.options || []).forEach((opt) => {
+          const optionEl = el("option", { value: opt, text: opt });
+          if (opcionCoincideConValor(opt, currentValue)) optionEl.selected = true;
+          input.appendChild(optionEl);
+        });
+      } else if (col.type === "date") {
+        input = el("input", { type: "date" });
+        input.value = normalizarFechaParaInput(currentValue);
+      } else {
+        input = el("input", { type: "text" });
+        input.value = currentValue;
+      }
+      input.dataset.fieldKey = col.key;
+      valueEl.innerHTML = "";
+      valueEl.appendChild(input);
+    });
+    btnEdit.classList.add("hidden");
+    btnSave.classList.remove("hidden");
+    btnCancel.classList.remove("hidden");
+  }
+
+  function exitEditMode(panel, cfg, row, btnEdit, btnSave, btnCancel) {
+    cfg.columns.forEach((col) => {
+      if (col.key === "id") return;
+      const field = panel.querySelector('.detail-field[data-key="' + col.key + '"]');
+      if (!field) return;
+      const valueEl = field.querySelector(".detail-value");
+      renderCellReadonly(valueEl, col, row);
+    });
+    btnEdit.classList.remove("hidden");
+    btnSave.classList.add("hidden");
+    btnCancel.classList.add("hidden");
+  }
+
+  async function saveRowEdits(tipo, cfg, row, panel, btnEdit, btnSave, btnCancel) {
+    const updates = {};
+    cfg.columns.forEach((col) => {
+      if (col.editable === false) return;
+      if (col.type === "relacion") {
+        const field = panel.querySelector('.detail-field[data-key="' + col.key + '"]');
+        if (field) updates[col.key] = collectRelacionValue(field);
+        return;
+      }
+      const input = panel.querySelector('[data-field-key="' + col.key + '"]');
+      if (input) updates[col.key] = input.value;
+    });
+
+    const confirmed = window.confirm("¿Confirmas este cambio en " + cfg.titulo + " " + row.id + "?");
+    if (!confirmed) return;
+
+    setBtnLoading(btnSave, true, "Guardando…");
+    try {
+      const payload = Object.assign({ confirm: true }, updates);
+      state = await apiSend("PUT", "/api/gee/" + cfg.apiTipo + "/" + encodeURIComponent(row.id), payload);
+      renderAll();
+      showToast("Cambio guardado en " + cfg.titulo + " " + row.id + ".", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("No se pudo guardar: " + err.message, "error");
+      setBtnLoading(btnSave, false);
+    }
+  }
+
+  // ---------- Desplegables relacionales (0..n IDs de otros tipos de GEE) ----------
+  //
+  // Sustituye los campos de texto libre para IDs cruzados (ej. "Riesgos
+  // asociados" de una dependencia) por una lista de checkboxes con los
+  // registros reales ya existentes — no se puede escribir un ID que no
+  // exista ni desalinear el formato de separación por comas.
+
+  function parseRelacionValue(value) {
+    return String(value || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s && s !== "—");
+  }
+
+  function datosGeeDeTipo(tipo) {
+    const cfg = GEE_CONFIG[tipo];
+    return (state.gee && state.gee[cfg.dataKey]) || [];
+  }
+
+  /** Texto corto para mostrar junto al ID en el desplegable relacional (usa
+   *  la primera columna "de resumen" de ese tipo como descripción). */
+  function resumenTextoDeFila(tipoRel, row) {
+    const cfg = GEE_CONFIG[tipoRel];
+    const key = (cfg.resumenKeys || [])[0];
+    const texto = key ? fmt(row[key], "") : "";
+    return texto ? texto.slice(0, 60) : "";
+  }
+
+  function buildRelacionPicker(col, currentValue) {
+    const seleccionados = new Set(parseRelacionValue(currentValue));
+    const container = el("div", { class: "rel-picker" });
+
+    (col.relTipos || []).forEach((tipoRel) => {
+      const cfgRel = GEE_CONFIG[tipoRel];
+      const datos = datosGeeDeTipo(tipoRel);
+      const grupo = el("div", { class: "rel-picker-grupo" });
+      if (col.relTipos.length > 1) {
+        grupo.appendChild(el("div", { class: "rel-picker-grupo-titulo", text: cfgRel.titulo }));
+      }
+      if (datos.length === 0) {
+        grupo.appendChild(el("div", { class: "text-muted", text: "Sin registros de " + cfgRel.titulo + " todavía." }));
+      }
+      datos.forEach((row) => {
+        const item = el("label", { class: "rel-picker-item" });
+        const checkbox = el("input", { type: "checkbox", value: row.id });
+        if (seleccionados.has(String(row.id))) checkbox.checked = true;
+        item.appendChild(checkbox);
+        const desc = resumenTextoDeFila(tipoRel, row);
+        item.appendChild(document.createTextNode(" " + row.id + (desc ? " — " + desc : "")));
+        grupo.appendChild(item);
+      });
+      if (col.relCreable) {
+        const btnAdd = el("button", { class: "btn btn-sm rel-picker-add", text: "+ Nuevo " + cfgRel.titulo });
+        btnAdd.addEventListener("click", () => abrirCreacionInlineRelacion(tipoRel, grupo));
+        grupo.appendChild(btnAdd);
+      }
+      container.appendChild(grupo);
+    });
+
+    return container;
+  }
+
+  function collectRelacionValue(field) {
+    const checked = qsa('input[type="checkbox"]:checked', field);
+    if (checked.length === 0) return "—";
+    return checked.map((c) => c.value).join(", ");
+  }
+
+  /** "+ Nuevo <tipo>" dentro de un desplegable relacional (hoy solo en
+   *  Cambios de alcance, ver relCreable): abre un mini-formulario con los
+   *  campos de ese tipo, lo crea vía la misma API que su pestaña, y añade el
+   *  ID recién creado ya marcado en este mismo picker — sin recargar toda la
+   *  tabla de Cambios de alcance (perdería el panel de edición abierto). */
+  function abrirCreacionInlineRelacion(tipoRel, grupo) {
+    const existente = grupo.querySelector(".rel-picker-inline-form");
+    if (existente) {
+      existente.remove();
+      return;
+    }
+
+    const cfgRel = GEE_CONFIG[tipoRel];
+    const form = el("div", { class: "rel-picker-inline-form" });
+    const editableCols = cfgRel.columns.filter((c) => c.editable !== false && c.type !== "relacion");
+    const inputs = [];
+
+    editableCols.forEach((col) => {
+      const field = el("div", { class: "form-field" });
+      field.appendChild(el("label", { text: col.label }));
+      let input;
+      if (col.type === "textarea") {
+        input = el("textarea");
+      } else if (col.type === "select") {
+        input = el("select");
+        input.appendChild(el("option", { value: "", text: "—" }));
+        (col.options || []).forEach((opt) => input.appendChild(el("option", { value: opt, text: opt })));
+      } else if (col.type === "date") {
+        input = el("input", { type: "date" });
+      } else {
+        input = el("input", { type: "text" });
+      }
+      input.dataset.fieldKey = col.key;
+      field.appendChild(input);
+      form.appendChild(field);
+      inputs.push(input);
+    });
+
+    const btnCrear = el("button", { class: "btn btn-sm btn-primary", text: "Crear y asociar" });
+    const btnCancelarInline = el("button", { class: "btn btn-sm", text: "Cancelar" });
+    const actions = el("div", { class: "form-actions" });
+    actions.appendChild(btnCrear);
+    actions.appendChild(btnCancelarInline);
+    form.appendChild(actions);
+
+    btnCancelarInline.addEventListener("click", () => form.remove());
+    btnCrear.addEventListener("click", async () => {
+      const payload = { confirm: true };
+      inputs.forEach((input) => {
+        payload[input.dataset.fieldKey] = input.value;
+      });
+      setBtnLoading(btnCrear, true, "Creando…");
+      try {
+        const resp = await apiSend("POST", "/api/gee/" + cfgRel.apiTipo, payload);
+        state = resp.snapshot || state;
+        const createdId = resp.createdId;
+        // Refresca las demás pestañas GEE con el nuevo dato, pero no la que
+        // se está editando ahora mismo (perdería el panel abierto).
+        Object.keys(GEE_CONFIG).forEach((t) => {
+          if (t !== "changelog") renderGeeTable(t);
+        });
+        const item = el("label", { class: "rel-picker-item" });
+        const checkbox = el("input", { type: "checkbox", value: createdId });
+        checkbox.checked = true;
+        item.appendChild(checkbox);
+        item.appendChild(document.createTextNode(" " + createdId + " (recién creado)"));
+        grupo.insertBefore(item, form);
+        form.remove();
+        showToast("Nuevo " + cfgRel.titulo + " (" + createdId + ") creado y asociado.", "success");
+      } catch (err) {
+        console.error(err);
+        showToast("No se pudo crear: " + err.message, "error");
+      } finally {
+        setBtnLoading(btnCrear, false);
+      }
+    });
+
+    grupo.appendChild(form);
+  }
+
+  // ---------- Formulario "+ Nuevo registro" ----------
+
+  function ensureNewRecordForm(tipo) {
+    const cfg = getRegistryConfig(tipo);
+    const container = qs("#" + cfg.formId);
+    if (container.dataset.built === "true") return;
+    container.dataset.built = "true";
+
+    const grid = el("div", { class: "form-grid" });
+    const editableCols = cfg.columns.filter((c) => c.editable !== false);
+    editableCols.forEach((col) => {
+      const esAncho = col.type === "textarea" || col.type === "relacion";
+      const field = el("div", { class: "form-field" + (esAncho ? " form-field-wide" : "") });
+      field.appendChild(el("label", { text: col.label }));
+
+      if (col.type === "relacion") {
+        const picker = buildRelacionPicker(col, "");
+        picker.dataset.fieldKeyRelacion = col.key;
+        field.appendChild(picker);
+        grid.appendChild(field);
+        return;
+      }
+
+      let input;
+      if (col.type === "textarea") {
+        input = el("textarea");
+      } else if (col.type === "select") {
+        input = el("select");
+        input.appendChild(el("option", { value: "", text: "—" }));
+        (col.options || []).forEach((opt) => input.appendChild(el("option", { value: opt, text: opt })));
+      } else if (col.type === "date") {
+        input = el("input", { type: "date" });
+      } else {
+        input = el("input", { type: "text" });
+      }
+      input.dataset.fieldKey = col.key;
+      field.appendChild(input);
+      grid.appendChild(field);
+    });
+    container.appendChild(grid);
+
+    const actions = el("div", { class: "form-actions" });
+    const btnCreate = el("button", { class: "btn btn-primary btn-sm", text: "Crear " + cfg.titulo });
+    const btnCancel = el("button", { class: "btn btn-sm", text: "Cancelar" });
+    btnCreate.addEventListener("click", () => createNewRecord(tipo, cfg, container, btnCreate));
+    btnCancel.addEventListener("click", () => container.classList.remove("open"));
+    actions.appendChild(btnCreate);
+    actions.appendChild(btnCancel);
+    container.appendChild(actions);
+  }
+
+  async function createNewRecord(tipo, cfg, container, btnCreate) {
+    const inputs = qsa("[data-field-key]", container);
+    const payload = { confirm: true };
+    inputs.forEach((input) => {
+      payload[input.dataset.fieldKey] = input.value;
+    });
+    qsa("[data-field-key-relacion]", container).forEach((picker) => {
+      payload[picker.dataset.fieldKeyRelacion] = collectRelacionValue(picker);
+    });
+
+    const confirmed = window.confirm("¿Confirmas la creación de este nuevo " + cfg.titulo + "?");
+    if (!confirmed) return;
+
+    setBtnLoading(btnCreate, true, "Creando…");
+    try {
+      // OJO: este endpoint (POST) devuelve { createdId, snapshot } — a
+      // diferencia de PUT, que devuelve el snapshot directamente. Asignar la
+      // respuesta entera a "state" (como hacía la versión anterior) dejaba
+      // el dashboard entero en blanco tras crear cualquier registro nuevo.
+      const resp = await apiSend("POST", "/api/gee/" + cfg.apiTipo, payload);
+      state = resp.snapshot;
+      renderAll();
+      showToast("Nuevo " + cfg.titulo + " creado.", "success");
+      container.classList.remove("open");
+      inputs.forEach((input) => {
+        input.value = "";
+      });
+    } catch (err) {
+      console.error(err);
+      showToast("No se pudo crear: " + err.message, "error");
+    } finally {
+      setBtnLoading(btnCreate, false);
+    }
+  }
+
+  // ---------- Daily log (solo lectura) ----------
+
+  function renderDailyLogEntryBody(entry) {
+    const cabecera = "Sprint " + fmt(entry.sprint, "?") + " · Día " + fmt(entry.dia, "?");
+    const progreso = entry.progreso || [];
+    const progresoHtml = progreso.length
+      ? '<table class="data-table"><thead><tr><th>HU</th><th>Estado</th><th>Lo que se hizo</th><th>Lo que se hará</th><th>Bloqueos</th></tr></thead><tbody>' +
+        progreso
+          .map(
+            (p) =>
+              "<tr><td>" + escapeHtml(fmt(p.hu)) + "</td><td>" + escapeHtml(fmt(p.estado)) + "</td><td>" +
+              escapeHtml(fmt(p.loQueSeHizo)) + "</td><td>" + escapeHtml(fmt(p.loQueSeHara)) + "</td><td>" +
+              escapeHtml(fmt(p.bloqueos)) + "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>"
+      : emptyInline("Sin tabla de progreso en esta entrada.");
+
+    const actualizaciones = entry.actualizacionesGee || [];
+    const actualizacionesHtml = actualizaciones.length
+      ? "<ul>" + actualizaciones.map((a) => "<li>" + escapeHtml(a) + "</li>").join("") + "</ul>"
+      : "";
+
+    // "notas" es una lista de {fechaHora, autor, texto} (ver
+    // prompts/paso-4/daily-log.md) — cada nota atribuida a quién la escribió.
+    // Los dailylogs de antes de este formato llegan como una única nota sin
+    // autor/fechaHora (ver dailylog.js, compatibilidad hacia atrás).
+    const notas = entry.notas || [];
+    const notasHtml = notas.length
+      ? "<ul class=\"notas-lista\">" +
+        notas
+          .map((n) => {
+            const meta = [n.fechaHora, n.autor].filter(Boolean).join(" · ");
+            return (
+              "<li>" +
+              (meta ? "<span class=\"nota-meta\">" + escapeHtml(meta) + "</span> " : "") +
+              escapeHtml(n.texto) +
+              "</li>"
+            );
+          })
+          .join("") +
+        "</ul>"
+      : "";
+
+    return (
+      "<p><em>" + escapeHtml(cabecera) + "</em></p>" +
+      progresoHtml +
+      (actualizacionesHtml ? "<p><strong>Actualizaciones GEE</strong></p>" + actualizacionesHtml : "") +
+      (notasHtml ? "<p><strong>Notas</strong></p>" + notasHtml : "")
+    );
+  }
+
+  function renderDailyLog() {
+    const container = qs("#dailylog-lista");
+    const logs = (state.gee && state.gee.dailylogs) || [];
+    if (!logs || logs.length === 0) {
+      container.innerHTML = emptyState(
+        "📓",
+        "Todavía no hay entradas de daily log.",
+        'Disponible desde el primer día del proyecto — usa "+ Añadir nota" arriba, no hace falta esperar a un sprint activo.'
+      );
+      return;
+    }
+    const sorted = logs.slice().sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+    container.innerHTML = sorted
+      .map(
+        (entry, idx) =>
+          "<details class=\"daily-entry\"" + (idx === 0 ? " open" : "") + "><summary>" +
+          escapeHtml(fmt(entry.fecha, "Fecha desconocida")) +
+          "</summary>" +
+          renderDailyLogEntryBody(entry) +
+          "</details>"
+      )
+      .join("");
+  }
+
+  function setupNuevaNotaForm() {
+    const btnAbrir = qs("#btn-nueva-nota");
+    const form = qs("#form-nueva-nota");
+    const btnCrear = qs("#btn-crear-nota");
+    const btnCancelar = qs("#btn-cancelar-nota");
+    if (!btnAbrir || !form) return;
+
+    btnAbrir.addEventListener("click", () => form.classList.toggle("open"));
+    btnCancelar.addEventListener("click", () => form.classList.remove("open"));
+
+    btnCrear.addEventListener("click", async () => {
+      const fecha = qs("#nota-fecha").value || null;
+      const autor = qs("#nota-autor").value;
+      const texto = qs("#nota-texto").value;
+      if (!texto.trim()) {
+        showToast("Escribe algo en la nota antes de añadirla.", "error");
+        return;
+      }
+      setBtnLoading(btnCrear, true, "Añadiendo…");
+      try {
+        // OJO: igual que el resto de endpoints POST del GEE, la respuesta
+        // envuelve el snapshot ({ fecha, creado, snapshot }) en vez de
+        // devolverlo directamente — ver createNewRecord() para el mismo caso.
+        const resp = await apiSend("POST", "/api/dailylog", { confirm: true, fecha, autor, texto });
+        state = resp.snapshot;
+        renderAll();
+        showToast("Nota añadida al daily log.", "success");
+        qs("#nota-texto").value = "";
+        form.classList.remove("open");
+      } catch (err) {
+        console.error(err);
+        showToast("No se pudo añadir la nota: " + err.message, "error");
+      } finally {
+        setBtnLoading(btnCrear, false);
+      }
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // TAB: Requisitos (Paso -1 legacy + Paso 0) — SOLO LECTURA
+  //
+  // A diferencia de la pestaña GEE, aquí no hay edición ni formularios de
+  // alta: el usuario no lo pidió para estos datos, y añadir edición
+  // implicaría escribir writers nuevos para output-paso-legacy/ y
+  // output-paso-0/ que quedan fuera de este encargo. Sigue el mismo patrón
+  // de renderizado de solo lectura que la pestaña "Proyecto".
+  // ------------------------------------------------------------------
+
+  function renderRequisitosTab() {
+    renderLegacySection();
+    renderPaso0Section();
+  }
+
+  // ---------- Análisis Legacy (Paso -1) ----------
+
+  const LEGACY_ESTADO_INFO = {
+    claro: { emoji: "✅", label: "Claro", color: "#16a34a", clase: "legacy-claro" },
+    contradictorio: { emoji: "⚠️", label: "Contradictorio", color: "#ca8a04", clase: "legacy-contradictorio" },
+    ambiguo: { emoji: "❓", label: "Ambiguo", color: "#7c3aed", clase: "legacy-ambiguo" },
+    inexistente: { emoji: "🔲", label: "Inexistente", color: "#6b7280", clase: "legacy-inexistente" },
+  };
+
+  function legacyEstadoKey(raw) {
+    if (!raw) return null;
+    const v = String(raw).toLowerCase();
+    if (v.includes("✅") || v.includes("claro")) return "claro";
+    if (v.includes("⚠") || v.includes("contradictori")) return "contradictorio";
+    if (v.includes("❓") || v.includes("ambigu")) return "ambiguo";
+    if (v.includes("🔲") || v.includes("inexistente")) return "inexistente";
+    return null;
+  }
+
+  function legacyEstadoBadge(raw) {
+    const key = legacyEstadoKey(raw);
+    const info = LEGACY_ESTADO_INFO[key];
+    if (!info) return '<span class="badge-estado">' + escapeHtml(fmt(raw)) + "</span>";
+    return '<span class="badge-estado ' + info.clase + '">' + info.emoji + " " + escapeHtml(info.label) + "</span>";
+  }
+
+  function renderLegacySection() {
+    const sinDatos = qs("#legacy-sin-datos");
+    const contenido = qs("#legacy-contenido");
+    const legacy = state.requisitos && state.requisitos.legacy;
+
+    if (!legacy) {
+      sinDatos.classList.remove("hidden");
+      contenido.classList.add("hidden");
+      sinDatos.innerHTML = emptyState(
+        "🗂️",
+        "Todavía no se ha hecho análisis legacy, o el proyecto no lo necesitaba.",
+        "Se genera en el Paso -1 (mapa-proyecto.md) cuando el proyecto parte de documentación o sistemas existentes."
+      );
+      return;
+    }
+    sinDatos.classList.add("hidden");
+    contenido.classList.remove("hidden");
+
+    qs("#legacy-version-nota").textContent =
+      legacy.version === "v2"
+        ? "Versión actualizada tras la entrevista con el cliente (mapa-proyecto-v2.md)."
+        : "Versión inicial, todavía sin incorporar feedback de entrevista (mapa-proyecto.md).";
+
+    renderLegacyResumenChart(legacy.resumen);
+    renderLegacyResumenLateral(legacy.resumen);
+    renderLegacyTabla(legacy.aspectos);
+  }
+
+  function renderLegacyResumenChart(resumen) {
+    const container = qs("#chart-legacy-resumen");
+    const total = ["claro", "contradictorio", "ambiguo", "inexistente"].reduce((acc, k) => acc + (resumen[k] || 0), 0);
+    if (!resumen || total === 0) {
+      container.innerHTML = emptyInline("Sin aspectos clasificados todavía.");
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const chart = getOrCreateChart("chart-legacy-resumen");
+    const data = ["claro", "contradictorio", "ambiguo", "inexistente"]
+      .filter((k) => (resumen[k] || 0) > 0)
+      .map((k) => ({ name: LEGACY_ESTADO_INFO[k].label, value: resumen[k], itemStyle: { color: LEGACY_ESTADO_INFO[k].color } }));
+    chart.setOption({
+      tooltip: { trigger: "item" },
+      legend: { bottom: 0 },
+      series: [
+        {
+          type: "pie",
+          radius: ["45%", "70%"],
+          data: data,
+          label: { formatter: "{b}: {c}" },
+        },
+      ],
+    });
+  }
+
+  function renderLegacyResumenLateral(resumen) {
+    const container = qs("#legacy-resumen-lateral");
+    const total = ["claro", "contradictorio", "ambiguo", "inexistente"].reduce((acc, k) => acc + (resumen[k] || 0), 0);
+    if (!resumen || total === 0) {
+      container.innerHTML = emptyInline("Sin datos de resumen.");
+      return;
+    }
+    container.innerHTML = ["claro", "contradictorio", "ambiguo", "inexistente"]
+      .map((k) => {
+        const info = LEGACY_ESTADO_INFO[k];
+        return "<p>" + info.emoji + " <strong>" + (resumen[k] || 0) + "</strong> " + info.label + "</p>";
+      })
+      .join("");
+  }
+
+  function renderLegacyTabla(aspectos) {
+    const wrap = qs("#legacy-tabla-wrap");
+    if (!aspectos || aspectos.length === 0) {
+      wrap.innerHTML = emptyInline("No hay aspectos detallados en el mapa del proyecto.");
+      return;
+    }
+    const rows = aspectos
+      .map(
+        (a) =>
+          "<tr><td>" +
+          escapeHtml(fmt(a.id)) +
+          "</td><td>" +
+          escapeHtml(fmt(a.aspecto)) +
+          "</td><td>" +
+          legacyEstadoBadge(a.estado) +
+          "</td><td>" +
+          escapeHtml(fmt(a.descripcion)) +
+          "</td><td>" +
+          escapeHtml(fmt(a.fuentes)) +
+          "</td><td>" +
+          escapeHtml(fmt(a.recomendacion)) +
+          "</td></tr>"
+      )
+      .join("");
+    wrap.innerHTML =
+      '<table class="data-table"><thead><tr>' +
+      "<th>ID</th><th>Aspecto</th><th>Estado</th><th>Descripción</th><th>Fuentes</th><th>Recomendación</th>" +
+      "</tr></thead><tbody>" +
+      rows +
+      "</tbody></table>";
+  }
+
+  // ---------- Requisitos del cliente (Paso 0) ----------
+
+  function renderPaso0Section() {
+    const paso0 = state.requisitos && state.requisitos.paso0;
+    renderPaso0Resumen(paso0);
+    renderRequisitosEditableTables();
+  }
+
+  function renderPaso0Resumen(paso0) {
+    const container = qs("#paso0-resumen");
+    const resumen = paso0 && paso0.resumen;
+    if (!resumen || (resumen.totalPeticiones === 0 && resumen.totalFuncionales === 0 && resumen.totalNoFuncionales === 0 && resumen.totalZonasIncertidumbre === 0)) {
+      container.innerHTML = emptyInline("Todavía no se ha procesado el Paso 0 (peticiones/requisitos del cliente).");
+      return;
+    }
+    const partes = [
+      resumen.totalPeticiones + " peticiones",
+      resumen.totalFuncionales + " RF",
+      resumen.totalNoFuncionales +
+        " RNF" +
+        (resumen.noFuncionalesImplicitos > 0 ? " (" + resumen.noFuncionalesImplicitos + " implícitos sin confirmar)" : ""),
+      resumen.totalZonasIncertidumbre + " zonas de incertidumbre",
+    ];
+    container.innerHTML = "<p><strong>" + partes.join(" · ") + "</strong></p>";
+  }
+
+  function moscowBadge(raw) {
+    if (!raw) return "";
+    const v = String(raw).toLowerCase();
+    let clase = "";
+    if (v.includes("must")) clase = "tag-prioridad-alta";
+    else if (v.includes("should")) clase = "tag-fase-mvp";
+    return '<span class="tag' + (clase ? " " + clase : "") + '">' + escapeHtml(raw) + "</span>";
+  }
+
+  // ------------------------------------------------------------------
+  // Manejo de error 423 (Locked) para edición de HU de sprint
+  // Nota: la pestaña "Sprint actual" en este MVP muestra las HU en modo
+  // solo lectura (con el candado 🔒 cuando locked === true), pero dejamos
+  // preparado el helper por si se añade edición de HU fuera de sprint activo
+  // en una iteración futura, respetando el contrato PUT /api/sprint/hu/:id.
+  // ------------------------------------------------------------------
+
+  async function updateHu(id, updates) {
+    try {
+      const payload = Object.assign({ confirm: true }, updates);
+      state = await apiSend("PUT", "/api/sprint/hu/" + encodeURIComponent(id), payload);
+      renderAll();
+      showToast("HU " + id + " actualizada.", "success");
+    } catch (err) {
+      if (err.status === 423) {
+        showToast("Esta HU está en sprint activo, no se puede editar desde aquí.", "warn");
+      } else {
+        showToast("No se pudo actualizar la HU: " + err.message, "error");
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Navegación por pestañas
+  // ------------------------------------------------------------------
+
+  function setupTabs() {
+    qsa(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        qsa(".tab-btn").forEach((b) => b.classList.remove("active"));
+        qsa(".tab-panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        qs("#" + btn.dataset.tab).classList.add("active");
+        resizeAllCharts();
+      });
+    });
+
+    // Delimitado al .tab-panel contenedor: ahora hay dos grupos de
+    // subpestañas independientes (GEE y Requisitos) en la misma página —
+    // sin esto, cambiar de subpestaña en uno desactivaría el estado del otro.
+    qsa(".subtab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const scope = btn.closest(".tab-panel") || document;
+        qsa(".subtab-btn", scope).forEach((b) => b.classList.remove("active"));
+        qsa(".subtab-panel", scope).forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        qs("#" + btn.dataset.subtab).classList.add("active");
+        resizeAllCharts();
+      });
+    });
+
+    qsa("[data-toggle-form]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = qs("#" + btn.dataset.toggleForm);
+        target.classList.toggle("open");
+      });
+    });
+  }
+
+  function setupHeaderButtons() {
+    qs("#btn-sync").addEventListener("click", doSync);
+    // MODO NUBE: doGeneratePdf ya no llama al servidor ni muestra estado de
+    // carga (abre la vista de impresión al instante) — sin argumentos.
+    qs("#btn-pdf").addEventListener("click", doGeneratePdf);
+    // Botón "Exportar requisitos a PDF" de la pestaña Requisitos: mismo
+    // informe completo (PrintView.gs ya incluye la sección "Requisitos",
+    // legacy + Paso 0), misma función.
+    const btnPdfRequisitos = qs("#btn-pdf-requisitos");
+    if (btnPdfRequisitos) {
+      btnPdfRequisitos.addEventListener("click", doGeneratePdf);
+    }
+  }
+
+  window.addEventListener("resize", debounce(resizeAllCharts, 150));
+
+  function debounce(fn, wait) {
+    let t;
+    return function () {
+      clearTimeout(t);
+      t = setTimeout(fn, wait);
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // Bootstrap
+  // ------------------------------------------------------------------
+
+  document.addEventListener("DOMContentLoaded", function () {
+    if (!ECHARTS_AVAILABLE) {
+      console.warn("echarts no está disponible (no se pudo cargar desde el CDN — comprueba la conexión a internet).");
+    }
+    setupTabs();
+    setupHeaderButtons();
+    setupSprintTabButtons();
+    setupNuevaNotaForm();
+    loadInitial();
+  });
+})();
+</script>
