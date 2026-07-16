@@ -420,3 +420,13 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
 - **Prioridad:** Alta
 - **Esfuerzo estimado:** Alto (proyecto multi-fase, semanas no horas) — Fase 0: N/A (implementada); Fases 1-4: Alto cada una, la Fase 2 en particular requiere infraestructura real de prueba
 - **Estado:** 🟡 En curso — Fase 0 ✅ Implementada (2026-07-16) y verificada con el fixture; Fases 1-4 🔲 Pendientes
+
+### [2026-07-16] Pestaña Proyecto: Roadmap cliente pasa a cronograma horizontal (tipo timeline de Jira), Velocidad por sprint baja a columna
+
+- **Origen:** petición explícita del usuario — la disposición anterior (Velocidad por sprint arriba a ancho completo, Roadmap cliente en una columna como lista de texto) no dejaba ver los hitos como un cronograma con fechas de inicio/fin, al estilo del timeline de épicas de Jira.
+- **Propuesta (ya aplicada):** intercambio de posiciones — Roadmap cliente pasa arriba, a ancho completo, renderizado como un diagrama de Gantt horizontal (`renderRoadmapClienteChart`, ECharts, barras apiladas con un primer segmento invisible de offset + un segundo segmento visible coloreado por confianza); Velocidad por sprint baja a la columna donde antes estaba Roadmap cliente (mismo gráfico de línea de siempre, solo más estrecho, `chart-sm`).
+- **Parseo nuevo:** `parseVentanaEstimada`/`parseMesAno` interpretan el campo "Ventana estimada" de cada hito (formato `"Mes AAAA — Mes AAAA"`, el que ya produce `generar-roadmaps.md` — confirmado en el propio archivo del fixture, que además ya traía un diagrama ASCII de referencia con ese mismo formato) como rango de fechas mes-a-mes. Un hito cuya ventana no se pueda interpretar como fecha no aparece en el gráfico, pero sí se sigue mostrando en el detalle de texto de debajo del gráfico (`renderRoadmapClienteDetalle`, misma lista `<ul class="timeline-list">` de siempre, reubicada) — no se pierde información, solo deja de estar en el eje temporal.
+- **Verificado en el fixture real:** 2 hitos (Sep-Oct y Oct-Nov 2026) renderizados como barras horizontales con offsets/duraciones correctos (0/60 y 30/60 días respectivamente), coloreadas por confianza (verde `#16a34a` para ✅ alta, ámbar `#ca8a04` para ⚠️ media); detalle de texto debajo con la misma información de siempre; Velocidad por sprint funcionando igual en su nueva posición dentro de la columna; Épicas del roadmap sin cambios. Sin errores de consola.
+- **Prioridad:** Alta
+- **Esfuerzo estimado:** Bajo
+- **Estado:** ✅ Implementada (2026-07-16) y verificada con el fixture

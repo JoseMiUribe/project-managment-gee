@@ -728,9 +728,10 @@
   // ------------------------------------------------------------------
 
   function renderProyectoTab() {
-    renderVelocidadChart();
+    renderRoadmapClienteChart();
+    renderRoadmapClienteDetalle();
     renderEpicas();
-    renderRoadmapCliente();
+    renderVelocidadChart();
     renderCapacidadActual();
   }
 
@@ -794,16 +795,159 @@
       .join("");
   }
 
-  function renderRoadmapCliente() {
-    const container = qs("#roadmap-cliente-contenido");
+  // "Sep 2026 — Oct 2026" (o variantes con "-", "–", "a", "hasta") -> mes+año
+  // de inicio y de fin. Formato tal cual lo produce generar-roadmaps.md en
+  // el campo "Ventana estimada" de cada hito.
+  const MESES_ES = {
+    ene: 0, enero: 0, feb: 1, febrero: 1, mar: 2, marzo: 2, abr: 3, abril: 3,
+    may: 4, mayo: 4, jun: 5, junio: 5, jul: 6, julio: 6, ago: 7, agosto: 7,
+    sep: 8, sept: 8, septiembre: 8, oct: 9, octubre: 9, nov: 10, noviembre: 10,
+    dic: 11, diciembre: 11,
+    // fallback en inglés, por si el contenido viene mixto
+    jan: 0, january: 0, march: 2, april: 3, june: 5, july: 6, august: 7,
+    september: 8, october: 9, november: 10, december: 11,
+  };
+
+  function parseMesAno(fragmento) {
+    const m = String(fragmento || "")
+      .trim()
+      .toLowerCase()
+      .match(/([a-záéíóúñ]+)\.?\s+(\d{4})/i);
+    if (!m) return null;
+    const mes = MESES_ES[m[1]];
+    if (mes === undefined) return null;
+    return { mes, ano: Number(m[2]) };
+  }
+
+  /** @returns {{inicio: Date, fin: Date}|null} */
+  function parseVentanaEstimada(str) {
+    if (!str) return null;
+    const partes = String(str)
+      .split(/\s*[—–-]\s*|\s+(?:a|hasta)\s+/i)
+      .filter(Boolean);
+    if (partes.length === 0) return null;
+    const inicio = parseMesAno(partes[0]);
+    if (!inicio) return null;
+    const fin = partes.length > 1 ? parseMesAno(partes[1]) || inicio : inicio;
+    const fechaInicio = new Date(inicio.ano, inicio.mes, 1);
+    // Día 0 del mes siguiente = último día del mes de fin.
+    const fechaFin = new Date(fin.ano, fin.mes + 1, 0);
+    return { inicio: fechaInicio, fin: fechaFin };
+  }
+
+  function confianzaKey(raw) {
+    const v = String(raw || "").toLowerCase();
+    if (v.includes("✅") || v.includes("alta")) return "alta";
+    if (v.includes("⚠") || v.includes("media") || v.includes("riesgo medio")) return "media";
+    if (v.includes("🔥") || v.includes("baja") || v.includes("alto riesgo")) return "baja";
+    return "desconocida";
+  }
+
+  const COLOR_CONFIANZA = { alta: "#16a34a", media: "#ca8a04", baja: "#dc2626", desconocida: "#9ca3af" };
+
+  /**
+   * Cronograma horizontal de hitos (tipo el timeline de épicas de Jira):
+   * cada hito es una barra que va de su mes de inicio a su mes de fin,
+   * coloreada por nivel de confianza. Se apoya en la convención de
+   * "Ventana estimada" ("Mes AAAA — Mes AAAA") que ya produce
+   * generar-roadmaps.md — un hito cuya ventana no se pueda interpretar como
+   * fecha simplemente no aparece en el gráfico (pero sí en el detalle de
+   * abajo, ver renderRoadmapClienteDetalle).
+   */
+  function renderRoadmapClienteChart() {
+    const container = qs("#chart-roadmap-cliente");
     const roadmapCliente = state.roadmap && state.roadmap.roadmapCliente;
     if (!roadmapCliente) {
       container.innerHTML = emptyState("📅", "Todavía no se ha generado el roadmap de cliente.", "Se generará en el paso 2 del proceso (generar-roadmaps).");
       return;
     }
     const hitos = roadmapCliente.hitos || roadmapCliente.milestones || [];
+    const parseados = hitos.map((h) => ({ hito: h, rango: parseVentanaEstimada(h.ventanaEstimada || h.fecha) })).filter((x) => x.rango);
+
+    if (parseados.length === 0) {
+      container.innerHTML = emptyInline(
+        hitos.length === 0
+          ? "El roadmap de cliente existe pero no tiene hitos definidos todavía."
+          : 'No se ha podido interpretar la "Ventana estimada" de ningún hito como fecha (formato esperado: "Mes AAAA — Mes AAAA"). Ver el detalle más abajo.'
+      );
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+
+    // Hito 1 arriba: en el eje de categorías de ECharts el primer elemento
+    // del array queda abajo salvo que se invierta el orden aquí.
+    const ordenados = parseados.slice().reverse();
+
+    const msPorDia = 24 * 60 * 60 * 1000;
+    const inicioEpoca = ordenados.reduce((min, x) => (x.rango.inicio < min ? x.rango.inicio : min), ordenados[0].rango.inicio);
+    const diasDesdeEpoca = (fecha) => Math.round((fecha - inicioEpoca) / msPorDia);
+
+    const categorias = ordenados.map((x) => x.hito.nombre || x.hito.titulo || "Hito " + (x.hito.numero || ""));
+    const offsets = ordenados.map((x) => diasDesdeEpoca(x.rango.inicio));
+    const duraciones = ordenados.map((x) => Math.max(1, diasDesdeEpoca(x.rango.fin) - diasDesdeEpoca(x.rango.inicio)));
+    const colores = ordenados.map((x) => COLOR_CONFIANZA[confianzaKey(x.hito.confianza)]);
+
+    const chart = getOrCreateChart("chart-roadmap-cliente");
+    chart.setOption({
+      tooltip: {
+        trigger: "item",
+        formatter: (params) => {
+          const x = ordenados[params.dataIndex];
+          if (!x) return "";
+          return (
+            "<strong>" + escapeHtml(fmt(x.hito.nombre || x.hito.titulo, "")) + "</strong><br/>" +
+            escapeHtml(fmt(x.hito.ventanaEstimada || x.hito.fecha, "")) +
+            (x.hito.queIncluye ? "<br/>" + escapeHtml(x.hito.queIncluye) : "") +
+            (x.hito.confianza ? "<br/>" + escapeHtml(x.hito.confianza) : "")
+          );
+        },
+      },
+      grid: { left: 160, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: "value",
+        min: 0,
+        axisLabel: {
+          formatter: (valorDias) => {
+            const fecha = new Date(inicioEpoca.getTime() + valorDias * msPorDia);
+            return fecha.toLocaleDateString("es-ES", { month: "short", year: "numeric" });
+          },
+        },
+      },
+      yAxis: { type: "category", data: categorias },
+      series: [
+        {
+          name: "Offset",
+          type: "bar",
+          stack: "total",
+          itemStyle: { color: "transparent" },
+          silent: true,
+          tooltip: { show: false },
+          data: offsets,
+        },
+        {
+          name: "Duración",
+          type: "bar",
+          stack: "total",
+          barWidth: "50%",
+          data: duraciones.map((d, i) => ({ value: d, itemStyle: { color: colores[i] } })),
+        },
+      ],
+    });
+  }
+
+  function renderRoadmapClienteDetalle() {
+    const container = qs("#roadmap-cliente-detalle");
+    const roadmapCliente = state.roadmap && state.roadmap.roadmapCliente;
+    if (!roadmapCliente) {
+      container.innerHTML = "";
+      return;
+    }
+    const hitos = roadmapCliente.hitos || roadmapCliente.milestones || [];
     if (!hitos.length) {
-      container.innerHTML = emptyInline("El roadmap de cliente existe pero no tiene hitos definidos todavía.");
+      container.innerHTML = "";
       return;
     }
     container.innerHTML =
