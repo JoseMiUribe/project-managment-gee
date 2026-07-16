@@ -808,6 +808,7 @@
     september: 8, october: 9, november: 10, december: 11,
   };
 
+  /** "Agosto 2026", "ago 2026"... -> { mes, ano }. Requiere año explícito. */
   function parseMesAno(fragmento) {
     const m = String(fragmento || "")
       .trim()
@@ -819,16 +820,54 @@
     return { mes, ano: Number(m[2]) };
   }
 
-  /** @returns {{inicio: Date, fin: Date}|null} */
+  /** "Agosto", "ago"... -> número de mes, SIN año (para el lado de un rango
+   *  que comparte el año del otro lado, ver parseVentanaEstimada). */
+  function parseSoloMes(fragmento) {
+    const m = String(fragmento || "")
+      .trim()
+      .toLowerCase()
+      .match(/^([a-záéíóúñ]+)\.?$/i);
+    if (!m) return null;
+    const mes = MESES_ES[m[1]];
+    return mes === undefined ? null : mes;
+  }
+
+  /**
+   * @returns {{inicio: Date, fin: Date}|null}
+   *
+   * Admite dos formatos, ambos usados en la práctica por generar-roadmaps.md:
+   *  - "Jul 2026 — Ago 2026": cada lado trae su propio año.
+   *  - "Julio-agosto 2026": un único año compartido, mencionado una sola vez
+   *    junto al segundo mes — el primer lado es solo el nombre del mes, sin
+   *    año propio, así que hay que tomarlo prestado del otro lado.
+   */
   function parseVentanaEstimada(str) {
     if (!str) return null;
     const partes = String(str)
       .split(/\s*[—–-]\s*|\s+(?:a|hasta)\s+/i)
       .filter(Boolean);
     if (partes.length === 0) return null;
-    const inicio = parseMesAno(partes[0]);
+
+    if (partes.length === 1) {
+      const unico = parseMesAno(partes[0]);
+      if (!unico) return null;
+      return { inicio: new Date(unico.ano, unico.mes, 1), fin: new Date(unico.ano, unico.mes + 1, 0) };
+    }
+
+    let inicio = parseMesAno(partes[0]);
+    let fin = parseMesAno(partes[1]);
+
+    if (!inicio && fin) {
+      const soloMes = parseSoloMes(partes[0]);
+      if (soloMes !== null) inicio = { mes: soloMes, ano: fin.ano };
+    }
+    if (!fin && inicio) {
+      const soloMes = parseSoloMes(partes[1]);
+      if (soloMes !== null) fin = { mes: soloMes, ano: inicio.ano };
+    }
     if (!inicio) return null;
-    const fin = partes.length > 1 ? parseMesAno(partes[1]) || inicio : inicio;
+    if (!fin) fin = inicio;
+
     const fechaInicio = new Date(inicio.ano, inicio.mes, 1);
     // Día 0 del mes siguiente = último día del mes de fin.
     const fechaFin = new Date(fin.ano, fin.mes + 1, 0);
