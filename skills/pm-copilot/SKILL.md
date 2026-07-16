@@ -20,10 +20,11 @@ Cuando el usuario diga "nuevo proyecto" o similar:
    - `investigar/[nombre]/documentacion-proyecto.md` (documento oficial consolidado, se actualiza en cada paso)
    - `investigar/[nombre]/config/` (para `jira-project.md`/`jira-mapeo.md` y, si aplica más adelante, `fuentes-contexto/`; el DoR/DoD personalizado vive en `output-paso-2/config/`, se crea en el Paso 2)
 4. **Instala el dashboard dentro del propio proyecto** (si puedes ejecutar comandos): `node "<ruta-del-skill>/dashboard/instalar-en-proyecto.js" "investigar/[nombre]"`. Esto copia el motor completo del dashboard a `investigar/[nombre]/dashboard/` y genera los scripts de arranque de un clic (`iniciar-dashboard.bat`/`.ps1`) — así el proyecto queda autocontenido y portable desde el minuto uno, sin esperar a tener datos que mostrar. Ver sección "Dashboard de reporting" más abajo.
-5. **Si no puedes crear archivos ni ejecutar comandos** (chat web), muestra instrucciones exactas de qué archivos crear, con qué contenido y dónde colocarlos, y omite el paso del dashboard (no aplica fuera de un entorno con ejecución de comandos).
-6. **Solo crea directorios de pasos posteriores** cuando se vayan a ejecutar (YAGNI).
-7. Pregunta si tiene documentación del cliente y guárdala en `00-documento-original.md`.
-8. **Si el proyecto va a trabajar entre varias máquinas o sesiones**, sugiere que `investigar/[nombre]/` viva dentro de una carpeta ya sincronizada con Drive Desktop — no hace falta ninguna integración nueva, solo que la ruta local del proyecto coincida con una carpeta que Drive ya sincroniza. Es una recomendación general de continuidad, no algo ligado a un modo concreto.
+5. **Pregunta si quiere un dashboard compartido en Google (modo nube) o prefiere seguir en local**: ejecuta `prompts/transversal/configurar-dashboard-nube.md` una vez. Esto es aditivo y nunca bloquea — cualquier respuesta (incluida "sigo en local") deja constancia en `.pm-copilot.json` para no volver a preguntar la conversación completa. Si retomas un proyecto existente que todavía no tiene `.pm-copilot.json`, haz esta misma pregunta una vez antes de continuar con lo que sea que te haya traído a esa sesión.
+6. **Si no puedes crear archivos ni ejecutar comandos** (chat web), muestra instrucciones exactas de qué archivos crear, con qué contenido y dónde colocarlos, y omite los pasos del dashboard (no aplican fuera de un entorno con ejecución de comandos).
+7. **Solo crea directorios de pasos posteriores** cuando se vayan a ejecutar (YAGNI).
+8. Pregunta si tiene documentación del cliente y guárdala en `00-documento-original.md`.
+9. **Si el proyecto va a trabajar entre varias máquinas o sesiones y no quiere (o no puede todavía) el modo nube**, sugiere que `investigar/[nombre]/` viva dentro de una carpeta ya sincronizada con Drive Desktop — no hace falta ninguna integración nueva, solo que la ruta local del proyecto coincida con una carpeta que Drive ya sincroniza. Es una recomendación general de continuidad, complementaria al modo nube, no un sustituto de él.
 
 **Continuidad entre máquinas/sesiones:** si `investigar/[nombre]/` vive dentro de una carpeta sincronizada con Drive Desktop, todo lo que el skill escribe localmente aparece solo en Drive — no hace falta ninguna acción extra. Esto es lo que permite retomar el proyecto exactamente por donde iba desde otra sesión de Claude en otro equipo: basta con que ese equipo también tenga la carpeta sincronizada (o acceso de lectura a Drive) y el skill instalado. **Limitación a tener en cuenta:** si alguna vez trabajas desde una máquina sin esa carpeta sincronizada y quieres que el skill empuje copias a Drive por su cuenta (vía el conector de Drive, no Drive Desktop), no hay forma de sobrescribir un archivo ya existente — solo de crear uno nuevo. La vía fiable de continuidad es siempre Drive Desktop, no que el skill actualice Drive activamente.
 
@@ -288,6 +289,8 @@ Copia el motor (código, no `node_modules`) a `investigar/[proyecto]/dashboard/`
 
 **Descartado explícitamente (decisión del usuario, no falta de tiempo):** conector para fuentes no locales (Google Drive, red) — se resuelve sincronizando/montando localmente y registrando la fuente en `inventario-fuentes.md`, no con una integración nueva. Base de datos grafo/vectorial — sin un LLM que la consulte pierde casi todo su valor, y hoy no hay volumen de conocimiento no estructurado que lo justifique.
 
+**Modo nube (dashboard + datos compartidos, opcional):** además del modo local de siempre, un proyecto puede alojar su dashboard y sus datos en Google (Apps Script + una Google Sheet por cliente), con una única URL que el equipo abre sin instalar nada — ver `prompts/transversal/configurar-dashboard-nube.md`. Es aditivo: si no se activa, o la aplicación Apps Script (`dashboard/cloud-apps-script/`) todavía no existe en esta versión del skill, el dashboard local sigue funcionando exactamente igual, sin degradarse. El estado elegido se guarda en `.pm-copilot.json` (ver estructura de carpetas más abajo) para no repetir la pregunta en cada sesión.
+
 Detalles de arquitectura, contrato de API y limitaciones conocidas de los parsers en `dashboard/README.md`.
 
 ---
@@ -326,6 +329,7 @@ investigar/[proyecto]/
     analisis-jira-YYYY-MM-DD.md    → Si se usa integración con Jira
   output-paso-5/                   → Reviews y retrospectivas (a definir su integración formal)
   .pm-copilot-cache.json           → Caché generada por el dashboard, no editar a mano
+  .pm-copilot.json                 → Modo local/nube del dashboard y datos del recurso cloud si aplica; ver `prompts/transversal/configurar-dashboard-nube.md`
 ```
 
 > **Nota de migración:** versiones anteriores de este sistema usaban nombres inconsistentes (`output-paso--1`, `output-paso0`, `output-gee`, `output-roadmap`...). Esta es la convención única a partir de ahora — si retomas un proyecto con la convención antigua, renombra las carpetas antes de continuar en vez de mezclar ambas.
