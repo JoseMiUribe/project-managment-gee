@@ -538,10 +538,21 @@ function agregarNotaDailylog_(sheetId, proyectoId, fechaInput, payload) {
 // { ok: true, data } o { ok: false, status, error }, que AppJs.html
 // desempaqueta a exactamente lo que devolvía res.json()/ApiError en modo
 // local (ver runGoogleScript en AppJs.html).
+//
+// IMPORTANTE: el envoltorio se devuelve como STRING (JSON.stringify), no como
+// objeto. Confirmado con una Sheet real: la serialización automática de
+// google.script.run para el objeto anidado que devuelve leerSnapshot()
+// (varios niveles de arrays/objetos) llega rota al navegador — en vez de
+// JSON, aparece la representación interna de Java (`[Ljava.lang.Object;@...`,
+// `{amarillo=0.0, rojo=0.0}` con `=` en vez de `:`). Es una limitación
+// conocida de la serialización de google.script.run con objetos complejos.
+// Devolver ya el JSON como texto (y hacer JSON.parse en el cliente, ver
+// runGoogleScript en AppJs.html) evita por completo ese serializador y
+// siempre llega intacto.
 // ============================================================================
 
-function ok_(data) { return { ok: true, data: data }; }
-function fail_(status, error) { return { ok: false, status: status, error: error }; }
+function ok_(data) { return JSON.stringify({ ok: true, data: data }); }
+function fail_(status, error) { return JSON.stringify({ ok: false, status: status, error: error }); }
 
 function apiGetData(sheetId, proyectoId) {
   try {
