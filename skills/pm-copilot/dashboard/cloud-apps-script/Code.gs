@@ -651,14 +651,25 @@ function doGet(e) {
     }
   }
 
+  // OJO: NO usar setXFrameOptionsMode(ALLOWALL) aquí. Ese modo es para permitir
+  // incrustar la página dentro del iframe de OTRO sitio, que no es este caso
+  // (el usuario abre la URL directamente) — y rompe el mecanismo interno de
+  // google.script.run, que depende de un iframe sandbox de googleusercontent.com
+  // con un origen concreto para comunicarse de vuelta con script.google.com.
+  // Con ALLOWALL puesto, el servidor ejecuta perfectamente (confirmado
+  // probando apiPostGee/apiGetData directamente en el editor) pero el
+  // navegador nunca recibe la respuesta — la consola muestra
+  // "dropping postMessage.. was from host https://script.google.com but
+  // expected host https://*.googleusercontent.com". Dejar el modo por
+  // defecto (DEFAULT) es lo correcto para un Web App que se abre en su
+  // propia pestaña.
   const template = HtmlService.createTemplateFromFile('Index');
   template.sheetId = sheetId;
   template.proyectoId = proyectoId;
   return template
     .evaluate()
     .setTitle('PM Copilot — ' + proyectoId)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 /** Usado por los scriptlets <?!= include('Archivo') ?> en Index.html. */
