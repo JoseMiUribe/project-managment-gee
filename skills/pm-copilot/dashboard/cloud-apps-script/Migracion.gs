@@ -81,13 +81,13 @@ function migrarDesdeSnapshot(sheetId, proyectoId, snapshotJson) {
     }));
     resumen.reglasNegocio = reglas.length;
 
+    // Documentos: upsert por Ruta (no reemplazo total) para no perder el
+    // DriveFileId/DriveUrl que haya subido una migración de documentos
+    // anterior (ver migrarDocumentos más abajo) — a diferencia del resto de
+    // tipos "lectura tabular", aquí sí importa no perder ese dato al repetir
+    // la migración de metadatos.
     const documentos = snapshot.documentos || [];
-    reemplazarFilasProyecto_(sheetId, proyectoId, 'documentos', documentos.map(function (d) {
-      return construirFila_(TIPO_DESCRIPTORS_SHEETS.documentos.columnas, {
-        Proyecto: proyectoId, Ruta: d.ruta, Titulo: d.titulo, Descripcion: d.descripcion,
-        Paso: d.paso, Tamano: d.tamano, ModificadoEn: d.modificadoEn,
-      });
-    }));
+    documentos.forEach(function (d) { migrarDocumentoMetadata_(sheetId, proyectoId, d); });
     resumen.documentos = documentos.length;
 
     const sprints = (snapshot.sprint && snapshot.sprint.sprints) || [];
@@ -233,6 +233,156 @@ function construirFila_(columnas, valoresPorColumna) {
   });
 }
 
+/** Upsert por (Proyecto, Ruta) de los metadatos de un documento, preservando
+ *  DriveFileId/DriveUrl de la fila existente si los hay (los rellena
+ *  migrarDocumentos, no esta función) — así migrar el snapshot normal no
+ *  pisa un enlace de Drive ya subido en una migración de documentos previa.
+ *  No borra filas de documentos que ya no existan localmente (limitación
+ *  conocida, ver README.md) — este skill nunca borra automáticamente. */
+function migrarDocumentoMetadata_(sheetId, proyectoId, doc) {
+  const descriptor = TIPO_DESCRIPTORS_SHEETS.documentos;
+  const sheet = obtenerHoja_(sheetId, descriptor.hoja);
+  const columnas = descriptor.columnas;
+  const numCols = columnas.length;
+  const colRuta = columnas.indexOf('Ruta');
+  const colProyecto = columnas.indexOf('Proyecto');
+  const colDriveFileId = columnas.indexOf('DriveFileId');
+  const colDriveUrl = columnas.indexOf('DriveUrl');
+
+  const lastRow = sheet.getLastRow();
+  let targetRowNum = -1;
+  let filaActual = null;
+  if (lastRow >= 2) {
+    const values = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+    for (let i = 0; i < values.length; i++) {
+      if (values[i][colRuta] === doc.ruta && String(values[i][colProyecto]) === String(proyectoId)) {
+        targetRowNum = i + 2;
+        filaActual = values[i];
+        break;
+      }
+    }
+  }
+
+  const fila = construirFila_(columnas, {
+    Proyecto: proyectoId, Ruta: doc.ruta, Titulo: doc.titulo, Descripcion: doc.descripcion,
+    Paso: doc.paso, Tamano: doc.tamano, ModificadoEn: doc.modificadoEn,
+    DriveFileId: filaActual ? filaActual[colDriveFileId] : '',
+    DriveUrl: filaActual ? filaActual[colDriveUrl] : '',
+  });
+
+  if (targetRowNum === -1) {
+    sheet.appendRow(fila);
+  } else {
+    sheet.getRange(targetRowNum, 1, 1, numCols).setValues([fila]);
+  }
+}
+
+// ============================================================================
+// Subida de documentos a Drive (contenido, no solo metadatos)
+// ============================================================================
+
+/** Carpeta "Documentos — <proyecto>" dentro de la misma carpeta de Drive que
+ *  contiene la Sheet del cliente (así los documentos de cada proyecto quedan
+ *  ordenados junto a su Sheet, no sueltos en la raíz de Drive). Idempotente:
+ *  si ya existe, la reutiliza en vez de crear una duplicada. */
+function obtenerCarpetaDocumentos_(sheetId, proyectoId) {
+  const archivoSheet = DriveApp.getFileById(sheetId);
+  const padres = archivoSheet.getParents();
+  const carpetaBase = padres.hasNext() ? padres.next() : DriveApp.getRootFolder();
+  const nombreCarpeta = 'Documentos — ' + proyectoId;
+  const existentes = carpetaBase.getFoldersByName(nombreCarpeta);
+  if (existentes.hasNext()) return existentes.next();
+  return carpetaBase.createFolder(nombreCarpeta);
+}
+
+/** Ruta relativa ("output-paso-1/registro-riesgos.md") -> nombre de archivo
+ *  plano válido en Drive (Drive no tiene carpetas reales dentro de un
+ *  DriveApp.createFile, así que se aplana con " — " en vez de "/"). */
+function nombreArchivoDrive_(rutaRelativa) {
+  return String(rutaRelativa || 'documento.md').replace(/\//g, ' — ');
+}
+
+/**
+ * Sube (o actualiza si ya existe) el CONTENIDO de cada documento a la carpeta
+ * de Drive del proyecto, y guarda el ID/URL resultante en la pestaña
+ * Documentos — a partir de ahí `renderDocumentoRow` en AppJs.html puede
+ * enlazar directamente a Drive para ver/descargar.
+ *
+ * Fuente del JSON: GET /api/documentos/exportar del dashboard LOCAL (no
+ * /api/data — ese solo trae metadatos, sin contenido). Idempotente: repetirlo
+ * actualiza el contenido de los archivos ya subidos (por Ruta) en vez de
+ * crear duplicados — así es como se "mantienen actualizados" tras
+ * regenerar un documento en local.
+ *
+ * @param {string} sheetId
+ * @param {string} proyectoId
+ * @param {string} documentosJson JSON de { documentos: [{ruta,titulo,descripcion,paso,tamano,modificadoEn,contenido}] }
+ */
+function migrarDocumentos(sheetId, proyectoId, documentosJson) {
+  try {
+    const payload = JSON.parse(documentosJson);
+    const documentos = payload.documentos || [];
+    const carpeta = obtenerCarpetaDocumentos_(sheetId, proyectoId);
+
+    const descriptor = TIPO_DESCRIPTORS_SHEETS.documentos;
+    const sheet = obtenerHoja_(sheetId, descriptor.hoja);
+    const columnas = descriptor.columnas;
+    const numCols = columnas.length;
+    const colRuta = columnas.indexOf('Ruta');
+    const colProyecto = columnas.indexOf('Proyecto');
+    const colDriveFileId = columnas.indexOf('DriveFileId');
+    const colDriveUrl = columnas.indexOf('DriveUrl');
+
+    let subidos = 0;
+    let actualizados = 0;
+    let sinContenido = 0;
+
+    documentos.forEach(function (doc) {
+      if (!doc.contenido) { sinContenido++; return; } // no se pudo leer en local -> se deja tal cual, no se sube vacío
+
+      const lastRow = sheet.getLastRow();
+      let targetRowNum = -1;
+      let filaActual = null;
+      if (lastRow >= 2) {
+        const values = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+        for (let i = 0; i < values.length; i++) {
+          if (values[i][colRuta] === doc.ruta && String(values[i][colProyecto]) === String(proyectoId)) {
+            targetRowNum = i + 2;
+            filaActual = values[i];
+            break;
+          }
+        }
+      }
+
+      const driveFileIdExistente = filaActual ? filaActual[colDriveFileId] : '';
+      let file;
+      if (driveFileIdExistente) {
+        file = DriveApp.getFileById(driveFileIdExistente);
+        file.setContent(doc.contenido);
+        actualizados++;
+      } else {
+        file = carpeta.createFile(nombreArchivoDrive_(doc.ruta), doc.contenido, MimeType.PLAIN_TEXT);
+        subidos++;
+      }
+
+      const filaNueva = construirFila_(columnas, {
+        Proyecto: proyectoId, Ruta: doc.ruta, Titulo: doc.titulo, Descripcion: doc.descripcion,
+        Paso: doc.paso, Tamano: doc.tamano, ModificadoEn: doc.modificadoEn,
+        DriveFileId: file.getId(), DriveUrl: file.getUrl(),
+      });
+      if (targetRowNum === -1) {
+        sheet.appendRow(filaNueva);
+      } else {
+        sheet.getRange(targetRowNum, 1, 1, numCols).setValues([filaNueva]);
+      }
+    });
+
+    return ok_({ subidos: subidos, actualizados: actualizados, sinContenido: sinContenido, carpeta: carpeta.getUrl() });
+  } catch (err) {
+    return fail_(500, 'Error subiendo documentos a Drive: ' + err.message);
+  }
+}
+
 function escMigracion_(value) {
   if (value === null || value === undefined) return '';
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -259,48 +409,68 @@ function renderMigratePage(sheetId, proyectoId) {
 </head>
 <body>
   <h1>Migrar datos locales a esta Sheet — proyecto "${escMigracion_(proyectoId)}"</h1>
+
+  <h2>1. Datos (GEE, Requisitos, Épicas, Roadmap, Capacidad, Sprints...)</h2>
   <div class="aviso">
     1) Abre el dashboard <strong>local</strong> de este proyecto y ve a <code>/api/data</code> en el navegador (con el dashboard local ya arrancado).<br>
     2) Copia TODO el JSON de esa página (Ctrl+A, Ctrl+C).<br>
-    3) Pégalo aquí abajo y pulsa "Migrar".<br><br>
-    Es seguro repetirlo: los registros del GEE/Requisitos se actualizan por ID (nunca se duplican, ni se pisan ediciones ya hechas en la nube). El resto de pestañas de solo lectura (Épicas, Roadmap, Capacidad, Sprints, Documentos) se reemplazan enteras con lo último del snapshot pegado — son de solo lectura también en modo local, así que no hay nada que perder ahí.
+    3) Pégalo aquí abajo y pulsa "Migrar datos".<br><br>
+    Es seguro repetirlo: los registros del GEE/Requisitos se actualizan por ID (nunca se duplican, ni se pisan ediciones ya hechas en la nube). El resto de pestañas de solo lectura (Épicas, Roadmap, Capacidad, Sprints) se reemplazan enteras con lo último del snapshot pegado — son de solo lectura también en modo local, así que no hay nada que perder ahí. Los metadatos de Documentos se actualizan por ruta, sin perder ningún enlace de Drive ya subido en el paso 2.
   </div>
   <textarea id="snapshot" placeholder="Pega aquí el JSON de /api/data..."></textarea>
-  <p><button id="btn-migrar">Migrar</button></p>
+  <p><button id="btn-migrar">Migrar datos</button></p>
   <div id="resultado"></div>
+
+  <h2>2. Documentos (subirlos a Drive para poder verlos/descargarlos)</h2>
+  <div class="aviso">
+    1) En el dashboard local, ve a <code>/api/documentos/exportar</code> (nota: <code>/exportar</code>, no <code>/api/data</code> — este incluye el CONTENIDO de cada documento, no solo el catálogo).<br>
+    2) Copia TODO el JSON.<br>
+    3) Pégalo aquí abajo y pulsa "Subir documentos a Drive".<br><br>
+    Sube cada <code>.md</code> a una carpeta de Drive junto a esta Sheet ("Documentos — ${escMigracion_(proyectoId)}"), y guarda el enlace en la pestaña Documentos — la pestaña "Documentos" del dashboard mostrará un botón "Ver/Descargar" para cada uno. Es seguro repetirlo: actualiza el contenido de los archivos ya subidos (por ruta) en vez de duplicarlos — así se "mantienen actualizados" tras regenerar un documento en local.
+  </div>
+  <textarea id="documentos" placeholder="Pega aquí el JSON de /api/documentos/exportar..."></textarea>
+  <p><button id="btn-migrar-documentos">Subir documentos a Drive</button></p>
+  <div id="resultado-documentos"></div>
+
   <script>
     var MIGRAR_CONFIG = { sheetId: ${JSON.stringify(sheetId)}, proyectoId: ${JSON.stringify(proyectoId)} };
-    document.getElementById('btn-migrar').addEventListener('click', function () {
-      var btn = this;
-      var textarea = document.getElementById('snapshot');
-      var resultado = document.getElementById('resultado');
-      var texto = textarea.value.trim();
-      if (!texto) { resultado.textContent = 'Pega primero el JSON del snapshot.'; return; }
-      btn.disabled = true;
-      btn.textContent = 'Migrando…';
-      resultado.textContent = '';
-      google.script.run
-        .withSuccessHandler(function (resultJson) {
-          btn.disabled = false;
-          btn.textContent = 'Migrar';
-          try {
-            var result = JSON.parse(resultJson);
-            if (result.ok === false) {
-              resultado.textContent = 'Error: ' + result.error;
-            } else {
-              resultado.textContent = 'Migración completada:\\n' + JSON.stringify(result.data, null, 2);
+
+    function ejecutarMigracion(idBoton, textoBoton, idTextarea, idResultado, nombreFuncion) {
+      var btn = document.getElementById(idBoton);
+      btn.addEventListener('click', function () {
+        var textarea = document.getElementById(idTextarea);
+        var resultado = document.getElementById(idResultado);
+        var texto = textarea.value.trim();
+        if (!texto) { resultado.textContent = 'Pega primero el JSON.'; return; }
+        btn.disabled = true;
+        btn.textContent = 'Procesando…';
+        resultado.textContent = '';
+        google.script.run
+          .withSuccessHandler(function (resultJson) {
+            btn.disabled = false;
+            btn.textContent = textoBoton;
+            try {
+              var result = JSON.parse(resultJson);
+              if (result.ok === false) {
+                resultado.textContent = 'Error: ' + result.error;
+              } else {
+                resultado.textContent = 'Completado:\\n' + JSON.stringify(result.data, null, 2);
+              }
+            } catch (e) {
+              resultado.textContent = 'Respuesta inesperada del servidor: ' + resultJson;
             }
-          } catch (e) {
-            resultado.textContent = 'Respuesta inesperada del servidor: ' + resultJson;
-          }
-        })
-        .withFailureHandler(function (err) {
-          btn.disabled = false;
-          btn.textContent = 'Migrar';
-          resultado.textContent = 'Error inesperado: ' + (err && err.message);
-        })
-        .migrarDesdeSnapshot(MIGRAR_CONFIG.sheetId, MIGRAR_CONFIG.proyectoId, texto);
-    });
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = textoBoton;
+            resultado.textContent = 'Error inesperado: ' + (err && err.message);
+          })
+          [nombreFuncion](MIGRAR_CONFIG.sheetId, MIGRAR_CONFIG.proyectoId, texto);
+      });
+    }
+
+    ejecutarMigracion('btn-migrar', 'Migrar datos', 'snapshot', 'resultado', 'migrarDesdeSnapshot');
+    ejecutarMigracion('btn-migrar-documentos', 'Subir documentos a Drive', 'documentos', 'resultado-documentos', 'migrarDocumentos');
   </script>
 </body>
 </html>`;

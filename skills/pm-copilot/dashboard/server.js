@@ -292,6 +292,36 @@ app.get('/api/documento/md', (req, res) => {
   }
 });
 
+// --- GET /api/documentos/exportar --------------------------------------------
+// A diferencia de GET /api/data (que solo incluye metadatos del catálogo de
+// documentos, igual que en modo local), esta ruta añade el CONTENIDO de cada
+// .md — pensada exclusivamente para el flujo de migración a modo nube
+// (dashboard/cloud-apps-script/Migracion.gs#migrarDocumentos), donde el PM
+// copia este JSON y lo pega en la página de migración para subir los
+// documentos a una carpeta de Drive del cliente. No se usa en el uso normal
+// del dashboard local — el catálogo local siempre lee del disco directamente,
+// nunca necesitó exportar el contenido en bloque hasta ahora.
+app.get('/api/documentos/exportar', async (req, res) => {
+  try {
+    const snapshot = readCacheIfExists() || (await backend.readSnapshot(PROJECT_PATH));
+    const documentos = snapshot.documentos || [];
+    const conContenido = documentos.map((doc) => {
+      let contenido = '';
+      try {
+        const rutaAbsoluta = resolveRutaDocumento(PROJECT_PATH, doc.ruta);
+        contenido = fs.readFileSync(rutaAbsoluta, 'utf8');
+      } catch (err) {
+        console.error(`[server] No se pudo leer el contenido de ${doc.ruta} para exportar:`, err.message);
+      }
+      return { ...doc, contenido };
+    });
+    res.json({ documentos: conContenido });
+  } catch (err) {
+    console.error('[server] Error en /api/documentos/exportar:', err);
+    res.status(500).json({ error: 'Error exportando documentos', detail: err.message });
+  }
+});
+
 // --- POST /api/pdf/documento ----------------------------------------------
 app.post('/api/pdf/documento', async (req, res) => {
   const rutaRelativa = req.body && req.body.ruta;

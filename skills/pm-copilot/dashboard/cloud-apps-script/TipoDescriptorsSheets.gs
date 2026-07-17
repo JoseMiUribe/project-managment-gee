@@ -119,9 +119,14 @@ const TIPO_DESCRIPTORS_SHEETS = {
   },
 
   // --- Catálogo de metadatos (poblado por migración, sin escritura desde el dashboard) ---
+  // DriveFileId/DriveUrl los rellena migrarDocumentos (Migracion.gs) al subir
+  // el CONTENIDO de cada .md a una carpeta de Drive del proyecto — la
+  // migración normal (migrarDesdeSnapshot) solo trae metadatos y actualiza
+  // estas dos columnas por Ruta en vez de reemplazar la pestaña entera, para
+  // no perder el enlace de Drive ya subido en una migración anterior.
   documentos: {
     kind: 'catalogo', hoja: 'Documentos',
-    columnas: ['Proyecto', 'Ruta', 'Titulo', 'Descripcion', 'Paso', 'Tamano', 'ModificadoEn'],
+    columnas: ['Proyecto', 'Ruta', 'Titulo', 'Descripcion', 'Paso', 'Tamano', 'ModificadoEn', 'DriveFileId', 'DriveUrl'],
   },
 
   // --- Lectura tabular (poblado por migración, sin escritura desde el dashboard) ---

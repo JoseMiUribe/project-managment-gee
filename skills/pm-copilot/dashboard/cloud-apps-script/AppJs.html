@@ -380,8 +380,15 @@
   // nueva con la API de Drive (decisión ya tomada, ver SKILL.md). Por eso no
   // hay aquí botones "Ver"/"MD"/"PDF": no hay contenido que este dashboard
   // pueda servir de forma remota, solo el catálogo de qué existe y dónde.
+  // MODO NUBE: si el documento ya se subió a Drive (migrarDocumentos, ver
+  // Migracion.gs), doc.driveUrl trae el enlace directo — "Ver/Descargar" lo
+  // abre en una pestaña nueva (Drive ofrece su propia vista + botón de
+  // descarga). Si todavía no se ha subido, se muestra el aviso de siempre.
   function renderDocumentoRow(doc) {
     const modificado = doc.modificadoEn ? doc.modificadoEn.slice(0, 16).replace("T", " ") : "—";
+    const acciones = doc.driveUrl
+      ? '<a class="btn btn-sm" href="' + escapeHtml(doc.driveUrl) + '" target="_blank">Ver/Descargar (Drive)</a>'
+      : '<span class="text-muted" style="font-size:12px;">Todavía no subido a Drive — usa "Subir documentos a Drive" en la página de migración.</span>';
     return (
       "<tr><td><strong>" +
       escapeHtml(doc.titulo) +
@@ -393,7 +400,7 @@
       "</code></td>" +
       "<td>" +
       escapeHtml(modificado) +
-      '</td><td class="cell-actions text-muted" style="font-size:12px;">El contenido vive en tu carpeta local/Drive — este catálogo solo muestra metadatos.</td></tr>'
+      '</td><td class="cell-actions">' + acciones + "</td></tr>"
     );
   }
 

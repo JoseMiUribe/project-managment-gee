@@ -283,6 +283,7 @@ function leerDocumentos_(sheetId, proyectoId) {
     return {
       ruta: f['Ruta'] || '', titulo: f['Titulo'] || '', descripcion: f['Descripcion'] || '',
       paso: f['Paso'] || '', tamano: f['Tamano'] || '', modificadoEn: f['ModificadoEn'] || '',
+      driveUrl: f['DriveUrl'] || '',
     };
   });
 }

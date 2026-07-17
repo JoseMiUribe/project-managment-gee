@@ -20,9 +20,9 @@ Esta carpeta es una aplicación Apps Script **independiente y completa** — no 
 | `TipoDescriptorsSheets.gs` | Tabla única de qué pestañas existen en la Sheet, sus columnas, y cómo tratarlas (editable, solo lectura, ledger...) — el equivalente en modo nube de `dashboard/lib/dataBackend/tipoDescriptors.js`. |
 | `PrintView.gs` | Copia casi verbatim de `dashboard/lib/printView.js` — genera el HTML del informe completo, que se abre en pestaña nueva para imprimir a PDF. |
 | `Index.html` | La página del dashboard interactivo — mismo HTML que `dashboard/public/index.html`, adaptado al patrón `include()` de Apps Script. |
-| `AppJs.html` | Copia adaptada de `dashboard/public/app.js` (2300+ líneas, casi todas sin cambios) — solo se tocó cómo llama al "servidor" (`google.script.run` en vez de `fetch`), el botón de PDF (abre la vista de impresión en vez de llamar a Playwright) y la fila de cada documento (sin botones de Ver/PDF, solo metadatos). |
+| `AppJs.html` | Copia adaptada de `dashboard/public/app.js` (2300+ líneas, casi todas sin cambios) — solo se tocó cómo llama al "servidor" (`google.script.run` en vez de `fetch`), el botón de PDF (abre la vista de impresión en vez de llamar a Playwright) y la fila de cada documento (enlaza a Drive si ya se subió, ver `migrarDocumentos`). |
 | `Styles.html` | Copia sin cambios de `dashboard/public/styles.css`, envuelta en `<style>`. |
-| `Migracion.gs` | `migrarDesdeSnapshot` (puebla la Sheet a partir del JSON de `/api/data` del dashboard local) + `renderMigratePage` (la página `?vista=migrar` donde se pega ese JSON). Ver "Migrar un proyecto local existente" más abajo. |
+| `Migracion.gs` | `migrarDesdeSnapshot` (puebla la Sheet a partir del JSON de `/api/data` del dashboard local) + `migrarDocumentos` (sube el CONTENIDO de cada documento a una carpeta de Drive, a partir de `/api/documentos/exportar`) + `renderMigratePage` (la página `?vista=migrar` con ambos pasos). Ver "Migrar un proyecto local existente" más abajo. |
 
 ---
 
@@ -35,7 +35,7 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
 | Riesgos, Dependencias, Acciones, Impedimentos, Changelog | `registro` | Los 5 tipos del GEE — editable desde el dashboard, igual que en local. |
 | Peticiones, RequisitosFuncionales, RequisitosNoFuncionales, ZonasIncertidumbre | `registro` | Los 4 tipos de Requisitos (Paso 0) — editable desde el dashboard. |
 | CambiosPendientes | `ledger` | Registro append-only de cada edición hecha desde el dashboard (igual que `output-transversal/cambios-pendientes-dashboard.md` en local). |
-| Documentos | `catalogo` | Solo metadatos (título/ruta/tamaño/fecha) de los `.md` que genera el skill. **El contenido real NO viaja a la nube** — sigue viviendo en el disco local o en la carpeta sincronizada con Drive Desktop del PM (misma decisión ya tomada para evitar un conector nuevo con la API de Drive). Por eso el catálogo en modo nube no tiene botones de Ver/PDF/Descargar. |
+| Documentos | `catalogo` | Metadatos (título/ruta/tamaño/fecha) de los `.md` que genera el skill, más `DriveFileId`/`DriveUrl` una vez subidos a Drive vía `migrarDocumentos` (ver "Migrar un proyecto local existente"). Sin `DriveUrl`, el dashboard solo muestra el catálogo sin botón de descarga — con él, "Ver/Descargar" enlaza directamente al archivo en Drive. |
 | Epicas, RoadmapClienteHitos, Sprints, SprintHU, ReglasNegocio | `lectura-tabular` | Una fila por registro, de solo lectura (igual que en modo local: el dashboard nunca los edita, solo los muestra). Se rellenan con la migración (ver "Migrar un proyecto local existente" más abajo) o a mano. |
 | RoadmapClienteMeta, RoadmapTecnico, Legacy | `lectura-json` | Datos heterogéneos/anidados que no vale la pena normalizar en columnas — una fila por proyecto con el objeto ya parseado completo en una columna `DatosJSON`. |
 | Capacidad | `lectura-json` (versionado) | Igual que arriba, pero una fila **por versión** (`v1`, `v2`...) con una columna `EsActual` marcando cuál es la vigente — replica el patrón de `capacidad-equipo/v1.md, v2.md, actual.md` de modo local. |
@@ -86,15 +86,20 @@ Comparte la Google Sheet con su cuenta de Google de empresa (como cualquier arch
 
 ## Migrar un proyecto local existente
 
-Si ya tienes un proyecto trabajado en modo local y quieres traer sus datos (Épicas, Roadmap, Capacidad, Sprints, GEE, Requisitos, Documentos) a una Sheet nueva o ya aprovisionada:
+Si ya tienes un proyecto trabajado en modo local y quieres traer sus datos (Épicas, Roadmap, Capacidad, Sprints, GEE, Requisitos, Documentos) a una Sheet nueva o ya aprovisionada, abre `<URL de la aplicación web>?sheet=<ID de la Sheet>&proyecto=<identificador>&vista=migrar` — tiene dos pasos independientes:
 
+**1. Datos** (GEE, Requisitos, Épicas, Roadmap, Capacidad, Sprints, metadatos de Documentos):
 1. Arranca el dashboard **local** de ese proyecto como siempre (`iniciar-dashboard.bat`/`.ps1`).
 2. En el navegador, ve a `http://localhost:<puerto>/api/data` — verás el snapshot completo en JSON.
-3. Selecciona todo (Ctrl+A) y cópialo (Ctrl+C).
-4. Abre `<URL de la aplicación web>?sheet=<ID de la Sheet>&proyecto=<identificador>&vista=migrar`.
-5. Pega el JSON en el cuadro de texto y pulsa **Migrar**.
+3. Selecciona todo (Ctrl+A), cópialo (Ctrl+C), pégalo en el primer cuadro de texto de la página de migración y pulsa **Migrar datos**.
 
-Es seguro repetirlo cuantas veces haga falta (p. ej. cada vez que regeneres el roadmap o la capacidad en local): los tipos editables desde el dashboard (GEE + Requisitos) se actualizan por ID sin duplicar ni pisar ediciones que ya se hayan hecho en la nube; el resto de pestañas (de solo lectura también en modo local) se reemplazan enteras con lo último del snapshot pegado.
+Es seguro repetirlo cuantas veces haga falta (p. ej. cada vez que regeneres el roadmap o la capacidad en local): los tipos editables desde el dashboard (GEE + Requisitos) se actualizan por ID sin duplicar ni pisar ediciones que ya se hayan hecho en la nube; el resto de pestañas (de solo lectura también en modo local) se reemplazan enteras con lo último del snapshot pegado. Los metadatos de Documentos se actualizan por ruta, sin perder ningún enlace de Drive que ya se haya subido en el paso 2.
+
+**2. Documentos** (subirlos a Drive para poder verlos/descargarlos desde el dashboard alojado):
+1. En el navegador local, ve a `http://localhost:<puerto>/api/documentos/exportar` — nota: `/exportar`, no `/api/data`. Este incluye el **contenido** de cada documento, no solo su ficha de catálogo.
+2. Copia TODO el JSON y pégalo en el segundo cuadro de la página de migración, pulsa **Subir documentos a Drive**.
+
+Esto crea (o reutiliza) una carpeta "Documentos — `<proyecto>`" junto a la Sheet del cliente, sube cada `.md` ahí, y guarda el enlace en la pestaña Documentos — a partir de ahí, cada fila de la pestaña **Documentos** del dashboard muestra un botón "Ver/Descargar (Drive)". Es seguro repetirlo: actualiza el contenido de los archivos ya subidos (por ruta) en vez de duplicarlos — así se mantienen actualizados sin más que volver a exportar/pegar tras regenerar un documento en local. Los documentos que el catálogo local no pudo leer (ruta rota, etc.) se saltan sin romper el resto.
 
 ---
 
@@ -110,12 +115,14 @@ Es seguro repetirlo cuantas veces haga falta (p. ej. cada vez que regeneres el r
 - [ ] El botón "Generar informe PDF" abre una pestaña nueva con el informe (no llama a ningún servidor) y Ctrl+P permite guardarlo como PDF.
 - [ ] **Aislamiento real**: comparte la Sheet de un cliente de prueba con una segunda cuenta de Google (o pide a un compañero que lo intente) y confirma que **sin** compartírsela, la URL del dashboard de ese proyecto le da error de permisos en vez de cargar datos.
 - [ ] Con dos proyectos (`proyecto=` distinto) apuntando a la misma Sheet, confirma que cada uno solo ve sus propias filas (columna `Proyecto` filtrando correctamente).
-- [ ] Migración: pegar el JSON de `/api/data` de un proyecto local real en `?vista=migrar` puebla Épicas/RoadmapClienteHitos/Sprints/SprintHU/Capacidad/Legacy/Documentos correctamente, y repetirlo no duplica filas.
+- [x] Migración de datos: pegar el JSON de `/api/data` de un proyecto local real en `?vista=migrar` puebla Épicas/RoadmapClienteHitos/Sprints/SprintHU/Capacidad/Legacy/Documentos correctamente, y repetirlo no duplica filas (verificado por simulación en Node contra el fixture completo — pendiente de una pasada real).
+- [ ] Migración de documentos: pegar el JSON de `/api/documentos/exportar` sube los `.md` a una carpeta de Drive, la pestaña Documentos del dashboard muestra "Ver/Descargar (Drive)", y repetirlo actualiza el contenido sin duplicar archivos ni filas (verificado por simulación en Node con un mock de `DriveApp` — pendiente de una pasada real).
 
 ## Limitaciones conocidas de este modo (no son bugs, son alcance explícito)
 
 - **Sin generación de PDF en servidor**: no hay Playwright/Chromium disponible en Apps Script. Se sustituye por "imprimir desde el navegador" (Ctrl+P sobre la misma plantilla HTML del informe) — decisión confirmada con el PM, no un recorte silencioso.
-- **Documentos es solo un catálogo de metadatos**: el contenido de los `.md` sigue viviendo en local/Drive Desktop, no en la Sheet. No hay botones de Ver/Descargar/PDF por documento en este modo.
+- **Subir documentos a Drive es un paso manual aparte** (`migrarDocumentos`, ver arriba) — no ocurre automáticamente al migrar los datos, porque `/api/data` no incluye el contenido de los documentos (por diseño, para no inflar ese JSON). Hay que exportar y pegar `/api/documentos/exportar` por separado.
+- **La pestaña Documentos no borra filas de documentos que ya no existan en local** — si renombras o eliminas un `.md`, su fila (y su archivo en Drive) quedan huérfanos hasta que se limpien a mano; este skill nunca borra automáticamente.
 - **Sin sincronización en vivo con Jira**: `analisisJira` siempre es `null` en modo nube por ahora — traer Jira a Apps Script necesitaría su propia historia de autenticación, fuera de alcance de esta fase.
 - **HU de sprint no bloqueadas**: igual que en modo local, no hay un editor real implementado (siempre 501) — no es un recorte de este modo nube específicamente.
 - **La migración es unidireccional (local → nube)**: no hay vía de vuelta (nube → local), igual que el plan original preveía. Editar directamente en la Sheet (no vía el dashboard) tampoco se refleja de vuelta en el markdown local todavía — eso es la Fase 4.
