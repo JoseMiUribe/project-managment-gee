@@ -296,9 +296,9 @@
   // pestaña nueva — el usuario hace Ctrl+P / Cmd+P y elige "Guardar como PDF"
   // con el propio Chromium de su navegador (mismo motor de renderizado que
   // usaba Playwright, misma fidelidad visual). Decisión confirmada con el PM.
-  function urlVista(vista) {
+  function urlVista(vista, extraParams) {
     const base = window.location.href.split("?")[0];
-    const params = new URLSearchParams({ sheet: CLOUD.sheetId, proyecto: CLOUD.proyectoId, vista: vista });
+    const params = new URLSearchParams(Object.assign({ sheet: CLOUD.sheetId, proyecto: CLOUD.proyectoId, vista: vista }, extraParams || {}));
     return base + "?" + params.toString();
   }
 
@@ -387,7 +387,9 @@
   function renderDocumentoRow(doc) {
     const modificado = doc.modificadoEn ? doc.modificadoEn.slice(0, 16).replace("T", " ") : "—";
     const acciones = doc.driveUrl
-      ? '<a class="btn btn-sm" href="' + escapeHtml(doc.driveUrl) + '" target="_blank">Ver/Descargar (Drive)</a>'
+      ? '<a class="btn btn-sm" href="' + escapeHtml(doc.driveUrl) + '" target="_blank">Ver/Descargar (Drive)</a> ' +
+        '<a class="btn btn-sm" href="' + escapeHtml(urlVista("documento", { ruta: doc.ruta, version: "completa" })) + '" target="_blank">Ver</a> ' +
+        '<a class="btn btn-sm" href="' + escapeHtml(urlVista("documento", { ruta: doc.ruta, version: "cliente" })) + '" target="_blank">Ver cliente</a>'
       : '<span class="text-muted" style="font-size:12px;">Todavía no subido a Drive — usa "Subir documentos a Drive" en la página de migración.</span>';
     return (
       "<tr><td><strong>" +

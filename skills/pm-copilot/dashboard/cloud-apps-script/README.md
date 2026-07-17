@@ -23,6 +23,7 @@ Esta carpeta es una aplicación Apps Script **independiente y completa** — no 
 | `AppJs.html` | Copia adaptada de `dashboard/public/app.js` (2300+ líneas, casi todas sin cambios) — solo se tocó cómo llama al "servidor" (`google.script.run` en vez de `fetch`), el botón de PDF (abre la vista de impresión en vez de llamar a Playwright) y la fila de cada documento (enlaza a Drive si ya se subió, ver `migrarDocumentos`). |
 | `Styles.html` | Copia sin cambios de `dashboard/public/styles.css`, envuelta en `<style>`. |
 | `Migracion.gs` | `migrarDesdeSnapshot` (puebla la Sheet a partir del JSON de `/api/data` del dashboard local) + `migrarDocumentos` (sube el CONTENIDO de cada documento a una carpeta de Drive, a partir de `/api/documentos/exportar`) + `renderMigratePage` (la página `?vista=migrar` con ambos pasos). Ver "Migrar un proyecto local existente" más abajo. |
+| `PrintDocumento.gs` | Vista de un documento suelto (`?vista=documento&ruta=...&version=completa\|cliente`) — equivalente a `/print/documento` en modo local, leyendo el contenido de Drive en vez del disco. El markdown se renderiza a HTML en el propio navegador (`marked` vía CDN, igual que ECharts) porque Apps Script no tiene ese paquete. La versión "cliente" recorta los bloques `<!-- interno:inicio/fin -->` igual que en local, sin anunciarlo con ningún aviso visual (ver nota más abajo). |
 
 ---
 
@@ -35,7 +36,7 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
 | Riesgos, Dependencias, Acciones, Impedimentos, Changelog | `registro` | Los 5 tipos del GEE — editable desde el dashboard, igual que en local. |
 | Peticiones, RequisitosFuncionales, RequisitosNoFuncionales, ZonasIncertidumbre | `registro` | Los 4 tipos de Requisitos (Paso 0) — editable desde el dashboard. |
 | CambiosPendientes | `ledger` | Registro append-only de cada edición hecha desde el dashboard (igual que `output-transversal/cambios-pendientes-dashboard.md` en local). |
-| Documentos | `catalogo` | Metadatos (título/ruta/tamaño/fecha) de los `.md` que genera el skill, más `DriveFileId`/`DriveUrl` una vez subidos a Drive vía `migrarDocumentos` (ver "Migrar un proyecto local existente"). Sin `DriveUrl`, el dashboard solo muestra el catálogo sin botón de descarga — con él, "Ver/Descargar" enlaza directamente al archivo en Drive. |
+| Documentos | `catalogo` | Metadatos (título/ruta/tamaño/fecha) de los `.md` que genera el skill, más `DriveFileId`/`DriveUrl` una vez subidos a Drive vía `migrarDocumentos` (ver "Migrar un proyecto local existente"). Sin `DriveUrl`, el dashboard solo muestra el catálogo sin acciones — con él, "Ver/Descargar (Drive)" abre el archivo en Drive, y "Ver"/"Ver cliente" abren la vista renderizada (`?vista=documento`, `PrintDocumento.gs`) para imprimir a PDF con Ctrl+P, igual que el informe completo. |
 | Epicas, RoadmapClienteHitos, Sprints, SprintHU, ReglasNegocio | `lectura-tabular` | Una fila por registro, de solo lectura (igual que en modo local: el dashboard nunca los edita, solo los muestra). Se rellenan con la migración (ver "Migrar un proyecto local existente" más abajo) o a mano. |
 | RoadmapClienteMeta, RoadmapTecnico, Legacy | `lectura-json` | Datos heterogéneos/anidados que no vale la pena normalizar en columnas — una fila por proyecto con el objeto ya parseado completo en una columna `DatosJSON`. |
 | Capacidad | `lectura-json` (versionado) | Igual que arriba, pero una fila **por versión** (`v1`, `v2`...) con una columna `EsActual` marcando cuál es la vigente — replica el patrón de `capacidad-equipo/v1.md, v2.md, actual.md` de modo local. |
@@ -53,6 +54,7 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
    - `TipoDescriptorsSheets` (tipo Script) → pega el contenido de `TipoDescriptorsSheets.gs`
    - `PrintView` (tipo Script) → pega el contenido de `PrintView.gs`
    - `Migracion` (tipo Script) → pega el contenido de `Migracion.gs`
+   - `PrintDocumento` (tipo Script) → pega el contenido de `PrintDocumento.gs`
    - `Index` (tipo HTML) → pega el contenido de `Index.html`
    - `AppJs` (tipo HTML) → pega el contenido de `AppJs.html`
    - `Styles` (tipo HTML) → pega el contenido de `Styles.html`
@@ -116,7 +118,8 @@ Esto crea (o reutiliza) una carpeta "Documentos — `<proyecto>`" junto a la She
 - [ ] **Aislamiento real**: comparte la Sheet de un cliente de prueba con una segunda cuenta de Google (o pide a un compañero que lo intente) y confirma que **sin** compartírsela, la URL del dashboard de ese proyecto le da error de permisos en vez de cargar datos.
 - [ ] Con dos proyectos (`proyecto=` distinto) apuntando a la misma Sheet, confirma que cada uno solo ve sus propias filas (columna `Proyecto` filtrando correctamente).
 - [x] Migración de datos: pegar el JSON de `/api/data` de un proyecto local real en `?vista=migrar` puebla Épicas/RoadmapClienteHitos/Sprints/SprintHU/Capacidad/Legacy/Documentos correctamente, y repetirlo no duplica filas (verificado por simulación en Node contra el fixture completo — pendiente de una pasada real).
-- [ ] Migración de documentos: pegar el JSON de `/api/documentos/exportar` sube los `.md` a una carpeta de Drive, la pestaña Documentos del dashboard muestra "Ver/Descargar (Drive)", y repetirlo actualiza el contenido sin duplicar archivos ni filas (verificado por simulación en Node con un mock de `DriveApp` — pendiente de una pasada real).
+- [x] Migración de documentos: pegar el JSON de `/api/documentos/exportar` sube los `.md` a una carpeta de Drive y la pestaña Documentos del dashboard muestra "Ver/Descargar (Drive)" — confirmado con un proyecto real (43 documentos subidos sin errores).
+- [ ] "Ver"/"Ver cliente" de un documento (`?vista=documento`) abren la vista renderizada, la versión cliente recorta los bloques `<!-- interno:... -->` sin mostrar ningún aviso de "versión cliente", y Ctrl+P permite guardarla como PDF (verificado por simulación en Node — pendiente de una pasada real).
 
 ## Limitaciones conocidas de este modo (no son bugs, son alcance explícito)
 

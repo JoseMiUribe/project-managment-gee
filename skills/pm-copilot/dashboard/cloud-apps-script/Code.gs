@@ -667,6 +667,15 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(renderMigratePage(sheetId, proyectoId)).setTitle('Migrar a la nube — ' + proyectoId);
   }
 
+  if (vista === 'documento') {
+    const ruta = e.parameter.ruta;
+    const versionDoc = e.parameter.version === 'cliente' ? 'cliente' : 'completa';
+    if (!ruta) {
+      return HtmlService.createHtmlOutput('<p style="font-family:sans-serif;padding:24px;">Falta el parámetro <code>ruta</code>.</p>');
+    }
+    return renderVistaDocumento_(sheetId, proyectoId, ruta, versionDoc);
+  }
+
   // OJO: NO usar setXFrameOptionsMode(ALLOWALL) aquí. Ese modo es para permitir
   // incrustar la página dentro del iframe de OTRO sitio, que no es este caso
   // (el usuario abre la URL directamente) — y rompe el mecanismo interno de

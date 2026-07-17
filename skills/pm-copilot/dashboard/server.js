@@ -248,7 +248,7 @@ app.get('/print/documento', (req, res) => {
     const version = req.query.version === 'cliente' ? 'cliente' : 'completa';
     const markdownRaw = fs.readFileSync(rutaAbsoluta, 'utf8');
     const markdown = version === 'cliente' ? stripContenidoInterno(markdownRaw) : markdownRaw;
-    const html = renderDocumentoView(markdown, rutaRelativa, version);
+    const html = renderDocumentoView(markdown, rutaRelativa);
     res.type('html').send(html);
   } catch (err) {
     console.error('[server] Error renderizando /print/documento:', err);
