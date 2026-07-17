@@ -4,7 +4,7 @@ Esta carpeta es una aplicación Apps Script **independiente y completa** — no 
 
 **Quién puede desplegar esto:** cualquier persona con cuenta de Google Workspace de la empresa, sin permisos de administrador ni de IT — Apps Script se crea bajo la cuenta de quien lo hace, igual que crear un documento de Drive.
 
-**Yo (Claude) he escrito todo el código de esta carpeta, pero no he podido desplegarlo ni probarlo contra una Sheet/Apps Script reales** — no tengo acceso a ninguna cuenta de Google. Todo lo de abajo hay que ejecutarlo y verificarlo a mano, siguiendo el checklist al final.
+**Estado: verificado contra un despliegue real** (2026-07-17) — desplegado por el usuario, con una Sheet de sandbox real: crear/editar un riesgo desde el dashboard, el badge de cambios pendientes, y la migración desde un snapshot local funcionan correctamente. Se encontraron y corrigieron dos bugs reales durante esa verificación (ver `mejoras-pendientes.md`): un `setXFrameOptionsMode(ALLOWALL)` que rompía `google.script.run`, y la necesidad de que el servidor devuelva el envoltorio `{ok,data}` como `JSON.stringify(...)` en vez de un objeto — la serialización automática de `google.script.run` llega rota para objetos anidados complejos como el snapshot completo.
 
 ---
 
@@ -22,6 +22,7 @@ Esta carpeta es una aplicación Apps Script **independiente y completa** — no 
 | `Index.html` | La página del dashboard interactivo — mismo HTML que `dashboard/public/index.html`, adaptado al patrón `include()` de Apps Script. |
 | `AppJs.html` | Copia adaptada de `dashboard/public/app.js` (2300+ líneas, casi todas sin cambios) — solo se tocó cómo llama al "servidor" (`google.script.run` en vez de `fetch`), el botón de PDF (abre la vista de impresión en vez de llamar a Playwright) y la fila de cada documento (sin botones de Ver/PDF, solo metadatos). |
 | `Styles.html` | Copia sin cambios de `dashboard/public/styles.css`, envuelta en `<style>`. |
+| `Migracion.gs` | `migrarDesdeSnapshot` (puebla la Sheet a partir del JSON de `/api/data` del dashboard local) + `renderMigratePage` (la página `?vista=migrar` donde se pega ese JSON). Ver "Migrar un proyecto local existente" más abajo. |
 
 ---
 
@@ -35,7 +36,7 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
 | Peticiones, RequisitosFuncionales, RequisitosNoFuncionales, ZonasIncertidumbre | `registro` | Los 4 tipos de Requisitos (Paso 0) — editable desde el dashboard. |
 | CambiosPendientes | `ledger` | Registro append-only de cada edición hecha desde el dashboard (igual que `output-transversal/cambios-pendientes-dashboard.md` en local). |
 | Documentos | `catalogo` | Solo metadatos (título/ruta/tamaño/fecha) de los `.md` que genera el skill. **El contenido real NO viaja a la nube** — sigue viviendo en el disco local o en la carpeta sincronizada con Drive Desktop del PM (misma decisión ya tomada para evitar un conector nuevo con la API de Drive). Por eso el catálogo en modo nube no tiene botones de Ver/PDF/Descargar. |
-| Epicas, RoadmapClienteHitos, Sprints, SprintHU, ReglasNegocio | `lectura-tabular` | Una fila por registro, de solo lectura (igual que en modo local: el dashboard nunca los edita, solo los muestra). Se rellenan en la migración (Fase 3, todavía no construida) o a mano. |
+| Epicas, RoadmapClienteHitos, Sprints, SprintHU, ReglasNegocio | `lectura-tabular` | Una fila por registro, de solo lectura (igual que en modo local: el dashboard nunca los edita, solo los muestra). Se rellenan con la migración (ver "Migrar un proyecto local existente" más abajo) o a mano. |
 | RoadmapClienteMeta, RoadmapTecnico, Legacy | `lectura-json` | Datos heterogéneos/anidados que no vale la pena normalizar en columnas — una fila por proyecto con el objeto ya parseado completo en una columna `DatosJSON`. |
 | Capacidad | `lectura-json` (versionado) | Igual que arriba, pero una fila **por versión** (`v1`, `v2`...) con una columna `EsActual` marcando cuál es la vigente — replica el patrón de `capacidad-equipo/v1.md, v2.md, actual.md` de modo local. |
 | Dailylogs | `dailylog` | Una fila por fecha. `ProgresoJSON`/`ActualizacionesGeeJSON` los rellena la migración/el skill; `NotasJSON` sí es editable desde el dashboard (botón "Añadir nota"), igual que en local. |
@@ -51,6 +52,7 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
    - `Code` (tipo Script) → pega el contenido de `Code.gs`
    - `TipoDescriptorsSheets` (tipo Script) → pega el contenido de `TipoDescriptorsSheets.gs`
    - `PrintView` (tipo Script) → pega el contenido de `PrintView.gs`
+   - `Migracion` (tipo Script) → pega el contenido de `Migracion.gs`
    - `Index` (tipo HTML) → pega el contenido de `Index.html`
    - `AppJs` (tipo HTML) → pega el contenido de `AppJs.html`
    - `Styles` (tipo HTML) → pega el contenido de `Styles.html`
@@ -82,20 +84,33 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
 
 Comparte la Google Sheet con su cuenta de Google de empresa (como cualquier archivo de Drive) y pásale la URL del paso anterior. Si además el Web App está desplegado con acceso "cualquiera en el dominio", no hace falta ningún paso adicional — su propio permiso sobre la Sheet es lo que decide si puede entrar.
 
+## Migrar un proyecto local existente
+
+Si ya tienes un proyecto trabajado en modo local y quieres traer sus datos (Épicas, Roadmap, Capacidad, Sprints, GEE, Requisitos, Documentos) a una Sheet nueva o ya aprovisionada:
+
+1. Arranca el dashboard **local** de ese proyecto como siempre (`iniciar-dashboard.bat`/`.ps1`).
+2. En el navegador, ve a `http://localhost:<puerto>/api/data` — verás el snapshot completo en JSON.
+3. Selecciona todo (Ctrl+A) y cópialo (Ctrl+C).
+4. Abre `<URL de la aplicación web>?sheet=<ID de la Sheet>&proyecto=<identificador>&vista=migrar`.
+5. Pega el JSON en el cuadro de texto y pulsa **Migrar**.
+
+Es seguro repetirlo cuantas veces haga falta (p. ej. cada vez que regeneres el roadmap o la capacidad en local): los tipos editables desde el dashboard (GEE + Requisitos) se actualizan por ID sin duplicar ni pisar ediciones que ya se hayan hecho en la nube; el resto de pestañas (de solo lectura también en modo local) se reemplazan enteras con lo último del snapshot pegado.
+
 ---
 
-## Checklist de verificación manual (pendiente — no lo he podido hacer yo)
+## Checklist de verificación manual
 
-- [ ] El Web App se despliega sin errores con los 6 archivos de arriba.
-- [ ] `bootstrapClientSheet` crea las 20 pestañas con sus cabeceras en una Sheet en blanco, y es seguro volver a ejecutarlo (no duplica pestañas ni borra filas existentes).
-- [ ] La URL `?sheet=...&proyecto=...` carga el dashboard y las pestañas Sprint/Proyecto/GEE/Requisitos/Documentos, aunque estén vacías (0 filas en cada pestaña de la Sheet).
-- [ ] Crear un registro nuevo (ej. un riesgo) desde el dashboard aparece como fila nueva en la pestaña `Riesgos` de la Sheet, con `Proyecto`, `Última modificación` y `Modificado por` rellenos.
-- [ ] Editar ese mismo registro actualiza la fila (no crea una segunda).
-- [ ] Aparece una fila nueva en `CambiosPendientes` tras cada edición/creación.
+- [x] El Web App se despliega sin errores con los 7 archivos de arriba.
+- [x] `bootstrapClientSheet` crea las 21 pestañas con sus cabeceras en una Sheet en blanco, y es seguro volver a ejecutarlo (no duplica pestañas ni borra filas existentes).
+- [x] La URL `?sheet=...&proyecto=...` carga el dashboard y las pestañas Sprint/Proyecto/GEE/Requisitos/Documentos, aunque estén vacías (0 filas en cada pestaña de la Sheet).
+- [x] Crear un registro nuevo (ej. un riesgo) desde el dashboard aparece como fila nueva en la pestaña `Riesgos` de la Sheet, con `Proyecto`, `Última modificación` y `Modificado por` rellenos.
+- [x] Editar ese mismo registro actualiza la fila (no crea una segunda).
+- [x] Aparece una fila nueva en `CambiosPendientes` tras cada edición/creación (verificado con el badge "N cambios pendientes de análisis" en la cabecera).
 - [ ] "Añadir nota" en el daily log crea o actualiza la fila del día en `Dailylogs`, acumulando notas en `NotasJSON` sin perder las anteriores.
 - [ ] El botón "Generar informe PDF" abre una pestaña nueva con el informe (no llama a ningún servidor) y Ctrl+P permite guardarlo como PDF.
 - [ ] **Aislamiento real**: comparte la Sheet de un cliente de prueba con una segunda cuenta de Google (o pide a un compañero que lo intente) y confirma que **sin** compartírsela, la URL del dashboard de ese proyecto le da error de permisos en vez de cargar datos.
 - [ ] Con dos proyectos (`proyecto=` distinto) apuntando a la misma Sheet, confirma que cada uno solo ve sus propias filas (columna `Proyecto` filtrando correctamente).
+- [ ] Migración: pegar el JSON de `/api/data` de un proyecto local real en `?vista=migrar` puebla Épicas/RoadmapClienteHitos/Sprints/SprintHU/Capacidad/Legacy/Documentos correctamente, y repetirlo no duplica filas.
 
 ## Limitaciones conocidas de este modo (no son bugs, son alcance explícito)
 
@@ -103,12 +118,10 @@ Comparte la Google Sheet con su cuenta de Google de empresa (como cualquier arch
 - **Documentos es solo un catálogo de metadatos**: el contenido de los `.md` sigue viviendo en local/Drive Desktop, no en la Sheet. No hay botones de Ver/Descargar/PDF por documento en este modo.
 - **Sin sincronización en vivo con Jira**: `analisisJira` siempre es `null` en modo nube por ahora — traer Jira a Apps Script necesitaría su propia historia de autenticación, fuera de alcance de esta fase.
 - **HU de sprint no bloqueadas**: igual que en modo local, no hay un editor real implementado (siempre 501) — no es un recorte de este modo nube específicamente.
-- **Sin migración automática todavía**: las pestañas de solo lectura (Épicas, roadmap, capacidad, sprints, legacy) hay que rellenarlas a mano o esperar a la Fase 3 del plan (`migrarDesdeSnapshot`, reutilizando `buildSnapshot` del modo local) — no construida en esta fase.
-- **Sin sincronización bidireccional todavía**: editar en la Sheet directamente (no vía el dashboard) no se refleja de vuelta en el markdown local — eso es la Fase 4 del plan.
+- **La migración es unidireccional (local → nube)**: no hay vía de vuelta (nube → local), igual que el plan original preveía. Editar directamente en la Sheet (no vía el dashboard) tampoco se refleja de vuelta en el markdown local todavía — eso es la Fase 4.
 
-## Próximos pasos (no construidos en esta fase)
+## Próximos pasos (no construidos todavía)
 
-- **Fase 3**: script de migración local → nube reutilizando `buildSnapshot`, para poblar Épicas/Roadmap/Capacidad/Sprints/Legacy/Documentos sin tener que rellenarlos a mano.
 - **Fase 4**: sincronización bidireccional (`syncPull`/`syncPush`) usando las columnas `Última modificación`/`Modificado por` ya presentes, más `LockService` como bloqueo optimista; integración con `actualizar-cascada.md`.
 
 Ver `mejoras-pendientes.md` (raíz del skill) para el registro completo de decisiones de esta fase.

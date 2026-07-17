@@ -662,6 +662,10 @@ function doGet(e) {
     }
   }
 
+  if (vista === 'migrar') {
+    return HtmlService.createHtmlOutput(renderMigratePage(sheetId, proyectoId)).setTitle('Migrar a la nube — ' + proyectoId);
+  }
+
   // OJO: NO usar setXFrameOptionsMode(ALLOWALL) aquí. Ese modo es para permitir
   // incrustar la página dentro del iframe de OTRO sitio, que no es este caso
   // (el usuario abre la URL directamente) — y rompe el mecanismo interno de
