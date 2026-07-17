@@ -195,14 +195,26 @@
 
   /** Envuelve google.script.run (basado en callbacks) en una Promise.
    *  Code.gs nunca lanza excepciones a través del puente RPC (los detalles de
-   *  error no sobreviven bien esa frontera) — siempre devuelve
-   *  { ok: true, data } o { ok: false, status, error }, que aquí se
-   *  desempaqueta a exactamente lo mismo que devolvía res.json()/ApiError en
-   *  modo local, para que el resto de este archivo no necesite saberlo. */
+   *  error no sobreviven bien esa frontera) — siempre devuelve, como STRING
+   *  (JSON.stringify), { ok: true, data } o { ok: false, status, error }.
+   *  Confirmado con una Sheet real: dejar que google.script.run serialice el
+   *  objeto anidado del snapshot automáticamente lo entrega roto en el
+   *  navegador (representación interna de Java, no JSON) — por eso el
+   *  servidor siempre manda texto y aquí se hace JSON.parse, evitando ese
+   *  serializador. El resultado ya desempaquetado es exactamente lo mismo que
+   *  devolvía res.json()/ApiError en modo local, para que el resto de este
+   *  archivo no necesite saberlo. */
   function runGoogleScript(fnName, args) {
     return new Promise((resolve, reject) => {
       google.script.run
-        .withSuccessHandler((result) => {
+        .withSuccessHandler((resultJson) => {
+          let result;
+          try {
+            result = JSON.parse(resultJson);
+          } catch (parseErr) {
+            reject(new ApiError(500, { error: "Respuesta del servidor no es JSON válido: " + parseErr.message }));
+            return;
+          }
           if (result && result.ok === false) {
             reject(new ApiError(result.status || 500, result.error ? { error: result.error } : null));
           } else {
