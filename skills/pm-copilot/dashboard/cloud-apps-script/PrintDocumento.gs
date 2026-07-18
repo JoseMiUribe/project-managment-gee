@@ -82,9 +82,21 @@ function renderDocumentoViewCloud_(markdown, ruta) {
   h3 { font-size: 15px; margin-top: 20px; }
   h4 { font-size: 13px; margin-top: 16px; }
   .meta { color: #555; margin-bottom: 16px; font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
-  th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
+  /* table-layout: fixed reparte el ancho de forma pareja entre columnas en
+     vez de que el navegador se lo dé casi todo a la columna con más texto y
+     deje al resto casi sin espacio — que es justo lo que hacía que las
+     celdas estrechas crecieran muchísimo en vertical. word-wrap/overflow-wrap
+     dejan que el texto largo parta línea dentro de ese ancho fijo. Tablas con
+     muchas columnas (como las del GEE en bruto) llevan letra más pequeña,
+     ver .tabla-ancha más abajo. */
+  table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 8px 0 16px; }
+  th, td { border: 1px solid #ccc; padding: 3px 5px; text-align: left; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
   th { background: #f0f0f0; }
+  /* Aplicado automáticamente a cualquier tabla con muchas columnas (ver el
+     script al final) — reduce la letra para que quepa más por línea antes de
+     tener que partir, sin tener que saber de antemano cuántas columnas trae
+     cada documento. */
+  table.tabla-ancha, table.tabla-ancha th, table.tabla-ancha td { font-size: 10px; }
   p { margin: 8px 0; }
   ul, ol { padding-left: 22px; }
   code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
@@ -93,7 +105,10 @@ function renderDocumentoViewCloud_(markdown, ruta) {
   blockquote { border-left: 3px solid #ccc; margin: 8px 0; padding: 4px 12px; color: #555; }
   hr { border: none; border-top: 1px solid #ccc; margin: 20px 0; }
   a { color: #1a5fb4; }
-  @page { margin: 15mm 12mm; }
+  /* size: landscape es una pista fuerte para el diálogo de impresión del
+     navegador (Chrome la respeta por defecto) — evita que las tablas anchas
+     salgan cortadas si alguien imprime sin fijarse en la orientación. */
+  @page { size: landscape; margin: 15mm 12mm; }
   .btn-imprimir { position: fixed; top: 16px; right: 16px; padding: 8px 16px; font-size: 13px; background: #1a5fb4; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
   @media print { .btn-imprimir { display: none; } }
 </style>
@@ -112,6 +127,14 @@ function renderDocumentoViewCloud_(markdown, ruta) {
       marked.setOptions({ gfm: true, breaks: false });
       document.getElementById("cuerpo").innerHTML = marked.parse(markdownCrudo);
     }
+    // Tablas con muchas columnas (típico de los registros del GEE en bruto:
+    // ID + campos + Visibilidad/Motivo + auditoría) llevan letra más pequeña
+    // (.tabla-ancha) para que quepa más por línea — sin necesitar saber de
+    // antemano cuántas columnas trae cada documento.
+    document.querySelectorAll("#cuerpo table").forEach(function (tabla) {
+      var numColumnas = tabla.querySelector("tr") ? tabla.querySelector("tr").children.length : 0;
+      if (numColumnas >= 8) tabla.classList.add("tabla-ancha");
+    });
   </script>
 </body>
 </html>`;
