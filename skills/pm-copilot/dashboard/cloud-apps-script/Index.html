@@ -13,7 +13,15 @@
   // dashboard/cloud-apps-script/README.md, sección "doGet"). AppJs.html
   // (incluido al final de este archivo) lo lee como window.PM_CLOUD_CONFIG
   // para saber qué Google Sheet/proyecto consultar en cada google.script.run.
-  window.PM_CLOUD_CONFIG = { sheetId: <?!= JSON.stringify(sheetId) ?>, proyectoId: <?!= JSON.stringify(proyectoId) ?> };
+  // webAppUrl viene de ScriptApp.getService().getUrl() en el servidor —
+  // nunca de window.location.href aquí (ver la nota en Code.gs#doGet: ese
+  // valor dentro del iframe de contenido de Apps Script apunta a la URL
+  // interna del iframe, no a la URL pública real).
+  window.PM_CLOUD_CONFIG = {
+    sheetId: <?!= JSON.stringify(sheetId) ?>,
+    proyectoId: <?!= JSON.stringify(proyectoId) ?>,
+    webAppUrl: <?!= JSON.stringify(webAppUrl) ?>
+  };
 </script>
 
 <!-- ======================= HEADER GLOBAL ======================= -->

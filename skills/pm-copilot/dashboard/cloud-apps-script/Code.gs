@@ -691,6 +691,13 @@ function doGet(e) {
   const template = HtmlService.createTemplateFromFile('Index');
   template.sheetId = sheetId;
   template.proyectoId = proyectoId;
+  // OJO: nunca derivar la URL pública del Web App con window.location.href en
+  // el cliente — el contenido de Apps Script se sirve dentro de un iframe
+  // (googleusercontent.com/userCodeAppPanel), así que window.location.href
+  // ahí dentro apunta a esa URL interna del iframe, no a la URL real
+  // (script.google.com/.../exec) que hay que abrir en una pestaña nueva.
+  // ScriptApp.getService().getUrl() sí devuelve la URL pública correcta.
+  template.webAppUrl = ScriptApp.getService().getUrl();
   return template
     .evaluate()
     .setTitle('PM Copilot — ' + proyectoId)

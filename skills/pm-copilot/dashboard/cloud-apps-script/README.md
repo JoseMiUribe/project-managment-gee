@@ -22,7 +22,7 @@ Esta carpeta es una aplicación Apps Script **independiente y completa** — no 
 | `Index.html` | La página del dashboard interactivo — mismo HTML que `dashboard/public/index.html`, adaptado al patrón `include()` de Apps Script. |
 | `AppJs.html` | Copia adaptada de `dashboard/public/app.js` (2300+ líneas, casi todas sin cambios) — solo se tocó cómo llama al "servidor" (`google.script.run` en vez de `fetch`), el botón de PDF (abre la vista de impresión en vez de llamar a Playwright) y la fila de cada documento (enlaza a Drive si ya se subió, ver `migrarDocumentos`). |
 | `Styles.html` | Copia sin cambios de `dashboard/public/styles.css`, envuelta en `<style>`. |
-| `Migracion.gs` | `migrarDesdeSnapshot` (puebla la Sheet a partir del JSON de `/api/data` del dashboard local) + `migrarDocumentos` (sube el CONTENIDO de cada documento a una carpeta de Drive, a partir de `/api/documentos/exportar`) + `renderMigratePage` (la página `?vista=migrar` con ambos pasos). Ver "Migrar un proyecto local existente" más abajo. |
+| `Migration.gs` | `migrarDesdeSnapshot` (puebla la Sheet a partir del JSON de `/api/data` del dashboard local) + `migrarDocumentos` (sube el CONTENIDO de cada documento a una carpeta de Drive, a partir de `/api/documentos/exportar`) + `renderMigratePage` (la página `?vista=migrar` con ambos pasos). Ver "Migrar un proyecto local existente" más abajo. |
 | `PrintDocumento.gs` | Vista de un documento suelto (`?vista=documento&ruta=...&version=completa\|cliente`) — equivalente a `/print/documento` en modo local, leyendo el contenido de Drive en vez del disco. El markdown se renderiza a HTML en el propio navegador (`marked` vía CDN, igual que ECharts) porque Apps Script no tiene ese paquete. La versión "cliente" recorta los bloques `<!-- interno:inicio/fin -->` igual que en local, sin anunciarlo con ningún aviso visual (ver nota más abajo). |
 
 ---
@@ -53,7 +53,7 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
    - `Code` (tipo Script) → pega el contenido de `Code.gs`
    - `TipoDescriptorsSheets` (tipo Script) → pega el contenido de `TipoDescriptorsSheets.gs`
    - `PrintView` (tipo Script) → pega el contenido de `PrintView.gs`
-   - `Migracion` (tipo Script) → pega el contenido de `Migracion.gs`
+   - `Migration` (tipo Script) → pega el contenido de `Migration.gs`
    - `PrintDocumento` (tipo Script) → pega el contenido de `PrintDocumento.gs`
    - `Index` (tipo HTML) → pega el contenido de `Index.html`
    - `AppJs` (tipo HTML) → pega el contenido de `AppJs.html`

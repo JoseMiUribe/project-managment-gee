@@ -297,7 +297,13 @@
   // con el propio Chromium de su navegador (mismo motor de renderizado que
   // usaba Playwright, misma fidelidad visual). Decisión confirmada con el PM.
   function urlVista(vista, extraParams) {
-    const base = window.location.href.split("?")[0];
+    // OJO: NO usar window.location.href aquí — este código corre dentro del
+    // iframe de contenido de Apps Script (googleusercontent.com/userCodeAppPanel),
+    // así que window.location.href apunta a esa URL interna del iframe, no a
+    // la URL pública real. CLOUD.webAppUrl viene de ScriptApp.getService().getUrl()
+    // en el servidor (ver Code.gs#doGet), esa sí es la URL correcta para abrir
+    // en una pestaña nueva.
+    const base = CLOUD.webAppUrl;
     const params = new URLSearchParams(Object.assign({ sheet: CLOUD.sheetId, proyecto: CLOUD.proyectoId, vista: vista }, extraParams || {}));
     return base + "?" + params.toString();
   }
