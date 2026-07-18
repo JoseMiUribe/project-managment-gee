@@ -94,9 +94,12 @@ function renderDocumentoViewCloud_(markdown, ruta) {
   hr { border: none; border-top: 1px solid #ccc; margin: 20px 0; }
   a { color: #1a5fb4; }
   @page { margin: 15mm 12mm; }
+  .btn-imprimir { position: fixed; top: 16px; right: 16px; padding: 8px 16px; font-size: 13px; background: #1a5fb4; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+  @media print { .btn-imprimir { display: none; } }
 </style>
 </head>
 <body>
+  <button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
   <p class="meta">${escDocumento_(ruta)}</p>
   <div id="cuerpo"><pre>${escDocumento_(markdown)}</pre></div>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
