@@ -64,6 +64,22 @@ Cada pestaña corresponde a una fila de esta tabla. `kind` determina si se edita
 4. Copia la URL que te da ("URL de la aplicación web") — es la misma para todos los clientes/proyectos, solo cambian los parámetros `?sheet=...&proyecto=...` en cada enlace concreto.
 5. Cada vez que actualices el código (una nueva versión de este skill trae cambios aquí), vuelve a **Desplegar → Gestionar implementaciones → Editar → Nueva versión** — la URL no cambia.
 
+### Actualizar el código más rápido con `clasp` (opcional, recomendado)
+
+Copiar y pegar 8 archivos a mano cada vez que el skill trae cambios es lento. `clasp` (herramienta oficial de Google, [github.com/google/clasp](https://github.com/google/clasp)) sincroniza esta carpeta con tu proyecto de Apps Script desde la terminal — ni yo ni ningún script puede hacer este login por ti (necesita tu propia autorización en el navegador), pero una vez configurado, cada actualización futura es un solo comando.
+
+**Configuración (una sola vez):**
+1. `npm install -g @google/clasp`
+2. `clasp login` — abre el navegador, autoriza tu cuenta de Google.
+3. En el editor de Apps Script de tu proyecto ya desplegado: icono de engranaje **⚙️ Configuración del proyecto** → copia el **ID de secuencia de comandos**.
+4. En una carpeta **vacía** aparte (no dentro de `cloud-apps-script/` todavía): `clasp clone <ID_DE_SECUENCIA_DE_COMANDOS>` — esto descarga el `appsscript.json` (manifiesto) y el `.clasp.json` (apuntando a tu proyecto) ya configurados con los ajustes reales de tu despliegue.
+5. Copia esos dos archivos (`.clasp.json` y `appsscript.json`) a esta carpeta (`dashboard/cloud-apps-script/`), junto a `Code.gs`, etc. Borra la carpeta temporal del paso 4.
+6. Anota también el **ID de implementación** (Desplegar → Gestionar implementaciones → el ID junto al despliegue activo) — lo necesitarás en el paso 8.
+
+**Cada actualización futura:**
+7. `cd` a esta carpeta y ejecuta `clasp push` — sube todos los archivos locales al proyecto (sobrescribe el contenido remoto, en el sentido correcto: de este repo hacia tu Apps Script).
+8. Para que el cambio llegue a la URL en producción (no solo al editor), ejecuta `clasp deploy -i <ID_DE_IMPLEMENTACIÓN> -d "descripción del cambio"` — equivalente al paso manual de "Nueva versión" de antes, pero desde la terminal. Si prefieres, puedes seguir haciendo este último paso a mano en la UI; lo que `clasp push` ya te ahorra es copiar los 8 archivos.
+
 ## Crear la Sheet de un cliente nuevo
 
 1. Crea una Google Sheet en blanco, nómbrala de forma reconocible (ej. "PM Copilot — Colibrí Salud"), y **compártela solo con quien corresponda** (el equipo de ese cliente) — este paso es el control de acceso real.
