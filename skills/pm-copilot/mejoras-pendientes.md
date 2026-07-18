@@ -524,3 +524,25 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
 - **Prioridad:** Alta
 - **Esfuerzo estimado:** Medio (la mayor parte fue depurar el entorno de Windows, no el propio código del skill)
 - **Estado:** ✅ `clasp` configurado y funcionando; ✅ bug de `webAppUrl` corregido y desplegado (versión 8); pendiente de que el usuario confirme que "Ver"/"Ver cliente" ya abren contenido real
+
+### [2026-07-19] Backlog de mejoras del dashboard/GEE pendientes de diseñar (anotadas, no implementadas todavía)
+
+- **Origen:** el usuario, tras las pruebas de impresión de la vista de documento, pidió aparcar el tema de impresión por ahora y pasó a describir varias mejoras que considera más prioritarias para el propio dashboard (no específicas de modo nube). Se anotan aquí tal cual para retomarlas, sin haber empezado a diseñarlas ni implementarlas.
+- **1. Impresión/exportación de tablas anchas — a revisar con calma:** las tablas del GEE con muchas columnas (Dependencias, etc.) siguen sin verse del todo bien al imprimir aunque se ajustó `table-layout`/tamaño de letra/orientación horizontal (ver entrada anterior). El usuario también preguntó si se podría exportar a Excel/`.xlsx` como alternativa o complemento a la vista impresa. Sin diseño todavía — a retomar cuando toque.
+- **2. Estados visuales en las filas del GEE (Riesgos, Dependencias, Acciones, Impedimentos...) — no implementado:** hoy hay que entrar al detalle de una fila para ver su estado. Pedido: que el estado se vea directamente en la fila de la tabla, con tratamiento visual y de orden distinto según el caso:
+  - **Resuelto/cerrado:** sombreado verde, y la fila baja al final de la tabla (igual que hoy hacen los "Descartados").
+  - **Bloqueado / no se puede avanzar:** aviso en rojo a simple vista (aunque el usuario reconoce que lo correcto sería crear un Impedimento formal para eso, quiere además una señal visual inmediata en la propia fila).
+  - **Descartado:** tachado, y también al final de la tabla (ya existe el concepto de "Descartado" en el GEE — hay que revisar si esto es una extensión de ese comportamiento o algo aparte).
+  - **Pendiente de diseño:** cada tipo del GEE tiene su propio vocabulario de "Estado" (Riesgos, Dependencias, Acciones, Impedimentos no comparten los mismos valores) — hay que investigar los valores reales actuales de cada uno antes de decidir cómo mapear "resuelto"/"bloqueado" de forma genérica, no asumirlo.
+- **3. Notas del daily log asociadas a varios registros del GEE — regresión respecto a una versión anterior:** el usuario recuerda que en una versión anterior del skill, una nota del daily log se podía asociar opcionalmente a varios riesgos/dependencias/acciones/impedimentos/cambios de alcance a la vez, para poder trazar después qué pasó y con qué se relacionaba. Hoy (`agregarDailylogNota`/estructura de nota `{fechaHora, autor, texto}`) no existe esa asociación. Pendiente: revisar si esto se retiró deliberadamente en algún momento (buscar en el historial de este archivo) o si es un hueco no cubierto sin más.
+- **4. Nueva pestaña "Equipos" — no implementada, la petición más grande de las cuatro:**
+  - Un proyecto puede tener uno o varios equipos (p. ej. uno externo a Paradigma encargado de una parte distinta).
+  - Por persona: nombre, empresa (si no es Paradigma), email corporativo, % de dedicación, rol, y ausencias/días fuera con motivo.
+  - Cruzar esto con las métricas de sprint (velocidad, dedicación, tiempos de entrega) para estimar esfuerzos, anticipar caídas de entrega por vacaciones/bajas, y detectar anomalías de rendimiento (para bien o para mal) antes de que sea tarde.
+  - **Sub-apartado "equipo de gestión":** personas con permiso para editar el dashboard — el objetivo explícito es que los campos de "autor"/"modificado por" (daily log, futuras ediciones) pasen de texto libre a un `<select>` respaldado por un ID, para poder cruzar datos de forma fiable.
+  - **Catálogos reutilizables** dentro de esta misma pestaña: roles (Product Owner, Desarrollador, Diseñador...) y empresas, ambos ampliables ("+ añadir rol", "+ añadir empresa"), usados para rellenar los `<select>` al dar de alta a alguien en un equipo.
+  - Gráficos donde haya estadísticas — el usuario insiste en que las visualizaciones dan mucha calidad percibida al producto, tanto en el dashboard como en documentos impresos; tenerlo en cuenta al diseñar esta pestaña (y cualquier futura).
+  - Abierto a propuestas adicionales del propio skill sobre qué más sería valioso capturar aquí.
+- **Prioridad:** Sin fijar todavía — pendiente de que el usuario ordene por dónde empezar, dado el tamaño conjunto de estos 4 puntos (especialmente el 4).
+- **Esfuerzo estimado:** Alto en conjunto (el punto 4 en particular implica nuevo tipo de artefacto/parser/writer/prompt/pestaña, no solo un ajuste de UI)
+- **Estado:** 🔲 Anotado, sin diseñar ni implementar — a la espera de decidir orden de prioridad con el usuario
