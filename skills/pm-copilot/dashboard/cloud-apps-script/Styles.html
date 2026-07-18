@@ -619,6 +619,37 @@ tr.gee-row-summary.gee-row-descartada td {
   margin-right: 8px;
 }
 
+/* ---------- Estado visual "de un vistazo" (resuelto / bloqueado) ----------
+   Resuelto: fila con fondo verde suave, se va al final de la tabla (igual
+   que Descartado). Bloqueado: fondo rojo suave para advertir a simple vista
+   sin tener que abrir el detalle. Ver estadoVisualDeFila en AppJs.html. */
+
+tr.gee-row-summary.gee-row-resuelta td {
+  background: var(--color-verde-bg);
+}
+
+tr.gee-row-summary.gee-row-bloqueada td {
+  background: var(--color-rojo-bg);
+}
+
+.badge-resuelto {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-verde);
+  margin-right: 8px;
+}
+
+.badge-bloqueado {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-rojo);
+  margin-right: 8px;
+}
+
 .descarte-banner {
   grid-column: 1 / -1;
   background: var(--color-gris-bg);

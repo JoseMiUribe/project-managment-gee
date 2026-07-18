@@ -533,7 +533,7 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
   - **Resuelto/cerrado:** sombreado verde, y la fila baja al final de la tabla (igual que hoy hacen los "Descartados").
   - **Bloqueado / no se puede avanzar:** aviso en rojo a simple vista (aunque el usuario reconoce que lo correcto sería crear un Impedimento formal para eso, quiere además una señal visual inmediata en la propia fila).
   - **Descartado:** tachado, y también al final de la tabla (ya existe el concepto de "Descartado" en el GEE — hay que revisar si esto es una extensión de ese comportamiento o algo aparte).
-  - **Pendiente de diseño:** cada tipo del GEE tiene su propio vocabulario de "Estado" (Riesgos, Dependencias, Acciones, Impedimentos no comparten los mismos valores) — hay que investigar los valores reales actuales de cada uno antes de decidir cómo mapear "resuelto"/"bloqueado" de forma genérica, no asumirlo.
+  - ✅ **Implementado el 2026-07-19** — ver la entrada dedicada más abajo para el vocabulario real encontrado y el detalle de la implementación.
 - **3. Notas del daily log asociadas a varios registros del GEE — regresión respecto a una versión anterior:** el usuario recuerda que en una versión anterior del skill, una nota del daily log se podía asociar opcionalmente a varios riesgos/dependencias/acciones/impedimentos/cambios de alcance a la vez, para poder trazar después qué pasó y con qué se relacionaba. Hoy (`agregarDailylogNota`/estructura de nota `{fechaHora, autor, texto}`) no existe esa asociación. Pendiente: revisar si esto se retiró deliberadamente en algún momento (buscar en el historial de este archivo) o si es un hueco no cubierto sin más.
 - **4. Nueva pestaña "Equipos" — no implementada, la petición más grande de las cuatro:**
   - Un proyecto puede tener uno o varios equipos (p. ej. uno externo a Paradigma encargado de una parte distinta).
@@ -545,4 +545,23 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
   - Abierto a propuestas adicionales del propio skill sobre qué más sería valioso capturar aquí.
 - **Prioridad:** Sin fijar todavía — pendiente de que el usuario ordene por dónde empezar, dado el tamaño conjunto de estos 4 puntos (especialmente el 4).
 - **Esfuerzo estimado:** Alto en conjunto (el punto 4 en particular implica nuevo tipo de artefacto/parser/writer/prompt/pestaña, no solo un ajuste de UI)
-- **Estado:** 🔲 Anotado, sin diseñar ni implementar — a la espera de decidir orden de prioridad con el usuario
+- **Estado:** El usuario delegó el orden en mí (estados visuales → notas asociadas → Equipos). ✅ Punto 2 (estados visuales) implementado el 2026-07-19; 🔲 puntos 1 (impresión/Excel), 3 (notas asociadas) y 4 (Equipos) siguen pendientes.
+
+### [2026-07-19] Estados visuales "de un vistazo" en las filas del GEE (resuelto/bloqueado) + orden estable con completados al final
+
+- **Origen:** primer punto del backlog anotado arriba, con el orden de prioridad delegado por el usuario en mí. Antes de implementar, investigué el vocabulario real de "Estado" de cada tipo (no estaba unificado, había que confirmarlo — ver `templates/paso-1/*.md` y `prompts/paso-1/identificar-riesgos-dependencias.md`, línea 19-23):
+  - **Riesgos:** `Abierto / Impacto / Cerrado` — "Impacto" significa que el riesgo se materializó (mapea a "bloqueado"); "Cerrado" a "resuelto".
+  - **Dependencias:** `Detectada / Comunicada / Negociada / En Resolución / Resuelta` — solo "Resuelta" mapea a "resuelto". Deliberadamente sin concepto de "bloqueado" propio: si una dependencia se atasca de verdad, el propio framework ya pide dar de alta un Impedimento en su lugar (ver notas de uso de `registro-dependencias.md`) — inventar aquí un estado de bloqueo duplicaría esa señal.
+  - **Acciones:** `Pendiente / En curso / Bloqueada / Cerrada` — mapeo directo, "Bloqueada"→bloqueado, "Cerrada"→resuelto.
+  - **Impedimentos:** no tiene columna "Estado" — usa "Fecha fin" (vacía mientras sigue activo). Un impedimento activo ES por definición algo que bloquea el avance, así que se clasifica como "bloqueado" mientras no tenga fecha fin, y "resuelto" en cuanto la tenga.
+- **Implementado en `dashboard/public/app.js`** (y espejado en `dashboard/cloud-apps-script/AppJs.html`, mismo código):
+  - `estadoVisualDeFila(tipo, row)` — la clasificación de arriba, devuelve `"normal"|"resuelto"|"bloqueado"`.
+  - `renderGeeTable`: las filas ahora se ordenan con una partición **estable** (no un reordenamiento completo) — activas/bloqueadas primero en su orden original, resueltas+descartadas al final también en su orden original entre sí. "Descartado" y "resuelto" comparten el mismo destino (al final), tal como pidió el usuario ("las descartadas... deberían... irse abajo de la tabla como si fueran completadas").
+  - `buildGeeRowPair`: añade clases `gee-row-resuelta`/`gee-row-bloqueada` a la fila (fondo verde/rojo suave, `--color-verde-bg`/`--color-rojo-bg` ya existentes) y una insignia visible en la propia fila resumen (`✅ Resuelto`/`🔴 Bloqueado`, mismo patrón que la insignia "Descartado" ya existente) — resuelve directamente la queja del usuario de tener que entrar al detalle para ver el estado. Si un registro está Descartado, ese estado manda visualmente sobre resuelto/bloqueado (no se duplican insignias).
+  - CSS nuevo en `dashboard/public/styles.css` (y `dashboard/cloud-apps-script/Styles.html`): `.gee-row-resuelta`, `.gee-row-bloqueada`, `.badge-resuelto`, `.badge-bloqueado`.
+- **Verificado sin necesitar al usuario:** probé `estadoVisualDeFila` contra los datos reales del fixture Colibrí Salud (ningún registro estaba aún resuelto/bloqueado salvo el impedimento activo IM-001, correctamente clasificado "bloqueado") y contra datos sintéticos cubriendo las 6 ramas (Cerrado/Impacto de riesgos, Cerrada/Bloqueada de acciones, Resuelta de dependencias, fechaFin de impedimentos) — todas correctas. También probé el orden de la tabla con una mezcla de filas normales/bloqueadas/resueltas/descartadas: el resultado coincide exactamente con "activas arriba en orden original, completadas abajo en orden original".
+- **Desplegado en la nube en el mismo ciclo** (versión 11 del despliegue de Apps Script) vía `clasp push`/`clasp deploy`.
+- **Alcance deliberado:** solo Riesgos/Dependencias/Acciones/Impedimentos — Changelog no se tocó (su campo "Decisión" es conceptualmente distinto, no es un estado de progreso resoluble) ni Requisitos (Peticiones/RF/RNF/Zonas no tienen softDelete ni un concepto de "resuelto" en este framework).
+- **Prioridad:** Alta
+- **Esfuerzo estimado:** Bajo-Medio
+- **Estado:** ✅ Implementado, verificado por simulación en Node, y desplegado en producción (nube, versión 11) — pendiente de que el usuario lo confirme visualmente en su dashboard

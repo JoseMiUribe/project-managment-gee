@@ -1389,6 +1389,49 @@
   // de edición — más fácil de encontrar, y con sitio de sobra para selects,
   // selector de fecha y desplegables relacionales.
 
+  /**
+   * Clasifica el estado "de un vistazo" de una fila del GEE, a partir del
+   * vocabulario de Estado real de cada tipo (ver templates/paso-1/*.md y
+   * prompts/paso-1/identificar-riesgos-dependencias.md):
+   *   - Riesgos: Abierto / Impacto / Cerrado
+   *   - Dependencias: Detectada / Comunicada / Negociada / En Resolución / Resuelta
+   *   - Acciones: Pendiente / En curso / Bloqueada / Cerrada
+   *   - Impedimentos: sin campo Estado — usa Fecha fin (vacía = sigue activo,
+   *     y un impedimento activo ES por definición algo que bloquea el avance)
+   * Devuelve "normal" | "resuelto" | "bloqueado". Dependencias no tiene un
+   * estado de "bloqueo" propio a propósito: si una dependencia se atasca de
+   * verdad, el propio framework GEE pide dar de alta un Impedimento en vez de
+   * inventar un estado nuevo aquí (ver notas de uso de registro-acciones.md).
+   */
+  function estadoVisualDeFila(tipo, row) {
+    const estado = String((row && row.estado) || "").trim().toLowerCase();
+    if (tipo === "riesgos") {
+      if (estado === "cerrado") return "resuelto";
+      if (estado === "impacto") return "bloqueado";
+      return "normal";
+    }
+    if (tipo === "acciones") {
+      if (estado === "cerrada") return "resuelto";
+      if (estado === "bloqueada") return "bloqueado";
+      return "normal";
+    }
+    if (tipo === "dependencias") {
+      return estado === "resuelta" ? "resuelto" : "normal";
+    }
+    if (tipo === "impedimentos") {
+      return row && row.fechaFin && String(row.fechaFin).trim() ? "resuelto" : "bloqueado";
+    }
+    return "normal";
+  }
+
+  /** Verdadero si la fila debe irse al final de la tabla (resuelta o
+   *  descartada) — "completada" en el sentido más amplio, ver renderGeeTable. */
+  function filaCompletada(tipo, cfg, row) {
+    const softDelete = cfg.softDelete !== false;
+    if (softDelete && row.visibilidad === "Descartado") return true;
+    return estadoVisualDeFila(tipo, row) === "resuelto";
+  }
+
   function renderGeeTable(tipo) {
     const cfg = getRegistryConfig(tipo);
     const wrap = qs("#" + cfg.tablaWrap);
@@ -1397,7 +1440,19 @@
     // nunca se borra de verdad) — "Descartado" sí se ve, tachado, ver
     // buildGeeRowPair. No aplica a tipos con softDelete:false (Requisitos):
     // esas filas nunca tienen "visibilidad", así que el filtro es un no-op.
-    const rows = rawRows.filter((r) => r.visibilidad !== "Eliminado");
+    // Orden: activas primero (en su orden original), resueltas/descartadas al
+    // final (también en su orden original entre sí) — partición estable, no
+    // un reordenamiento completo, para no barajar filas sin necesidad.
+    const rows = rawRows
+      .filter((r) => r.visibilidad !== "Eliminado")
+      .map((row, idx) => ({ row, idx }))
+      .sort((a, b) => {
+        const aAbajo = filaCompletada(tipo, cfg, a.row);
+        const bAbajo = filaCompletada(tipo, cfg, b.row);
+        if (aAbajo !== bAbajo) return aAbajo ? 1 : -1;
+        return a.idx - b.idx;
+      })
+      .map((x) => x.row);
 
     if (!rows || rows.length === 0) {
       wrap.innerHTML = emptyState("📭", "Todavía no hay ningún registro de " + cfg.titulo + ".", 'Usa el botón "+ Nuevo ' + cfg.titulo + '" para crear el primero.');
@@ -1434,11 +1489,17 @@
     const colspan = resumenCols.length + 2;
     const softDelete = cfg.softDelete !== false;
     const descartado = softDelete && row.visibilidad === "Descartado";
+    // Si está descartado, ese estado manda visualmente (es la disposición
+    // final del registro) — el estado normal/resuelto/bloqueado del propio
+    // framework GEE no se muestra aparte para no duplicar mensajes.
+    const estadoVisual = descartado ? null : estadoVisualDeFila(tipo, row);
 
-    const summaryTr = el("tr", {
-      "data-id": String(row.id),
-      class: "gee-row-summary" + (descartado ? " gee-row-descartada" : ""),
-    });
+    const claseFila =
+      "gee-row-summary" +
+      (descartado ? " gee-row-descartada" : "") +
+      (estadoVisual === "resuelto" ? " gee-row-resuelta" : "") +
+      (estadoVisual === "bloqueado" ? " gee-row-bloqueada" : "");
+    const summaryTr = el("tr", { "data-id": String(row.id), class: claseFila });
     summaryTr.appendChild(el("td", { text: fmt(row.id) }));
     resumenCols.forEach((col) => {
       const td = el("td");
@@ -1446,7 +1507,13 @@
       summaryTr.appendChild(td);
     });
     const tdToggle = el("td", { class: "cell-actions" });
-    if (descartado) tdToggle.appendChild(el("span", { class: "badge-descartado", text: "Descartado" }));
+    if (descartado) {
+      tdToggle.appendChild(el("span", { class: "badge-descartado", text: "Descartado" }));
+    } else if (estadoVisual === "resuelto") {
+      tdToggle.appendChild(el("span", { class: "badge-resuelto", text: "✅ Resuelto" }));
+    } else if (estadoVisual === "bloqueado") {
+      tdToggle.appendChild(el("span", { class: "badge-bloqueado", text: "🔴 Bloqueado" }));
+    }
     const btnToggle = el("button", { class: "btn btn-sm", text: "Ver detalle" });
     tdToggle.appendChild(btnToggle);
     summaryTr.appendChild(tdToggle);
