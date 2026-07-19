@@ -71,27 +71,39 @@ function normalizarNombre(s) {
 }
 
 /**
- * % de subtareas en estado "Hecho" del sprint activo, agrupado por el
- * `responsable` de texto libre que ya trae sprintHu[].subtareas[] (viene de
- * Jira `assignee.displayName` o de sprint-planning.md manual) — es la única
- * señal por-persona que existe hoy en los datos de sprint, sin tocar la
- * sincronización de Jira. Se empareja por nombre normalizado contra
- * `personas`; si no hay coincidencia, se muestra igual (personaId: null) en
- * vez de descartarse en silencio, porque puede ser una persona todavía sin
- * dar de alta en Equipos.
+ * % de trabajo en estado "Hecho" del sprint activo, agrupado por persona.
+ * Dos fuentes posibles, según de dónde venga el sprint (ver buildSnapshot):
+ *   - `hu[].subtareas[].responsable` — desglose manual de sprint-planning.md,
+ *     un `responsable` por subtarea técnica.
+ *   - `hu[].responsable` — asignado de la propia historia, tal cual lo trae
+ *     `jiraClient.js` (`assignee.displayName`) en una sincronización de Jira
+ *     en vivo. Jira no da un asignado por subtarea, solo por historia, así
+ *     que sin este segundo camino "Entrega por persona" se quedaría vacío en
+ *     cualquier sprint sincronizado desde Jira en vez de escrito a mano —
+ *     por eso se cuenta la HU entera como una unidad de trabajo cuando no
+ *     trae subtareas propias, en vez de asumir que "sin subtareas" significa
+ *     "sin datos".
+ * Se empareja por nombre normalizado contra `personas`; si no hay
+ * coincidencia, se muestra igual (personaId: null) en vez de descartarse en
+ * silencio, porque puede ser una persona todavía sin dar de alta en Equipos.
  */
 function computeEntregaPorPersona(sprintActivo, personas) {
   if (!sprintActivo || !sprintActivo.hu) return [];
   const porNombre = new Map();
+  const contar = (nombreRaw, estado) => {
+    const nombre = (nombreRaw || '').trim();
+    if (!nombre) return;
+    const key = normalizarNombre(nombre);
+    if (!porNombre.has(key)) porNombre.set(key, { nombre, total: 0, hechas: 0 });
+    const entry = porNombre.get(key);
+    entry.total++;
+    if (/hecho|terminad|complet|✅/i.test(estado || '')) entry.hechas++;
+  };
   for (const hu of sprintActivo.hu) {
-    for (const st of hu.subtareas || []) {
-      const nombre = (st.responsable || '').trim();
-      if (!nombre) continue;
-      const key = normalizarNombre(nombre);
-      if (!porNombre.has(key)) porNombre.set(key, { nombre, total: 0, hechas: 0 });
-      const entry = porNombre.get(key);
-      entry.total++;
-      if (/hecho|terminad|complet|✅/i.test(st.estado || '')) entry.hechas++;
+    if (hu.subtareas && hu.subtareas.length) {
+      for (const st of hu.subtareas) contar(st.responsable, st.estado);
+    } else if (hu.responsable) {
+      contar(hu.responsable, hu.estado);
     }
   }
   const personaPorNombre = new Map(personas.map((p) => [normalizarNombre(p.nombre), p]));

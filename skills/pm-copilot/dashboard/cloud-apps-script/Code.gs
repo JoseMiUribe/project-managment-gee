@@ -234,6 +234,7 @@ function leerSprints_(sheetId, proyectoId) {
     return {
       sprintNumero: f['SprintNumero'], hu: f['HU'] || '', epica: f['Epica'] || '', titulo: f['Titulo'] || '',
       estado: f['Estado'] || '', tallas: f['Tallas'] || '', subtareas: parseJsonSeguro_(f['SubtareasJSON'], []),
+      responsable: f['Responsable'] || '',
     };
   });
 
@@ -247,7 +248,7 @@ function leerSprints_(sheetId, proyectoId) {
         hu: husTodas
           .filter(function (h) { return h.sprintNumero === s.numero; })
           .map(function (h) {
-            return { hu: h.hu, epica: h.epica, titulo: h.titulo, estado: h.estado, tallas: h.tallas, subtareas: h.subtareas, locked: activo };
+            return { hu: h.hu, epica: h.epica, titulo: h.titulo, estado: h.estado, tallas: h.tallas, subtareas: h.subtareas, responsable: h.responsable, locked: activo };
           }),
       };
     })
@@ -358,19 +359,30 @@ function normalizarNombre_(s) {
   return String(s || '').trim().toLowerCase();
 }
 
-/** Copia de computeEntregaPorPersona en dashboard/lib/buildSnapshot.js. */
+/**
+ * Copia de computeEntregaPorPersona en dashboard/lib/buildSnapshot.js —
+ * incluye el mismo respaldo al asignado de la propia historia (`hu.responsable`,
+ * viene de Jira `assignee.displayName`) cuando la HU no trae subtareas
+ * propias desglosadas, porque Jira da un asignado por historia, no por
+ * subtarea.
+ */
 function computeEntregaPorPersona_(sprintActivo, personas) {
   if (!sprintActivo || !sprintActivo.hu) return [];
   const porNombre = {};
+  function contar(nombreRaw, estado) {
+    const nombre = String(nombreRaw || '').trim();
+    if (!nombre) return;
+    const key = normalizarNombre_(nombre);
+    if (!porNombre[key]) porNombre[key] = { nombre: nombre, total: 0, hechas: 0 };
+    porNombre[key].total++;
+    if (/hecho|terminad|complet|✅/i.test(estado || '')) porNombre[key].hechas++;
+  }
   sprintActivo.hu.forEach(function (hu) {
-    (hu.subtareas || []).forEach(function (st) {
-      const nombre = String(st.responsable || '').trim();
-      if (!nombre) return;
-      const key = normalizarNombre_(nombre);
-      if (!porNombre[key]) porNombre[key] = { nombre: nombre, total: 0, hechas: 0 };
-      porNombre[key].total++;
-      if (/hecho|terminad|complet|✅/i.test(st.estado || '')) porNombre[key].hechas++;
-    });
+    if (hu.subtareas && hu.subtareas.length) {
+      hu.subtareas.forEach(function (st) { contar(st.responsable, st.estado); });
+    } else if (hu.responsable) {
+      contar(hu.responsable, hu.estado);
+    }
   });
   const personaPorNombre = {};
   personas.forEach(function (p) { personaPorNombre[normalizarNombre_(p.nombre)] = p; });

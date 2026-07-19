@@ -172,8 +172,17 @@ const TIPO_DESCRIPTORS_SHEETS = {
     columnas: ['Proyecto', 'Numero', 'Fechas', 'FechaInicio', 'FechaFin', 'Objetivo', 'CapacidadDisponible', 'CapacidadOcupada', 'RevisionCerrada', 'NuevosRiesgosJSON'],
   },
   sprintHu: {
+    // Responsable va AL FINAL (no reordena las columnas existentes) porque
+    // el orden de lectura es posicional: una Sheet de producción ya
+    // poblada con el layout antiguo (8 columnas) debe poder seguir
+    // leyéndose sin romperse, con "Responsable" simplemente vacío en filas
+    // ya migradas hasta la próxima migración. Es el asignado de la propia
+    // historia (Jira assignee.displayName en una sync en vivo, o vacío en
+    // sprints escritos a mano con desglose de subtareas propio) — necesario
+    // para cruzar entrega por persona en Equipos cuando el sprint viene de
+    // Jira, que no da asignado por subtarea, solo por historia.
     kind: 'lectura-tabular', hoja: 'SprintHU',
-    columnas: ['Proyecto', 'SprintNumero', 'HU', 'Epica', 'Titulo', 'Estado', 'Tallas', 'SubtareasJSON'],
+    columnas: ['Proyecto', 'SprintNumero', 'HU', 'Epica', 'Titulo', 'Estado', 'Tallas', 'SubtareasJSON', 'Responsable'],
   },
   reglasNegocio: {
     // Sub-tabla opcional dentro de requisitos-funcionales.md en modo local

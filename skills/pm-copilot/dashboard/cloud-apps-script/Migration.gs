@@ -106,6 +106,7 @@ function migrarDesdeSnapshot(sheetId, proyectoId, snapshotJson) {
         husFilas.push(construirFila_(TIPO_DESCRIPTORS_SHEETS.sprintHu.columnas, {
           Proyecto: proyectoId, SprintNumero: s.numero, HU: h.hu, Epica: h.epica, Titulo: h.titulo,
           Estado: h.estado, Tallas: h.tallas, SubtareasJSON: JSON.stringify(h.subtareas || []),
+          Responsable: h.responsable || '',
         }));
       });
     });
@@ -210,6 +211,13 @@ function reemplazarFilasProyecto_(sheetId, proyectoId, tipo, filasNuevas) {
   const descriptor = TIPO_DESCRIPTORS_SHEETS[tipo];
   const sheet = obtenerHoja_(sheetId, descriptor.hoja);
   const columnas = columnasDeHoja_(descriptor);
+  // Reescribe la cabecera al esquema vigente antes de tocar filas — cubre el
+  // caso de una Sheet ya migrada antes de que se añadiera una columna nueva
+  // al final (p. ej. Responsable en SprintHU): sin esto, la fila 1 se
+  // quedaría con las etiquetas antiguas para siempre aunque los datos ya
+  // trajeran la columna nueva (la lectura es posicional, no por nombre de
+  // cabecera, así que esto es solo cosmético, pero evita una Sheet confusa).
+  sheet.getRange(1, 1, 1, columnas.length).setValues([columnas]);
   const colProyecto = columnas.indexOf('Proyecto');
   const lastRow = sheet.getLastRow();
 
