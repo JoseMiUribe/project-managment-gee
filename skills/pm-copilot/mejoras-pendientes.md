@@ -534,7 +534,7 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
   - **Bloqueado / no se puede avanzar:** aviso en rojo a simple vista (aunque el usuario reconoce que lo correcto sería crear un Impedimento formal para eso, quiere además una señal visual inmediata en la propia fila).
   - **Descartado:** tachado, y también al final de la tabla (ya existe el concepto de "Descartado" en el GEE — hay que revisar si esto es una extensión de ese comportamiento o algo aparte).
   - ✅ **Implementado el 2026-07-19** — ver la entrada dedicada más abajo para el vocabulario real encontrado y el detalle de la implementación.
-- **3. Notas del daily log asociadas a varios registros del GEE — regresión respecto a una versión anterior:** el usuario recuerda que en una versión anterior del skill, una nota del daily log se podía asociar opcionalmente a varios riesgos/dependencias/acciones/impedimentos/cambios de alcance a la vez, para poder trazar después qué pasó y con qué se relacionaba. Hoy (`agregarDailylogNota`/estructura de nota `{fechaHora, autor, texto}`) no existe esa asociación. Pendiente: revisar si esto se retiró deliberadamente en algún momento (buscar en el historial de este archivo) o si es un hueco no cubierto sin más.
+- **3. Notas del daily log asociadas a varios registros del GEE** — ✅ **Implementado el 2026-07-19** (no se encontró evidencia de que fuera una regresión deliberada — ver la entrada dedicada más abajo).
 - **4. Nueva pestaña "Equipos" — no implementada, la petición más grande de las cuatro:**
   - Un proyecto puede tener uno o varios equipos (p. ej. uno externo a Paradigma encargado de una parte distinta).
   - Por persona: nombre, empresa (si no es Paradigma), email corporativo, % de dedicación, rol, y ausencias/días fuera con motivo.
@@ -545,7 +545,7 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
   - Abierto a propuestas adicionales del propio skill sobre qué más sería valioso capturar aquí.
 - **Prioridad:** Sin fijar todavía — pendiente de que el usuario ordene por dónde empezar, dado el tamaño conjunto de estos 4 puntos (especialmente el 4).
 - **Esfuerzo estimado:** Alto en conjunto (el punto 4 en particular implica nuevo tipo de artefacto/parser/writer/prompt/pestaña, no solo un ajuste de UI)
-- **Estado:** El usuario delegó el orden en mí (estados visuales → notas asociadas → Equipos). ✅ Punto 2 (estados visuales) implementado el 2026-07-19; 🔲 puntos 1 (impresión/Excel), 3 (notas asociadas) y 4 (Equipos) siguen pendientes.
+- **Estado:** El usuario delegó el orden en mí (estados visuales → notas asociadas → Equipos). ✅ Puntos 2 (estados visuales) y 3 (notas asociadas) implementados el 2026-07-19; 🔲 puntos 1 (impresión/Excel) y 4 (Equipos) siguen pendientes.
 
 ### [2026-07-19] Estados visuales "de un vistazo" en las filas del GEE (resuelto/bloqueado) + orden estable con completados al final
 
@@ -565,3 +565,18 @@ Al arrancar una sesión de este skill (o cuando el usuario lo pida explícitamen
 - **Prioridad:** Alta
 - **Esfuerzo estimado:** Bajo-Medio
 - **Estado:** ✅ Implementado, verificado por simulación en Node, y desplegado en producción (nube, versión 11) — pendiente de que el usuario lo confirme visualmente en su dashboard
+
+### [2026-07-19] Notas del daily log asociadas opcionalmente a varios registros del GEE
+
+- **Origen:** segundo punto del backlog, orden delegado por el usuario. Antes de implementar busqué en este mismo archivo si la asociación nota↔registros se había retirado deliberadamente en algún momento — no encontré ninguna decisión de ese tipo en el historial rastreado (la Fase B del rediseño grande del dashboard, que introdujo "+ Añadir nota" el 2026-07-14, ya nació sin esa asociación). Se trata como un hueco no cubierto hasta ahora, no como una regresión confirmada.
+- **Modelo de datos:** cada nota gana un campo opcional `relacionados` — un array de IDs (`["R-001", "A-002"]`), sin necesidad de guardar el "tipo" por separado porque cada prefijo de ID ya es único en todo el proyecto (R-/DP-/A-/IM-/SC-).
+- **Modo local — codificación como sufijo de la propia línea de texto** (no se introduce una estructura nueva en el `## Notas` de `dailylog.js`, para no romper el formato ya existente de "una nota = una línea"): `- **[fechaHora] autor:** texto (relacionado con: R-001, A-002)`. `writers/dailylog.js#appendDailylogNota` escribe el sufijo; `parsers/dailylog.js#parseNotas` lo separa del texto visible con una regex anclada al final de línea (para no confundirlo con paréntesis normales que ya pudiera traer el texto de la nota).
+- **Modo nube — sin truco de texto:** `NotasJSON` ya es JSON de verdad, así que `relacionados` es simplemente un campo más del objeto de la nota (`Code.gs#agregarNotaDailylog_`).
+- **Bug real encontrado por mí mismo antes de desplegar (no reportado por el usuario):** `apiPostDailylog` en `Code.gs` reconstruía el payload como `{ autor: body.autor, texto: body.texto }` explícitamente, descartando `body.relacionados` antes de que llegara a `agregarNotaDailylog_` — el campo nunca se habría guardado en modo nube pese a que la función que sí lo soporta ya estaba lista. Corregido añadiéndolo al payload reconstruido.
+- **UI:** nueva sección "Relacionar con (opcional)" en el formulario "+ Añadir nota", reutilizando el mismo picker de checkboxes ya existente para los campos `type: "relacion"` del GEE (`buildRelacionPicker`, agrupado por Riesgos/Dependencias/Acciones/Impedimentos/Cambios de alcance) — sin construir un componente nuevo. Cada nota mostrada en el daily log ahora incluye una etiqueta `🔗 R-001, A-002` junto al texto si tiene registros asociados.
+- **Aplicado en ambos modos** (`dashboard/public/app.js`+`index.html`+`styles.css` y sus equivalentes `dashboard/cloud-apps-script/AppJs.html`+`Index.html`+`Styles.html`), mismo patrón que el resto de mejoras de esta sesión.
+- **Verificado sin necesitar al usuario:** round-trip completo en modo local (escribir 3 notas con Node — sin relación, con 2 IDs, y con paréntesis normales de verdad en el texto — y volver a parsearlas) con los 3 casos correctos; simulación completa en modo nube (mock de `SpreadsheetApp`, `apiPostDailylog` de principio a fin) confirmando que `relacionados` llega intacto al snapshot leído después — esto último fue precisamente lo que reveló el bug de `apiPostDailylog` antes de desplegarlo.
+- **Desplegado en producción** (nube, versión 12) vía `clasp push`/`clasp deploy`.
+- **Prioridad:** Alta
+- **Esfuerzo estimado:** Medio
+- **Estado:** ✅ Implementado, verificado por pruebas en Node en ambos modos, y desplegado en producción — pendiente de que el usuario lo confirme visualmente en su dashboard

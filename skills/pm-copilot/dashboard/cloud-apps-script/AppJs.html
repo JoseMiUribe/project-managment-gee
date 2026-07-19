@@ -2087,10 +2087,15 @@
         notas
           .map((n) => {
             const meta = [n.fechaHora, n.autor].filter(Boolean).join(" · ");
+            const relacionados = n.relacionados || [];
+            const relacionadosHtml = relacionados.length
+              ? ' <span class="nota-relacionados">🔗 ' + relacionados.map((id) => escapeHtml(id)).join(", ") + "</span>"
+              : "";
             return (
               "<li>" +
               (meta ? "<span class=\"nota-meta\">" + escapeHtml(meta) + "</span> " : "") +
               escapeHtml(n.texto) +
+              relacionadosHtml +
               "</li>"
             );
           })
@@ -2130,6 +2135,25 @@
       .join("");
   }
 
+  /** Reutiliza el mismo picker de checkboxes que los campos "relacion" del
+   *  GEE (ver buildRelacionPicker) para asociar opcionalmente la nota con
+   *  riesgos/dependencias/acciones/impedimentos/cambios de alcance ya
+   *  existentes — sin campo "relación" propio en un formulario que no es una
+   *  fila del GEE, así que se rellena a mano en vez de vía collectRelacionValue
+   *  (que da un string separado por comas, aquí se quiere un array). */
+  function renderNotaRelacionPicker() {
+    const container = qs("#nota-relacion-picker");
+    if (!container) return;
+    container.innerHTML = "";
+    container.appendChild(buildRelacionPicker({ relTipos: ["riesgos", "dependencias", "acciones", "impedimentos", "changelog"] }, ""));
+  }
+
+  function collectNotaRelacionados() {
+    const container = qs("#nota-relacion-picker");
+    if (!container) return [];
+    return qsa('input[type="checkbox"]:checked', container).map((c) => c.value);
+  }
+
   function setupNuevaNotaForm() {
     const btnAbrir = qs("#btn-nueva-nota");
     const form = qs("#form-nueva-nota");
@@ -2137,7 +2161,10 @@
     const btnCancelar = qs("#btn-cancelar-nota");
     if (!btnAbrir || !form) return;
 
-    btnAbrir.addEventListener("click", () => form.classList.toggle("open"));
+    btnAbrir.addEventListener("click", () => {
+      form.classList.toggle("open");
+      if (form.classList.contains("open")) renderNotaRelacionPicker();
+    });
     btnCancelar.addEventListener("click", () => form.classList.remove("open"));
 
     btnCrear.addEventListener("click", async () => {
@@ -2148,12 +2175,13 @@
         showToast("Escribe algo en la nota antes de añadirla.", "error");
         return;
       }
+      const relacionados = collectNotaRelacionados();
       setBtnLoading(btnCrear, true, "Añadiendo…");
       try {
         // OJO: igual que el resto de endpoints POST del GEE, la respuesta
         // envuelve el snapshot ({ fecha, creado, snapshot }) en vez de
         // devolverlo directamente — ver createNewRecord() para el mismo caso.
-        const resp = await apiSend("POST", "/api/dailylog", { confirm: true, fecha, autor, texto });
+        const resp = await apiSend("POST", "/api/dailylog", { confirm: true, fecha, autor, texto, relacionados });
         state = resp.snapshot;
         renderAll();
         showToast("Nota añadida al daily log.", "success");

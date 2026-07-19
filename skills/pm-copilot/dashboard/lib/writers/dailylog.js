@@ -74,7 +74,15 @@ function appendDailylogNota(projectPath, fechaInput, payload) {
   let content = created ? plantillaVacia(fecha) : fs.readFileSync(filePath, 'utf8');
 
   const autorFinal = (payload.autor && payload.autor.trim()) || 'Sin especificar';
-  const linea = `- **[${nowFechaHora()}] ${autorFinal}:** ${texto.trim()}`;
+  // Asociación opcional con otros registros del GEE (riesgos/dependencias/
+  // acciones/impedimentos/cambios de alcance) para poder trazar después qué
+  // pasó y con qué se relacionaba — ver parsers/dailylog.js para el parseo
+  // de vuelta. Se codifica como sufijo de la propia línea de la nota en vez
+  // de añadir una columna/estructura nueva, para no romper el formato ya
+  // existente de "## Notas" (una nota = una línea).
+  const relacionados = Array.isArray(payload.relacionados) ? payload.relacionados.filter(Boolean) : [];
+  const sufijoRelacion = relacionados.length ? ` (relacionado con: ${relacionados.join(', ')})` : '';
+  const linea = `- **[${nowFechaHora()}] ${autorFinal}:** ${texto.trim()}${sufijoRelacion}`;
 
   const headingMatch = content.match(/^##\s+Notas\s*$/m);
   if (!headingMatch) {

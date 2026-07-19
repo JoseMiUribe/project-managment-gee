@@ -1059,6 +1059,13 @@ tr.gee-row-summary.gee-row-bloqueada td {
   margin-right: 6px;
 }
 
+.nota-relacionados {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: 6px;
+}
+
 /* ---------- Daily log ---------- */
 
 .daily-entry {

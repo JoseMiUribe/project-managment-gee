@@ -504,7 +504,12 @@ function agregarNotaDailylog_(sheetId, proyectoId, fechaInput, payload) {
 
   const autorFinal = (payload.autor && String(payload.autor).trim()) || 'Sin especificar';
   const fechaHora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', 'yyyy-MM-dd HH:mm');
-  const notaNueva = { fechaHora: fechaHora, autor: autorFinal, texto: texto.trim() };
+  // Asociación opcional con otros registros del GEE — a diferencia de modo
+  // local (que codifica esto como sufijo de texto en la línea markdown, ver
+  // writers/dailylog.js), aquí NotasJSON ya es JSON de verdad, así que
+  // "relacionados" es simplemente un campo más del objeto, sin truco de texto.
+  const relacionados = Array.isArray(payload.relacionados) ? payload.relacionados.filter(Boolean) : [];
+  const notaNueva = { fechaHora: fechaHora, autor: autorFinal, texto: texto.trim(), relacionados: relacionados };
 
   const creado = targetRowNum === -1;
   const fila = creado ? new Array(columnas.length).fill('') : filaActual.slice();
@@ -610,7 +615,7 @@ function apiPostDailylog(sheetId, proyectoId, body) {
     return fail_(400, 'Falta confirmación explícita. Envía { "confirm": true, autor, texto } para añadir la nota.');
   }
   try {
-    const payload = { autor: body.autor, texto: body.texto };
+    const payload = { autor: body.autor, texto: body.texto, relacionados: body.relacionados };
     const result = agregarNotaDailylog_(sheetId, proyectoId, body.fecha || null, payload);
     return ok_({ fecha: result.fecha, creado: result.created, snapshot: leerSnapshot(sheetId, proyectoId) });
   } catch (err) {
