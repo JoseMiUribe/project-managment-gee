@@ -866,3 +866,38 @@ function bootstrapClientSheet(sheetId) {
   // parte de catálogos vacíos — mismo punto de partida que Riesgos/Acciones/etc.
   return 'Listo — ' + Object.keys(TIPO_DESCRIPTORS_SHEETS).length + ' pestañas verificadas/creadas.';
 }
+
+// ============================================================================
+// JiraImport — pestaña de aterrizaje para el complemento "Jira Cloud for
+// Sheets" (login normal, sin token, de solo lectura). Decisión del PM: el
+// token de API de Jira se queda exclusivamente en modo local (bajo su
+// dominio, para altas puntuales de épicas/historias con él delante); el
+// dashboard nube — que se comparte con el equipo — no debe llevar ningún
+// secreto embebido, así que su vía de refresco es esta pestaña + el propio
+// complemento, no una llamada autenticada con token.
+//
+// Uso (manual, una vez, guiado igual que bootstrapClientSheet):
+//   1. Ejecuta crearHojaJiraImport(sheetId) una vez (crea la pestaña e
+//      inserta una JQL de ejemplo en A2 — sustituye "TU_PROJECT_KEY").
+//   2. Instala el complemento "Jira Cloud for Sheets" (Extensiones >
+//      Complementos > Obtener complementos) e inicia sesión con tu cuenta
+//      de Jira — no hace falta ningún token.
+//   3. Desde el complemento, apunta la consulta a la pestaña "JiraImport",
+//      pegando la JQL de la celda A2, insertando resultados a partir de A4.
+//      Actívalo con refresco automático si el complemento lo ofrece.
+//   4. Una vez haya datos reales ahí, hay que escribir la función que
+//      traduzca esas columnas a las pestañas Sprints/SprintHU que ya lee el
+//      dashboard — pendiente hasta ver el formato real que produce el
+//      complemento (varía algo entre versiones), así que no se ha escrito
+//      todavía a ciegas.
+// ============================================================================
+
+function crearHojaJiraImport(sheetId) {
+  const ss = SpreadsheetApp.openById(sheetId);
+  let sheet = ss.getSheetByName('JiraImport');
+  if (!sheet) sheet = ss.insertSheet('JiraImport');
+  sheet.getRange('A1').setValue('JQL para el complemento "Jira Cloud for Sheets" (pégala en su configuración, apuntando a esta pestaña desde A4):');
+  sheet.getRange('A2').setValue('project = "TU_PROJECT_KEY" AND sprint in openSprints() ORDER BY key ASC');
+  sheet.getRange('A3').setValue('(sustituye TU_PROJECT_KEY por el key real del proyecto en Jira antes de activar el complemento)');
+  return 'Pestaña "JiraImport" lista. Sigue los pasos del comentario en Code.gs (sección JiraImport) para activar el complemento.';
+}
