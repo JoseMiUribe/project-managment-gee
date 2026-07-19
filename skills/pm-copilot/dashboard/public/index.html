@@ -15,6 +15,7 @@
     <div class="project-meta" id="project-ruta" title=""></div>
   </div>
   <div class="header-actions">
+    <div id="identidad-selector-wrap" class="identidad-selector-wrap hidden"></div>
     <span id="badge-cambios-pendientes" class="badge-cambios-pendientes hidden"></span>
     <span class="header-actualizado">Actualizado: <code id="project-generado-en">—</code></span>
     <button id="btn-sync" class="btn btn-primary">
@@ -35,6 +36,7 @@
   <button class="tab-btn" data-tab="tab-gee">GEE</button>
   <button class="tab-btn" data-tab="tab-requisitos">Requisitos</button>
   <button class="tab-btn" data-tab="tab-documentos">Documentos</button>
+  <button class="tab-btn" data-tab="tab-equipos">Equipos</button>
 </nav>
 
 <!-- ======================= TAB: SPRINT ACTUAL ======================= -->
@@ -225,7 +227,7 @@
           </div>
           <div class="form-field">
             <label>Autor</label>
-            <input type="text" id="nota-autor" placeholder="Tu nombre" />
+            <div id="nota-autor-wrap"><input type="text" id="nota-autor" placeholder="Tu nombre" /></div>
           </div>
           <div class="form-field form-field-wide">
             <label>Nota</label>
@@ -353,6 +355,81 @@
     "Versión cliente" retira cualquier bloque marcado en el propio documento como uso interno del equipo — el resto del contenido es idéntico.
   </p>
   <div id="documentos-lista"></div>
+</section>
+
+<!-- ======================= TAB: EQUIPOS ======================= -->
+<!-- Roster vivo de quién está en el proyecto ahora mismo — distinto del
+     snapshot de estimación de output-paso-2/capacidad-equipo/, que sigue
+     existiendo tal cual. Reutiliza el mismo motor genérico de tabla+edición
+     que GEE/Requisitos (ver EQUIPOS_CONFIG en app.js). -->
+<section id="tab-equipos" class="tab-panel">
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Composición del equipo</h2>
+      <div id="chart-equipos-composicion" class="chart-box chart-sm"></div>
+    </div>
+    <div class="card">
+      <h2>Capacidad prevista (sprint activo)</h2>
+      <div id="equipos-capacidad-resumen"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Entrega por persona (sprint activo)</h2>
+    <p class="text-muted">% de subtareas en estado "Hecho", agrupadas por el responsable de cada subtarea del sprint. Depende de que ese campo esté bien rellenado (sync de Jira o sprint planning manual).</p>
+    <div id="chart-equipos-entrega" class="chart-box chart-sm"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-header">
+      <h2>Equipos</h2>
+      <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-equipo">+ Nuevo equipo</button>
+    </div>
+    <p class="text-muted">Opcional — solo hace falta si el proyecto tiene más de un equipo (p. ej. uno externo encargado de otra parte).</p>
+    <div id="form-nuevo-equipo" class="new-record-form"></div>
+    <div id="equipos-tabla-wrap" class="table-wrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-header">
+      <h2>Personas</h2>
+      <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-persona">+ Nueva persona</button>
+    </div>
+    <p class="text-muted">Marca "Equipo de gestión" a quien deba poder aparecer en el selector "¿Quién eres?" de la cabecera y como autor de notas del daily log.</p>
+    <div id="form-nueva-persona" class="new-record-form"></div>
+    <div id="personas-tabla-wrap" class="table-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>Ausencias</h2>
+    <div id="chart-equipos-ausencias" class="chart-box"></div>
+    <div class="section-header">
+      <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-ausencia">+ Nueva ausencia</button>
+    </div>
+    <div id="form-nueva-ausencia" class="new-record-form"></div>
+    <div id="ausencias-tabla-wrap" class="table-wrap"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="section-header">
+        <h2>Catálogo de roles</h2>
+        <button class="btn btn-sm" data-toggle-form="form-nuevo-rol-catalogo">+ Añadir rol</button>
+      </div>
+      <div id="form-nuevo-rol-catalogo" class="new-record-form"></div>
+      <div id="catalogo-roles-tabla-wrap" class="table-wrap"></div>
+    </div>
+    <div class="card">
+      <div class="section-header">
+        <h2>Catálogo de empresas</h2>
+        <button class="btn btn-sm" data-toggle-form="form-nueva-empresa-catalogo">+ Añadir empresa</button>
+      </div>
+      <div id="form-nueva-empresa-catalogo" class="new-record-form"></div>
+      <div id="catalogo-empresas-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
 </section>
 
 <!-- ECharts servido localmente por el backend/setup. Ver app.js para el fallback si no existe. -->

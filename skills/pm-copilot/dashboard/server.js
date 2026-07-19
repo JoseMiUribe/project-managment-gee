@@ -27,9 +27,15 @@ const backend = getBackend(PROJECT_PATH);
 // Tipos cuyas ediciones se registran en el ledger de cambios pendientes
 // (ver output-transversal/cambios-pendientes-dashboard.md) para que
 // actualizar-cascada.md sepa qué cambió sin re-escanear todo el proyecto.
-// El daily log queda fuera a propósito: no es un artefacto del que dependa
-// ningún otro paso del pipeline (no aparece en la tabla de esa cascada).
-const TIPOS_CON_CAMBIOS_PENDIENTES = new Set(Object.keys(TIPO_DESCRIPTORS));
+// Es la lista explícita de artefactos que cubre la tabla de dependencias de
+// ese prompt, NO "todos los tipos registro que existan" — los tipos de
+// Equipos (equipos/personas/ausencias/catalogoRoles/catalogoEmpresas) son
+// datos de roster/catálogo sin implicación de cascada, y el daily log queda
+// fuera porque no es un artefacto del que dependa ningún otro paso.
+const TIPOS_CON_CAMBIOS_PENDIENTES = new Set([
+  'riesgos', 'dependencias', 'acciones', 'impedimentos', 'changelog',
+  'peticiones', 'funcionales', 'nofuncionales', 'zonas',
+]);
 
 function readCacheIfExists() {
   if (fs.existsSync(CACHE_FILE)) {
@@ -111,8 +117,8 @@ app.put('/api/gee/:tipo/:id', async (req, res) => {
     return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, ...campos } para aplicar el cambio.' });
   }
   try {
-    const { confirm, ...fields } = req.body;
-    await backend.writeRow(PROJECT_PATH, tipo, id, fields, { origen: 'dashboard' });
+    const { confirm, autorPersona, ...fields } = req.body;
+    await backend.writeRow(PROJECT_PATH, tipo, id, fields, { origen: 'dashboard', autorPersona });
     if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
       await backend.logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
     }
@@ -133,8 +139,8 @@ app.post('/api/gee/:tipo', async (req, res) => {
     return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, ...campos } para crear el registro.' });
   }
   try {
-    const { confirm, ...fields } = req.body;
-    const result = await backend.writeRow(PROJECT_PATH, tipo, null, fields, { origen: 'dashboard' });
+    const { confirm, autorPersona, ...fields } = req.body;
+    const result = await backend.writeRow(PROJECT_PATH, tipo, null, fields, { origen: 'dashboard', autorPersona });
     if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
       await backend.logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: result.id, camposModificados: [] });
     }

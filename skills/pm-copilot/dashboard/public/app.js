@@ -18,6 +18,39 @@
   /** Charts ECharts instanciados, indexados por id de contenedor, para poder hacer resize/dispose. */
   const chartInstances = {};
 
+  // ------------------------------------------------------------------
+  // Identidad "¿Quién eres?" — no es login real (el permiso real lo da
+  // compartir la Sheet/carpeta, no el dashboard): solo recuerda, por
+  // navegador y por proyecto, qué Persona (de las marcadas "Equipo de
+  // gestión") eligió el usuario, para preseleccionarla en el selector de
+  // cabecera y en "Autor" del daily log, y para mandarla como
+  // "Modificado por" en cualquier alta/edición del GEE/Requisitos/Equipos.
+  // Se guarda el NOMBRE (no el ID) porque así es como ya se usa "Modificado
+  // por" en todo el backend — ver dataBackend/local.js y Code.gs.
+  // ------------------------------------------------------------------
+
+  function claveIdentidadStorage() {
+    const ruta = (state && state.proyecto && state.proyecto.rutaAbsoluta) || "default";
+    return "pm-copilot-identidad::" + ruta;
+  }
+
+  function getIdentidadActual() {
+    try {
+      return localStorage.getItem(claveIdentidadStorage()) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setIdentidadActual(nombre) {
+    try {
+      localStorage.setItem(claveIdentidadStorage(), nombre || "");
+    } catch (e) {
+      /* localStorage no disponible (modo privado, cuotas, etc.) — la
+       * identidad simplemente no se recuerda entre sesiones. */
+    }
+  }
+
   const ECHARTS_AVAILABLE = typeof echarts !== "undefined";
 
   // ------------------------------------------------------------------
@@ -128,6 +161,20 @@
       .replace(/[^\p{L}\p{N}\s]/gu, "")
       .trim();
   }
+  /**
+   * `col.options` normalmente es un array estático (los enums de siempre:
+   * Estado, RAG, MoSCoW...). Para los selects de Equipos que dependen de un
+   * catálogo editable (Rol, Empresa, Equipo, Persona) `col.options` es en
+   * cambio una función `() => [...]` que lee el catálogo vivo de `state` en
+   * el momento de construir el <select> — así una fila creada en Catálogos
+   * aparece de inmediato en los desplegables, sin tener que recargar toda la
+   * pestaña. Cada opción puede ser un string plano o `{value, label}` cuando
+   * el valor guardado (un ID) y el texto mostrado (un nombre) difieren.
+   */
+  function resolveColOptions(col) {
+    return typeof col.options === "function" ? col.options() : col.options || [];
+  }
+
   function opcionCoincideConValor(opcion, valorActual) {
     const opcionNucleo = palabraNucleo(opcion);
     const valorNucleo = palabraNucleo(valorActual);
@@ -292,6 +339,7 @@
     renderGeeAll();
     renderRequisitosTab();
     renderDocumentosTab();
+    renderEquiposTab();
   }
 
   // ------------------------------------------------------------------
@@ -1325,9 +1373,325 @@
     },
   };
 
-  /** Busca la config declarativa (GEE o Requisitos) de un tipo por su clave. */
+  /**
+   * Config declarativa de Equipos — mismo patrón que GEE_CONFIG/REQUISITOS_CONFIG
+   * (softDelete: false, sin type:"relacion" salvo referencias simples vía
+   * type:"select" con options dinámicas). equipoId/personaId guardan el ID
+   * del registro referenciado (estable si se renombra); rol/empresa guardan
+   * directamente el nombre del catálogo (como cualquier otro select de texto).
+   */
+  const EQUIPOS_CONFIG = {
+    equipos: {
+      apiTipo: "equipos",
+      tablaWrap: "equipos-tabla-wrap",
+      formId: "form-nuevo-equipo",
+      titulo: "equipo",
+      softDelete: false,
+      resumenKeys: ["nombre", "ambito"],
+      getRows: () => (state.equipos && state.equipos.equipos) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "nombre", label: "Nombre", type: "text" },
+        { key: "ambito", label: "Ámbito", type: "text" },
+      ],
+    },
+    personas: {
+      apiTipo: "personas",
+      tablaWrap: "personas-tabla-wrap",
+      formId: "form-nueva-persona",
+      titulo: "persona",
+      softDelete: false,
+      resumenKeys: ["nombre", "rol"],
+      // esGestor/activo llegan de buildSnapshot.js ya convertidos a boolean
+      // (los usan las métricas de cruce con el sprint) — aquí, solo para la
+      // tabla/edición genérica, se vuelven a pasar a "Sí"/"No" para que
+      // opcionCoincideConValor (pensado para strings) preseleccione bien la
+      // opción actual en el <select> de edición.
+      getRows: () =>
+        ((state.equipos && state.equipos.personas) || []).map((p) =>
+          Object.assign({}, p, { esGestor: p.esGestor ? "Sí" : "No", activo: p.activo === false ? "No" : "Sí" })
+        ),
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "nombre", label: "Nombre", type: "text" },
+        {
+          key: "equipoId",
+          label: "Equipo",
+          type: "select",
+          options: () => ((state.equipos && state.equipos.equipos) || []).map((e) => ({ value: e.id, label: e.nombre })),
+          render: (v) => escapeHtml(nombreEquipoPorId(v) || "—"),
+        },
+        {
+          key: "empresa",
+          label: "Empresa",
+          type: "select",
+          options: () => ((state.equipos && state.equipos.catalogoEmpresas) || []).map((c) => c.nombre),
+        },
+        {
+          key: "rol",
+          label: "Rol",
+          type: "select",
+          options: () => ((state.equipos && state.equipos.catalogoRoles) || []).map((c) => c.nombre),
+        },
+        { key: "emailCorporativo", label: "Email corporativo", type: "text" },
+        { key: "dedicacionPct", label: "Dedicación (%)", type: "text" },
+        { key: "esGestor", label: "Equipo de gestión", type: "select", options: ["Sí", "No"] },
+        { key: "activo", label: "Activo", type: "select", options: ["Sí", "No"] },
+      ],
+    },
+    ausencias: {
+      apiTipo: "ausencias",
+      tablaWrap: "ausencias-tabla-wrap",
+      formId: "form-nueva-ausencia",
+      titulo: "ausencia",
+      softDelete: false,
+      resumenKeys: ["personaId", "fechaInicio"],
+      getRows: () => (state.equipos && state.equipos.ausencias) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        {
+          key: "personaId",
+          label: "Persona",
+          type: "select",
+          options: () => ((state.equipos && state.equipos.personas) || []).map((p) => ({ value: p.id, label: p.nombre })),
+          render: (v) => escapeHtml(nombrePersonaPorId(v) || "—"),
+        },
+        { key: "fechaInicio", label: "Fecha inicio", type: "date" },
+        { key: "fechaFin", label: "Fecha fin", type: "date" },
+        { key: "motivo", label: "Motivo", type: "text" },
+      ],
+    },
+    catalogoRoles: {
+      apiTipo: "catalogoRoles",
+      tablaWrap: "catalogo-roles-tabla-wrap",
+      formId: "form-nuevo-rol-catalogo",
+      titulo: "rol",
+      softDelete: false,
+      resumenKeys: ["nombre"],
+      getRows: () => (state.equipos && state.equipos.catalogoRoles) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "nombre", label: "Nombre", type: "text" },
+      ],
+    },
+    catalogoEmpresas: {
+      apiTipo: "catalogoEmpresas",
+      tablaWrap: "catalogo-empresas-tabla-wrap",
+      formId: "form-nueva-empresa-catalogo",
+      titulo: "empresa",
+      softDelete: false,
+      resumenKeys: ["nombre"],
+      getRows: () => (state.equipos && state.equipos.catalogoEmpresas) || [],
+      columns: [
+        { key: "id", label: "ID", editable: false },
+        { key: "nombre", label: "Nombre", type: "text" },
+      ],
+    },
+  };
+
+  function nombreEquipoPorId(id) {
+    const equipo = ((state.equipos && state.equipos.equipos) || []).find((e) => e.id === id);
+    return equipo ? equipo.nombre : id;
+  }
+
+  function nombrePersonaPorId(id) {
+    const persona = ((state.equipos && state.equipos.personas) || []).find((p) => p.id === id);
+    return persona ? persona.nombre : id;
+  }
+
+  /** Busca la config declarativa (GEE, Requisitos o Equipos) de un tipo por su clave. */
   function getRegistryConfig(tipo) {
-    return GEE_CONFIG[tipo] || REQUISITOS_CONFIG[tipo];
+    return GEE_CONFIG[tipo] || REQUISITOS_CONFIG[tipo] || EQUIPOS_CONFIG[tipo];
+  }
+
+  function renderEquiposEditableTables() {
+    Object.keys(EQUIPOS_CONFIG).forEach((tipo) => renderGeeTable(tipo));
+  }
+
+  /** Selector "¿Quién eres?" de la cabecera — oculto hasta que el proyecto
+   *  tenga al menos una Persona marcada "Equipo de gestión" (ver
+   *  claveIdentidadStorage/getIdentidadActual). */
+  function renderIdentidadSelector() {
+    const wrap = qs("#identidad-selector-wrap");
+    if (!wrap) return;
+    const gestores = ((state.equipos && state.equipos.personas) || []).filter((p) => p.esGestor && p.activo);
+    if (gestores.length === 0) {
+      wrap.classList.add("hidden");
+      return;
+    }
+    wrap.classList.remove("hidden");
+    const valorActual = getIdentidadActual();
+    let select = qs("#identidad-select");
+    if (!select) {
+      wrap.innerHTML = "";
+      wrap.appendChild(el("label", { text: "¿Quién eres?", for: "identidad-select" }));
+      select = el("select", { id: "identidad-select" });
+      wrap.appendChild(select);
+      select.addEventListener("change", () => setIdentidadActual(select.value));
+    }
+    select.innerHTML = "";
+    select.appendChild(el("option", { value: "", text: "— Selecciona —" }));
+    gestores.forEach((p) => {
+      const opt = el("option", { value: p.nombre, text: p.nombre });
+      if (p.nombre === valorActual) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+
+  function renderEquiposComposicionChart() {
+    const container = qs("#chart-equipos-composicion");
+    if (!container) return;
+    const personas = ((state.equipos && state.equipos.personas) || []).filter((p) => p.activo);
+    if (personas.length === 0) {
+      container.innerHTML = emptyState("👥", "Todavía no hay personas activas en Equipos.", 'Usa "+ Nueva persona" más abajo para dar de alta a la primera.');
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const counts = {};
+    personas.forEach((p) => {
+      const key = p.rol || "Sin rol";
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const categorias = Object.keys(counts);
+    const chart = getOrCreateChart("chart-equipos-composicion");
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      grid: { left: 110, right: 20, top: 20, bottom: 30 },
+      xAxis: { type: "value" },
+      yAxis: { type: "category", data: categorias },
+      series: [{ type: "bar", data: categorias.map((c) => counts[c]), barWidth: "50%", itemStyle: { color: "#2563eb" } }],
+    });
+  }
+
+  /** Previsión agregada (no un cálculo de alerta): dedicación total del
+   *  equipo + quién está de baja/vacaciones durante el sprint activo. Ver
+   *  computeCapacidadPrevista en buildSnapshot.js para por qué no se compara
+   *  numéricamente contra CapacidadOcupada (unidades distintas). */
+  function renderCapacidadPrevistaResumen() {
+    const container = qs("#equipos-capacidad-resumen");
+    if (!container) return;
+    const cap = state.equipos && state.equipos.capacidadPrevista;
+    if (!cap || cap.personasActivas === 0) {
+      container.innerHTML = emptyInline("Todavía no hay personas activas para calcular la capacidad prevista.");
+      return;
+    }
+    const ausentesHtml = cap.ausentesEnSprintActivo.length
+      ? "<ul class=\"lista-simple\">" +
+        cap.ausentesEnSprintActivo
+          .map(
+            (a) =>
+              "<li>⚠️ " + escapeHtml(fmt(a.nombre)) + " — " + escapeHtml(fmt(a.fechaInicio)) + " a " + escapeHtml(fmt(a.fechaFin)) +
+              (a.motivo ? " (" + escapeHtml(a.motivo) + ")" : "") + "</li>"
+          )
+          .join("") +
+        "</ul>"
+      : '<p class="text-muted">Nadie del equipo tiene una ausencia registrada que solape el sprint activo.</p>';
+    container.innerHTML =
+      '<div class="stat-block-row">' +
+      '<div class="stat-block"><div class="stat-label">Dedicación total del equipo</div><div class="stat-value">' + cap.dedicacionTotalPct + "%</div></div>" +
+      '<div class="stat-block"><div class="stat-label">Personas activas</div><div class="stat-value">' + cap.personasActivas + "</div></div>" +
+      "</div>" +
+      "<h4>Ausencias durante el sprint activo</h4>" +
+      ausentesHtml;
+  }
+
+  /** % de subtareas "Hecho" del sprint activo por persona — ver
+   *  computeEntregaPorPersona en buildSnapshot.js (depende de que el campo
+   *  "Responsable" de las subtareas esté bien rellenado). */
+  function renderEntregaPorPersonaChart() {
+    const container = qs("#chart-equipos-entrega");
+    if (!container) return;
+    const entrega = (state.equipos && state.equipos.entregaPorPersona) || [];
+    if (entrega.length === 0) {
+      container.innerHTML = emptyInline("Sin datos de subtareas con responsable asignado en el sprint activo todavía.");
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const ordenado = entrega.slice().sort((a, b) => (b.pctCompletado || 0) - (a.pctCompletado || 0));
+    const categorias = ordenado.map((e) => e.nombre);
+    const chart = getOrCreateChart("chart-equipos-entrega");
+    chart.setOption({
+      tooltip: {
+        trigger: "axis",
+        formatter: (params) => {
+          const e = ordenado[params[0].dataIndex];
+          if (!e) return "";
+          return escapeHtml(e.nombre) + "<br/>" + e.subtareasHechas + "/" + e.totalSubtareas + " subtareas hechas" + (e.pctCompletado != null ? " (" + e.pctCompletado + "%)" : "");
+        },
+      },
+      grid: { left: 110, right: 20, top: 20, bottom: 30 },
+      xAxis: { type: "value", max: 100 },
+      yAxis: { type: "category", data: categorias },
+      series: [{ type: "bar", data: ordenado.map((e) => e.pctCompletado || 0), barWidth: "50%", itemStyle: { color: "#16a34a" } }],
+    });
+  }
+
+  /** Gantt de ausencias — mismo patrón (offset transparente + barra apilada)
+   *  que renderRoadmapClienteChart, aplicado a personas en vez de hitos. */
+  function renderAusenciasGanttChart() {
+    const container = qs("#chart-equipos-ausencias");
+    if (!container) return;
+    const ausencias = (state.equipos && state.equipos.ausencias) || [];
+    const parseadas = ausencias
+      .map((a) => ({ ausencia: a, inicio: new Date(a.fechaInicio), fin: new Date(a.fechaFin) }))
+      .filter((x) => !isNaN(x.inicio) && !isNaN(x.fin));
+    if (parseadas.length === 0) {
+      container.innerHTML = emptyState("🏖️", "Todavía no hay ausencias registradas con fechas válidas.", 'Usa "+ Nueva ausencia" más abajo para registrar vacaciones o bajas.');
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const ordenadas = parseadas.slice().sort((a, b) => a.inicio - b.inicio).reverse();
+    const msPorDia = 24 * 60 * 60 * 1000;
+    const inicioEpoca = ordenadas.reduce((min, x) => (x.inicio < min ? x.inicio : min), ordenadas[0].inicio);
+    const diasDesdeEpoca = (fecha) => Math.round((fecha - inicioEpoca) / msPorDia);
+    const categorias = ordenadas.map((x) => nombrePersonaPorId(x.ausencia.personaId));
+    const offsets = ordenadas.map((x) => diasDesdeEpoca(x.inicio));
+    const duraciones = ordenadas.map((x) => Math.max(1, diasDesdeEpoca(x.fin) - diasDesdeEpoca(x.inicio)));
+
+    const chart = getOrCreateChart("chart-equipos-ausencias");
+    chart.setOption({
+      tooltip: {
+        trigger: "item",
+        formatter: (params) => {
+          const x = ordenadas[params.dataIndex];
+          if (!x) return "";
+          return (
+            "<strong>" + escapeHtml(nombrePersonaPorId(x.ausencia.personaId)) + "</strong><br/>" +
+            escapeHtml(fmt(x.ausencia.fechaInicio)) + " – " + escapeHtml(fmt(x.ausencia.fechaFin)) +
+            (x.ausencia.motivo ? "<br/>" + escapeHtml(x.ausencia.motivo) : "")
+          );
+        },
+      },
+      grid: { left: 120, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: "value",
+        min: 0,
+        axisLabel: { formatter: (valorDias) => new Date(inicioEpoca.getTime() + valorDias * msPorDia).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }) },
+      },
+      yAxis: { type: "category", data: categorias },
+      series: [
+        { name: "Offset", type: "bar", stack: "total", itemStyle: { color: "transparent" }, silent: true, tooltip: { show: false }, data: offsets },
+        { name: "Ausencia", type: "bar", stack: "total", itemStyle: { color: "#f59e0b" }, data: duraciones },
+      ],
+    });
+  }
+
+  function renderEquiposTab() {
+    renderIdentidadSelector();
+    renderEquiposComposicionChart();
+    renderCapacidadPrevistaResumen();
+    renderEntregaPorPersonaChart();
+    renderAusenciasGanttChart();
+    renderEquiposEditableTables();
   }
 
   function renderGeeAll() {
@@ -1457,6 +1821,7 @@
     if (!rows || rows.length === 0) {
       wrap.innerHTML = emptyState("📭", "Todavía no hay ningún registro de " + cfg.titulo + ".", 'Usa el botón "+ Nuevo ' + cfg.titulo + '" para crear el primero.');
       ensureNewRecordForm(tipo);
+      refreshDynamicSelectOptions(tipo);
       return;
     }
 
@@ -1483,6 +1848,7 @@
     wrap.appendChild(table);
 
     ensureNewRecordForm(tipo);
+    refreshDynamicSelectOptions(tipo);
   }
 
   function buildGeeRowPair(tipo, cfg, row, resumenCols) {
@@ -1709,9 +2075,9 @@
         // mientras las opciones del <select> son texto plano ("Amarillo") —
         // comparamos por inclusión, no por igualdad exacta, para no perder
         // la selección real y sobrescribir sin querer con la primera opción.
-        (col.options || []).forEach((opt) => {
-          const optionEl = el("option", { value: opt, text: opt });
-          if (opcionCoincideConValor(opt, currentValue)) optionEl.selected = true;
+        (resolveColOptions(col) || []).forEach((opt) => {
+          const optionEl = el("option", { value: opt.value !== undefined ? opt.value : opt, text: opt.label !== undefined ? opt.label : opt });
+          if (opcionCoincideConValor(optionEl.value, currentValue)) optionEl.selected = true;
           input.appendChild(optionEl);
         });
       } else if (col.type === "date") {
@@ -1761,7 +2127,7 @@
 
     setBtnLoading(btnSave, true, "Guardando…");
     try {
-      const payload = Object.assign({ confirm: true }, updates);
+      const payload = Object.assign({ confirm: true, autorPersona: getIdentidadActual() }, updates);
       state = await apiSend("PUT", "/api/gee/" + cfg.apiTipo + "/" + encodeURIComponent(row.id), payload);
       renderAll();
       showToast("Cambio guardado en " + cfg.titulo + " " + row.id + ".", "success");
@@ -1866,7 +2232,7 @@
       } else if (col.type === "select") {
         input = el("select");
         input.appendChild(el("option", { value: "", text: "—" }));
-        (col.options || []).forEach((opt) => input.appendChild(el("option", { value: opt, text: opt })));
+        (resolveColOptions(col) || []).forEach((opt) => input.appendChild(el("option", { value: opt.value !== undefined ? opt.value : opt, text: opt.label !== undefined ? opt.label : opt })));
       } else if (col.type === "date") {
         input = el("input", { type: "date" });
       } else {
@@ -1922,11 +2288,33 @@
 
   // ---------- Formulario "+ Nuevo registro" ----------
 
+  /** Repuebla los <select> con catálogo dinámico (Rol/Empresa/Equipo/Persona)
+   *  de un formulario ya construido — se llama cada vez que se abre, para que
+   *  altas recientes en Catálogos aparezcan sin tener que reconstruir todo el
+   *  formulario (que perdería lo que el usuario ya hubiera escrito). */
+  function refreshDynamicSelectOptions(tipo) {
+    const cfg = getRegistryConfig(tipo);
+    const container = qs("#" + cfg.formId);
+    qsa('select[data-dynamic-options="true"]', container).forEach((select) => {
+      const col = cfg.columns.find((c) => c.key === select.dataset.fieldKey);
+      if (!col) return;
+      const currentValue = select.value;
+      select.innerHTML = "";
+      select.appendChild(el("option", { value: "", text: "—" }));
+      resolveColOptions(col).forEach((opt) => {
+        const optionEl = el("option", { value: opt.value !== undefined ? opt.value : opt, text: opt.label !== undefined ? opt.label : opt });
+        if (optionEl.value === currentValue) optionEl.selected = true;
+        select.appendChild(optionEl);
+      });
+    });
+  }
+
   function ensureNewRecordForm(tipo) {
     const cfg = getRegistryConfig(tipo);
     const container = qs("#" + cfg.formId);
     if (container.dataset.built === "true") return;
     container.dataset.built = "true";
+    container.dataset.tipo = tipo;
 
     const grid = el("div", { class: "form-grid" });
     const editableCols = cfg.columns.filter((c) => c.editable !== false);
@@ -1949,7 +2337,8 @@
       } else if (col.type === "select") {
         input = el("select");
         input.appendChild(el("option", { value: "", text: "—" }));
-        (col.options || []).forEach((opt) => input.appendChild(el("option", { value: opt, text: opt })));
+        (resolveColOptions(col) || []).forEach((opt) => input.appendChild(el("option", { value: opt.value !== undefined ? opt.value : opt, text: opt.label !== undefined ? opt.label : opt })));
+        if (typeof col.options === "function") input.dataset.dynamicOptions = "true";
       } else if (col.type === "date") {
         input = el("input", { type: "date" });
       } else {
@@ -1973,7 +2362,7 @@
 
   async function createNewRecord(tipo, cfg, container, btnCreate) {
     const inputs = qsa("[data-field-key]", container);
-    const payload = { confirm: true };
+    const payload = { confirm: true, autorPersona: getIdentidadActual() };
     inputs.forEach((input) => {
       payload[input.dataset.fieldKey] = input.value;
     });
@@ -2106,6 +2495,34 @@
     return qsa('input[type="checkbox"]:checked', container).map((c) => c.value);
   }
 
+  /**
+   * "Autor" nace como texto libre (ver #nota-autor histórico) y aquí se
+   * convierte en un <select> respaldado por Personas SOLO cuando el proyecto
+   * ya tiene alguna persona marcada "Equipo de gestión" — si no, se queda en
+   * texto libre (proyectos que aún no usan la pestaña Equipos no pierden la
+   * capacidad de anotar quién escribió la nota). El valor recordado (ver
+   * getIdentidadActual) se preselecciona para no tener que elegirlo cada vez.
+   */
+  function renderNotaAutorField() {
+    const wrap = qs("#nota-autor-wrap");
+    if (!wrap) return;
+    const gestores = ((state.equipos && state.equipos.personas) || []).filter((p) => p.esGestor && p.activo);
+    const valorActual = getIdentidadActual();
+    wrap.innerHTML = "";
+    if (gestores.length === 0) {
+      wrap.appendChild(el("input", { type: "text", id: "nota-autor", placeholder: "Tu nombre", value: valorActual }));
+      return;
+    }
+    const select = el("select", { id: "nota-autor" });
+    select.appendChild(el("option", { value: "", text: "— Selecciona —" }));
+    gestores.forEach((p) => {
+      const opt = el("option", { value: p.nombre, text: p.nombre });
+      if (p.nombre === valorActual) opt.selected = true;
+      select.appendChild(opt);
+    });
+    wrap.appendChild(select);
+  }
+
   function setupNuevaNotaForm() {
     const btnAbrir = qs("#btn-nueva-nota");
     const form = qs("#form-nueva-nota");
@@ -2115,7 +2532,10 @@
 
     btnAbrir.addEventListener("click", () => {
       form.classList.toggle("open");
-      if (form.classList.contains("open")) renderNotaRelacionPicker();
+      if (form.classList.contains("open")) {
+        renderNotaRelacionPicker();
+        renderNotaAutorField();
+      }
     });
     btnCancelar.addEventListener("click", () => form.classList.remove("open"));
 
@@ -2127,6 +2547,7 @@
         showToast("Escribe algo en la nota antes de añadirla.", "error");
         return;
       }
+      if (autor.trim()) setIdentidadActual(autor.trim());
       const relacionados = collectNotaRelacionados();
       setBtnLoading(btnCrear, true, "Añadiendo…");
       try {

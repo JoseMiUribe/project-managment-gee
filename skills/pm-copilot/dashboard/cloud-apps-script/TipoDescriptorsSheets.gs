@@ -112,6 +112,35 @@ const TIPO_DESCRIPTORS_SHEETS = {
     },
   },
 
+  // --- Registro editable (Equipos) — roster vivo, distinto del snapshot de
+  // estimación "capacidad" (lectura-json más abajo). No forman parte de la
+  // cascada de actualizar-cascada.md (ver TIPOS_CASCADA_ en Code.gs) porque
+  // son datos de roster/catálogo, no artefactos con implicación de cascada.
+  equipos: {
+    kind: 'registro', hoja: 'Equipos', idPrefix: 'EQ',
+    campos: { nombre: 'Nombre', ambito: 'Ámbito' },
+  },
+  personas: {
+    kind: 'registro', hoja: 'Personas', idPrefix: 'P',
+    campos: {
+      nombre: 'Nombre', equipoId: 'Equipo', empresa: 'Empresa', rol: 'Rol',
+      emailCorporativo: 'Email corporativo', dedicacionPct: 'Dedicación (%)',
+      esGestor: 'Equipo de gestión', activo: 'Activo',
+    },
+  },
+  ausencias: {
+    kind: 'registro', hoja: 'Ausencias', idPrefix: 'AU',
+    campos: { personaId: 'Persona', fechaInicio: 'Fecha inicio', fechaFin: 'Fecha fin', motivo: 'Motivo' },
+  },
+  catalogoRoles: {
+    kind: 'registro', hoja: 'CatalogoRoles', idPrefix: 'ROL',
+    campos: { nombre: 'Nombre' },
+  },
+  catalogoEmpresas: {
+    kind: 'registro', hoja: 'CatalogoEmpresas', idPrefix: 'EMP',
+    campos: { nombre: 'Nombre' },
+  },
+
   // --- Ledger interno (append-only, nunca se edita una fila existente) ---
   cambiosPendientes: {
     kind: 'ledger', hoja: 'CambiosPendientes', idPrefix: 'CD',

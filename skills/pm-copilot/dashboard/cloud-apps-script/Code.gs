@@ -354,6 +354,92 @@ function calcularMetricas_(riesgos, dependencias, impedimentos, sprints) {
   };
 }
 
+function normalizarNombre_(s) {
+  return String(s || '').trim().toLowerCase();
+}
+
+/** Copia de computeEntregaPorPersona en dashboard/lib/buildSnapshot.js. */
+function computeEntregaPorPersona_(sprintActivo, personas) {
+  if (!sprintActivo || !sprintActivo.hu) return [];
+  const porNombre = {};
+  sprintActivo.hu.forEach(function (hu) {
+    (hu.subtareas || []).forEach(function (st) {
+      const nombre = String(st.responsable || '').trim();
+      if (!nombre) return;
+      const key = normalizarNombre_(nombre);
+      if (!porNombre[key]) porNombre[key] = { nombre: nombre, total: 0, hechas: 0 };
+      porNombre[key].total++;
+      if (/hecho|terminad|complet|✅/i.test(st.estado || '')) porNombre[key].hechas++;
+    });
+  });
+  const personaPorNombre = {};
+  personas.forEach(function (p) { personaPorNombre[normalizarNombre_(p.nombre)] = p; });
+  return Object.keys(porNombre).map(function (key) {
+    const e = porNombre[key];
+    const persona = personaPorNombre[key];
+    return {
+      nombre: e.nombre,
+      personaId: persona ? persona.id : null,
+      totalSubtareas: e.total,
+      subtareasHechas: e.hechas,
+      pctCompletado: e.total ? Math.round((e.hechas / e.total) * 1000) / 10 : null,
+    };
+  });
+}
+
+/** Copia de computeCapacidadPrevista en dashboard/lib/buildSnapshot.js. */
+function computeCapacidadPrevista_(personas, ausencias, sprintActivo) {
+  const activas = personas.filter(function (p) { return p.activo; });
+  const dedicacionTotalPct = activas.reduce(function (sum, p) { return sum + (parseFloat(p.dedicacionPct) || 0); }, 0);
+  let ausentesEnSprintActivo = [];
+  if (sprintActivo && sprintActivo.fechaInicio && sprintActivo.fechaFin) {
+    const inicioSprint = new Date(sprintActivo.fechaInicio);
+    const finSprint = new Date(sprintActivo.fechaFin);
+    if (!isNaN(inicioSprint) && !isNaN(finSprint)) {
+      ausentesEnSprintActivo = ausencias
+        .filter(function (a) {
+          if (!a.fechaInicio || !a.fechaFin) return false;
+          const inicio = new Date(a.fechaInicio);
+          const fin = new Date(a.fechaFin);
+          return !isNaN(inicio) && !isNaN(fin) && inicio <= finSprint && fin >= inicioSprint;
+        })
+        .map(function (a) {
+          const persona = personas.filter(function (p) { return p.id === a.personaId; })[0];
+          return {
+            personaId: a.personaId, nombre: persona ? persona.nombre : a.personaId,
+            fechaInicio: a.fechaInicio, fechaFin: a.fechaFin, motivo: a.motivo,
+          };
+        });
+    }
+  }
+  return { dedicacionTotalPct: dedicacionTotalPct, personasActivas: activas.length, ausentesEnSprintActivo: ausentesEnSprintActivo };
+}
+
+/** Lee equipos/personas/ausencias/catálogos y calcula el cruce con el sprint activo. */
+function leerEquipos_(sheetId, proyectoId, sprints) {
+  const equipos = leerRegistros_(sheetId, proyectoId, 'equipos');
+  const personasRaw = leerRegistros_(sheetId, proyectoId, 'personas');
+  const personas = personasRaw.map(function (p) {
+    return Object.assign({}, p, {
+      esGestor: /^s[ií]$/i.test(String(p.esGestor || '').trim()),
+      activo: String(p.activo || '').trim() === '' ? true : /^s[ií]$/i.test(String(p.activo).trim()),
+    });
+  });
+  const ausencias = leerRegistros_(sheetId, proyectoId, 'ausencias');
+  const catalogoRoles = leerRegistros_(sheetId, proyectoId, 'catalogoRoles');
+  const catalogoEmpresas = leerRegistros_(sheetId, proyectoId, 'catalogoEmpresas');
+  const sprintActivo = sprints.filter(function (s) { return s.activo; })[0] || null;
+  return {
+    equipos: equipos,
+    personas: personas,
+    ausencias: ausencias,
+    catalogoRoles: catalogoRoles,
+    catalogoEmpresas: catalogoEmpresas,
+    capacidadPrevista: computeCapacidadPrevista_(personas, ausencias, sprintActivo),
+    entregaPorPersona: computeEntregaPorPersona_(sprintActivo, personas),
+  };
+}
+
 // ============================================================================
 // Snapshot completo — misma forma que dashboard/lib/buildSnapshot.js
 // ============================================================================
@@ -377,6 +463,7 @@ function leerSnapshot(sheetId, proyectoId) {
   const paso0 = leerRequisitosPaso0_(sheetId, proyectoId);
   const cambiosPendientes = leerCambiosPendientes_(sheetId, proyectoId);
   const documentos = leerDocumentos_(sheetId, proyectoId);
+  const equipos = leerEquipos_(sheetId, proyectoId, sprints);
 
   const metricas = calcularMetricas_(riesgos, dependencias, impedimentos, sprints);
 
@@ -399,6 +486,7 @@ function leerSnapshot(sheetId, proyectoId) {
     requisitos: { legacy: legacy, paso0: paso0 },
     cambiosPendientes: cambiosPendientes,
     documentos: documentos,
+    equipos: equipos,
     metricas: metricas,
   };
 }
@@ -452,7 +540,7 @@ function escribirRegistro_(sheetId, proyectoId, tipo, id, camposSemanticos, meta
     }
   });
   fila[columnas.indexOf('Última modificación')] = new Date().toISOString();
-  fila[columnas.indexOf('Modificado por')] = (meta && meta.origen) || 'skill';
+  fila[columnas.indexOf('Modificado por')] = (meta && meta.autorPersona) || (meta && meta.origen) || 'skill';
 
   if (creado) {
     sheet.appendRow(fila);
@@ -461,6 +549,11 @@ function escribirRegistro_(sheetId, proyectoId, tipo, id, camposSemanticos, meta
   }
   return { id: idFinal, created: creado };
 }
+
+// Tipos que cubre la tabla de dependencias de actualizar-cascada.md — NO
+// "todos los tipos registro que existan". Los tipos de Equipos son datos de
+// roster/catálogo sin implicación de cascada (ver TipoDescriptorsSheets.gs).
+var TIPOS_CASCADA_ = ['riesgos', 'dependencias', 'acciones', 'impedimentos', 'changelog', 'peticiones', 'funcionales', 'nofuncionales', 'zonas'];
 
 function registrarCambioPendiente_(sheetId, proyectoId, entry) {
   const descriptor = TIPO_DESCRIPTORS_SHEETS.cambiosPendientes;
@@ -583,9 +676,11 @@ function apiPutGee(sheetId, proyectoId, tipo, id, body) {
   }
   try {
     const fields = {};
-    Object.keys(body).forEach(function (k) { if (k !== 'confirm') fields[k] = body[k]; });
-    escribirRegistro_(sheetId, proyectoId, tipo, id, fields, { origen: 'dashboard' });
-    registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
+    Object.keys(body).forEach(function (k) { if (k !== 'confirm' && k !== 'autorPersona') fields[k] = body[k]; });
+    escribirRegistro_(sheetId, proyectoId, tipo, id, fields, { origen: 'dashboard', autorPersona: body.autorPersona });
+    if (TIPOS_CASCADA_.indexOf(tipo) !== -1) {
+      registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
+    }
     return ok_(leerSnapshot(sheetId, proyectoId));
   } catch (err) {
     return fail_(500, 'Error actualizando ' + tipo + '/' + id + ': ' + err.message);
@@ -601,9 +696,11 @@ function apiPostGee(sheetId, proyectoId, tipo, body) {
   }
   try {
     const fields = {};
-    Object.keys(body).forEach(function (k) { if (k !== 'confirm') fields[k] = body[k]; });
-    const result = escribirRegistro_(sheetId, proyectoId, tipo, null, fields, { origen: 'dashboard' });
-    registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: result.id, camposModificados: [] });
+    Object.keys(body).forEach(function (k) { if (k !== 'confirm' && k !== 'autorPersona') fields[k] = body[k]; });
+    const result = escribirRegistro_(sheetId, proyectoId, tipo, null, fields, { origen: 'dashboard', autorPersona: body.autorPersona });
+    if (TIPOS_CASCADA_.indexOf(tipo) !== -1) {
+      registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: result.id, camposModificados: [] });
+    }
     return ok_({ createdId: result.id, snapshot: leerSnapshot(sheetId, proyectoId) });
   } catch (err) {
     return fail_(500, 'Error creando registro en ' + tipo + ': ' + err.message);
@@ -748,5 +845,12 @@ function bootstrapClientSheet(sheetId) {
   if (porDefecto && porDefecto.getLastRow() === 0 && ss.getSheets().length > 1) {
     ss.deleteSheet(porDefecto);
   }
+  // Nota: a diferencia del modo local (donde la plantilla de catalogoRoles/
+  // catalogoEmpresas siembra 6 roles + "Paradigma" al primer alta), aquí NO
+  // se siembra nada — bootstrapClientSheet no recibe un proyectoId concreto
+  // (una misma Sheet aloja varios proyectos) y estos catálogos son por
+  // proyecto, así que no hay un proyectoId válido al que asignar la semilla
+  // en este punto. El primer uso del dashboard en cada proyecto simplemente
+  // parte de catálogos vacíos — mismo punto de partida que Riesgos/Acciones/etc.
   return 'Listo — ' + Object.keys(TIPO_DESCRIPTORS_SHEETS).length + ' pestañas verificadas/creadas.';
 }

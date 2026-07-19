@@ -19,6 +19,11 @@ const { parseLegacy } = require('./parsers/legacy');
 const { parseRequisitos } = require('./parsers/requisitos');
 const { parseCambiosPendientes } = require('./parsers/cambiosPendientes');
 const { listarDocumentos } = require('./parsers/documentos');
+const { parseEquipos } = require('./parsers/equipos');
+const { parsePersonas } = require('./parsers/personas');
+const { parseAusencias } = require('./parsers/ausencias');
+const { parseCatalogoRoles } = require('./parsers/catalogoRoles');
+const { parseCatalogoEmpresas } = require('./parsers/catalogoEmpresas');
 const { getLockedHuIds, isSprintActive } = require('./sprintLock');
 
 const CACHE_FILE_NAME = '.pm-copilot-cache.json';
@@ -59,6 +64,84 @@ function computeVelocidadPorSprint(sprints) {
     const ocupada = parsePts(sprint.capacidadOcupada);
     return { sprint: sprint.numero, ptsCompletados: ocupada };
   });
+}
+
+function normalizarNombre(s) {
+  return (s || '').trim().toLowerCase();
+}
+
+/**
+ * % de subtareas en estado "Hecho" del sprint activo, agrupado por el
+ * `responsable` de texto libre que ya trae sprintHu[].subtareas[] (viene de
+ * Jira `assignee.displayName` o de sprint-planning.md manual) — es la única
+ * señal por-persona que existe hoy en los datos de sprint, sin tocar la
+ * sincronización de Jira. Se empareja por nombre normalizado contra
+ * `personas`; si no hay coincidencia, se muestra igual (personaId: null) en
+ * vez de descartarse en silencio, porque puede ser una persona todavía sin
+ * dar de alta en Equipos.
+ */
+function computeEntregaPorPersona(sprintActivo, personas) {
+  if (!sprintActivo || !sprintActivo.hu) return [];
+  const porNombre = new Map();
+  for (const hu of sprintActivo.hu) {
+    for (const st of hu.subtareas || []) {
+      const nombre = (st.responsable || '').trim();
+      if (!nombre) continue;
+      const key = normalizarNombre(nombre);
+      if (!porNombre.has(key)) porNombre.set(key, { nombre, total: 0, hechas: 0 });
+      const entry = porNombre.get(key);
+      entry.total++;
+      if (/hecho|terminad|complet|✅/i.test(st.estado || '')) entry.hechas++;
+    }
+  }
+  const personaPorNombre = new Map(personas.map((p) => [normalizarNombre(p.nombre), p]));
+  return Array.from(porNombre.values()).map((e) => ({
+    nombre: e.nombre,
+    personaId: (personaPorNombre.get(normalizarNombre(e.nombre)) || {}).id || null,
+    totalSubtareas: e.total,
+    subtareasHechas: e.hechas,
+    pctCompletado: e.total ? Math.round((e.hechas / e.total) * 1000) / 10 : null,
+  }));
+}
+
+/**
+ * Previsión agregada de capacidad del equipo para el sprint activo: % de
+ * dedicación sumado de las personas activas, más quién de ellas tiene una
+ * ausencia que solapa las fechas del sprint (para anticipar caídas de
+ * entrega por vacaciones/bajas). No se compara numéricamente contra
+ * CapacidadOcupada/CapacidadDisponible del sprint porque están en unidades
+ * distintas (% de dedicación vs. puntos) — se presentan como dos señales
+ * visuales independientes para que el PM las contraste, no como una única
+ * alerta calculada.
+ */
+function computeCapacidadPrevista(personas, ausencias, sprintActivo) {
+  const activas = personas.filter((p) => p.activo);
+  const dedicacionTotalPct = activas.reduce((sum, p) => sum + (parseFloat(p.dedicacionPct) || 0), 0);
+  let ausentesEnSprintActivo = [];
+  if (sprintActivo && sprintActivo.fechaInicio && sprintActivo.fechaFin) {
+    const inicioSprint = new Date(sprintActivo.fechaInicio);
+    const finSprint = new Date(sprintActivo.fechaFin);
+    if (!isNaN(inicioSprint) && !isNaN(finSprint)) {
+      ausentesEnSprintActivo = ausencias
+        .filter((a) => {
+          if (!a.fechaInicio || !a.fechaFin) return false;
+          const inicio = new Date(a.fechaInicio);
+          const fin = new Date(a.fechaFin);
+          return !isNaN(inicio) && !isNaN(fin) && inicio <= finSprint && fin >= inicioSprint;
+        })
+        .map((a) => {
+          const persona = personas.find((p) => p.id === a.personaId);
+          return {
+            personaId: a.personaId,
+            nombre: persona ? persona.nombre : a.personaId,
+            fechaInicio: a.fechaInicio,
+            fechaFin: a.fechaFin,
+            motivo: a.motivo,
+          };
+        });
+    }
+  }
+  return { dedicacionTotalPct, personasActivas: activas.length, ausentesEnSprintActivo };
 }
 
 /**
@@ -171,6 +254,12 @@ function buildSnapshot(projectPath, options) {
   const cambiosPendientes = parseCambiosPendientes(projectPath);
   const documentos = listarDocumentos(projectPath);
 
+  const equiposList = parseEquipos(projectPath);
+  const personas = parsePersonas(projectPath);
+  const ausencias = parseAusencias(projectPath);
+  const catalogoRoles = parseCatalogoRoles(projectPath);
+  const catalogoEmpresas = parseCatalogoEmpresas(projectPath);
+
   const sprintActivo = sprints.find((s) => s.activo) || null;
 
   const metricas = {
@@ -213,6 +302,15 @@ function buildSnapshot(projectPath, options) {
     },
     cambiosPendientes,
     documentos,
+    equipos: {
+      equipos: equiposList,
+      personas,
+      ausencias,
+      catalogoRoles,
+      catalogoEmpresas,
+      capacidadPrevista: computeCapacidadPrevista(personas, ausencias, sprintActivo),
+      entregaPorPersona: computeEntregaPorPersona(sprintActivo, personas),
+    },
     metricas,
   };
 
