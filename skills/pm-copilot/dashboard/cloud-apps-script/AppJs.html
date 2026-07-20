@@ -829,6 +829,92 @@
     renderEpicas();
     renderVelocidadChart();
     renderCapacidadActual();
+    renderJiraAnalyticsSection();
+  }
+
+  /**
+   * Sección "Salud de entrega — Jira" — solo visible cuando el proyecto
+   * tiene JiraHistorico con datos (ver JiraHistorico.gs). Se oculta del
+   * todo si no, en vez de mostrar tres tarjetas vacías sin contexto.
+   */
+  function renderJiraAnalyticsSection() {
+    const wrap = qs("#jira-analytics-section");
+    const analytics = state.jiraAnalytics;
+    if (!analytics || !analytics.disponible) {
+      wrap.classList.add("hidden");
+      return;
+    }
+    wrap.classList.remove("hidden");
+    renderJiraVelocidadHistoricaChart(analytics.velocidadHistorica || []);
+    renderJiraCuellosBotella(analytics.cuellosBotella || []);
+    renderJiraTiemposCiclo(analytics.tiemposCiclo || []);
+  }
+
+  function renderJiraVelocidadHistoricaChart(datos) {
+    const container = qs("#chart-jira-velocidad-historica");
+    if (datos.length === 0) {
+      container.innerHTML = emptyInline("Sin sprints en el histórico todavía.");
+      return;
+    }
+    if (!ECHARTS_AVAILABLE) {
+      container.innerHTML = chartUnavailableMarkup();
+      return;
+    }
+    const categorias = datos.map((d) => d.nombre);
+    const chart = getOrCreateChart("chart-jira-velocidad-historica");
+    chart.setOption({
+      tooltip: {
+        trigger: "axis",
+        formatter: (params) => {
+          const d = datos[params[0].dataIndex];
+          if (!d) return "";
+          return escapeHtml(d.nombre) + "<br/>" + d.puntosHechos + " / " + d.puntosTotal + " pts hechos";
+        },
+      },
+      legend: { data: ["Hechos", "Total"] },
+      grid: { left: 50, right: 20, top: 40, bottom: 70 },
+      xAxis: { type: "category", data: categorias, axisLabel: { rotate: 30 } },
+      yAxis: { type: "value" },
+      series: [
+        { name: "Total", type: "bar", data: datos.map((d) => d.puntosTotal), itemStyle: { color: "#e2e4e9" } },
+        { name: "Hechos", type: "bar", data: datos.map((d) => d.puntosHechos), itemStyle: { color: "#16a34a" } },
+      ],
+    });
+  }
+
+  function renderJiraCuellosBotella(items) {
+    const container = qs("#jira-cuellos-botella-contenido");
+    if (items.length === 0) {
+      container.innerHTML = emptyInline("Sin incidencias abiertas detectadas — o sin datos todavía.");
+      return;
+    }
+    const top = items.slice(0, 15);
+    container.innerHTML =
+      '<table class="data-table"><thead><tr><th>Key</th><th>Resumen</th><th>Asignado</th><th>Estado</th><th>Días sin tocar</th></tr></thead><tbody>' +
+      top
+        .map(
+          (it) =>
+            "<tr><td>" + escapeHtml(fmt(it.key)) + "</td><td>" + escapeHtml(fmt(it.resumen)) + "</td><td>" +
+            escapeHtml(fmt(it.asignado, "Sin asignar")) + "</td><td>" + escapeHtml(fmt(it.estado)) + "</td><td>" +
+            it.diasSinTocar + "</td></tr>"
+        )
+        .join("") +
+      "</tbody></table>" +
+      (items.length > top.length ? '<p class="text-muted">Mostrando las ' + top.length + " más antiguas de " + items.length + " en total.</p>" : "");
+  }
+
+  function renderJiraTiemposCiclo(items) {
+    const container = qs("#jira-tiempos-ciclo-contenido");
+    if (items.length === 0) {
+      container.innerHTML = emptyInline("Sin incidencias resueltas con fechas completas todavía.");
+      return;
+    }
+    container.innerHTML =
+      '<table class="data-table"><thead><tr><th>Tipo</th><th>Incidencias</th><th>Media (días)</th></tr></thead><tbody>' +
+      items
+        .map((it) => "<tr><td>" + escapeHtml(fmt(it.tipo)) + "</td><td>" + it.incidencias + "</td><td>" + it.mediaDias + "</td></tr>")
+        .join("") +
+      "</tbody></table>";
   }
 
   function renderVelocidadChart() {
@@ -1670,7 +1756,16 @@
         formatter: (params) => {
           const e = ordenado[params[0].dataIndex];
           if (!e) return "";
-          return escapeHtml(e.nombre) + "<br/>" + e.subtareasHechas + "/" + e.totalSubtareas + " subtareas hechas" + (e.pctCompletado != null ? " (" + e.pctCompletado + "%)" : "");
+          // Dos formas posibles: computeEntregaPorPersona_ (subtareas
+          // manuales) o computeEntregaPorPersonaJira_ (incidencias/puntos
+          // reales de Jira, cuando el proyecto tiene JiraHistorico) — ver
+          // Code.gs#leerEquipos_.
+          const esJira = e.totalIncidencias !== undefined;
+          const total = esJira ? e.totalIncidencias : e.totalSubtareas;
+          const hechas = esJira ? e.incidenciasHechas : e.subtareasHechas;
+          const etiqueta = esJira ? "incidencias hechas" : "subtareas hechas";
+          const puntos = esJira && e.puntosTotal ? " · " + e.puntosHechos + "/" + e.puntosTotal + " pts" : "";
+          return escapeHtml(e.nombre) + "<br/>" + hechas + "/" + total + " " + etiqueta + puntos + (e.pctCompletado != null ? " (" + e.pctCompletado + "%)" : "");
         },
       },
       grid: { left: 110, right: 20, top: 20, bottom: 30 },

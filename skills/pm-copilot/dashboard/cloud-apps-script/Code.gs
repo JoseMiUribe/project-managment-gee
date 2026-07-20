@@ -441,6 +441,16 @@ function leerEquipos_(sheetId, proyectoId, sprints) {
   const catalogoRoles = leerRegistros_(sheetId, proyectoId, 'catalogoRoles');
   const catalogoEmpresas = leerRegistros_(sheetId, proyectoId, 'catalogoEmpresas');
   const sprintActivo = sprints.filter(function (s) { return s.activo; })[0] || null;
+
+  // Entrega por persona: si hay datos de JiraHistorico (JiraImport + el
+  // complemento "Jira Cloud for Sheets" configurados — ver JiraHistorico.gs),
+  // esa es la fuente real (asignado/estado reales de Jira); si no, se cae al
+  // cálculo antiguo basado en subtareas/responsable escrito a mano en el sprint.
+  const jiraHistorico = leerJiraHistorico_(sheetId, proyectoId);
+  const entregaPorPersona = jiraHistorico.length > 0
+    ? computeEntregaPorPersonaJira_(jiraHistorico)
+    : computeEntregaPorPersona_(sprintActivo, personas);
+
   return {
     equipos: equipos,
     personas: personas,
@@ -448,7 +458,25 @@ function leerEquipos_(sheetId, proyectoId, sprints) {
     catalogoRoles: catalogoRoles,
     catalogoEmpresas: catalogoEmpresas,
     capacidadPrevista: computeCapacidadPrevista_(personas, ausencias, sprintActivo),
-    entregaPorPersona: computeEntregaPorPersona_(sprintActivo, personas),
+    entregaPorPersona: entregaPorPersona,
+  };
+}
+
+/**
+ * Analítica de entrega desde Jira (JiraHistorico.gs) — velocidad histórica,
+ * cuellos de botella y tiempos de ciclo. Vacío (arrays vacíos, no error) si
+ * el proyecto todavía no tiene Jira Cloud for Sheets configurado — ver
+ * README.md, sección "Analítica de Jira".
+ */
+function leerJiraAnalytics_(sheetId, proyectoId) {
+  const historico = leerJiraHistorico_(sheetId, proyectoId);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return {
+    disponible: historico.length > 0,
+    velocidadHistorica: computeVelocidadHistoricaJira_(historico),
+    cuellosBotella: computeCuellosBotella_(historico, hoy),
+    tiemposCiclo: computeTiemposCiclo_(historico),
   };
 }
 
@@ -476,6 +504,7 @@ function leerSnapshot(sheetId, proyectoId) {
   const cambiosPendientes = leerCambiosPendientes_(sheetId, proyectoId);
   const documentos = leerDocumentos_(sheetId, proyectoId);
   const equipos = leerEquipos_(sheetId, proyectoId, sprints);
+  const jiraAnalytics = leerJiraAnalytics_(sheetId, proyectoId);
 
   const metricas = calcularMetricas_(riesgos, dependencias, impedimentos, sprints);
 
@@ -499,6 +528,7 @@ function leerSnapshot(sheetId, proyectoId) {
     cambiosPendientes: cambiosPendientes,
     documentos: documentos,
     equipos: equipos,
+    jiraAnalytics: jiraAnalytics,
     metricas: metricas,
   };
 }
