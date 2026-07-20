@@ -129,8 +129,14 @@ function parsearNombreSprint_(nombre) {
  * que el llamador aborte sin escribir nada.
  */
 function leerFilasJiraImport_(hojaImport) {
-  const celdaFormula = hojaImport.getRange('A1');
-  const region = celdaFormula.getDataRegion(SpreadsheetApp.Dimension.ROWS);
+  // OJO: getDataRegion(Dimension.ROWS) anclado en una celda 1x1 (A1) solo
+  // expande VERTICALMENTE dentro de esa misma columna — no ensancha a las
+  // demás columnas de la tabla. El resultado real era un rango de una sola
+  // columna, que nunca podía tener las 14 columnas esperadas (bug real,
+  // encontrado en producción: la sincronización abortaba siempre aunque
+  // JiraImport tuviera datos perfectamente válidos). getDataRange() sobre
+  // la propia hoja sí cubre todo el bloque de datos, en las dos dimensiones.
+  const region = hojaImport.getDataRange();
   const valores = region.getValues();
   if (valores.length < 2) return null;
 
