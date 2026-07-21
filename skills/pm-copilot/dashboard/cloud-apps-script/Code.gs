@@ -428,7 +428,7 @@ function computeCapacidadPrevista_(personas, ausencias, sprintActivo) {
 }
 
 /** Lee equipos/personas/ausencias/catálogos y calcula el cruce con el sprint activo. */
-function leerEquipos_(sheetId, proyectoId, sprints) {
+function leerEquipos_(sheetId, proyectoId, sprints, jiraHistorico) {
   const equipos = leerRegistros_(sheetId, proyectoId, 'equipos');
   const personasRaw = leerRegistros_(sheetId, proyectoId, 'personas');
   const personas = personasRaw.map(function (p) {
@@ -446,7 +446,6 @@ function leerEquipos_(sheetId, proyectoId, sprints) {
   // complemento "Jira Cloud for Sheets" configurados — ver JiraHistorico.gs),
   // esa es la fuente real (asignado/estado reales de Jira); si no, se cae al
   // cálculo antiguo basado en subtareas/responsable escrito a mano en el sprint.
-  const jiraHistorico = leerJiraHistorico_(sheetId, proyectoId);
   const entregaPorPersona = jiraHistorico.length > 0
     ? computeEntregaPorPersonaJira_(jiraHistorico)
     : computeEntregaPorPersona_(sprintActivo, personas);
@@ -468,16 +467,30 @@ function leerEquipos_(sheetId, proyectoId, sprints) {
  * el proyecto todavía no tiene Jira Cloud for Sheets configurado — ver
  * README.md, sección "Analítica de Jira".
  */
-function leerJiraAnalytics_(sheetId, proyectoId) {
-  const historico = leerJiraHistorico_(sheetId, proyectoId);
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+function leerJiraAnalytics_(historico, hoy) {
   return {
     disponible: historico.length > 0,
     velocidadHistorica: computeVelocidadHistoricaJira_(historico),
     cuellosBotella: computeCuellosBotella_(historico, hoy),
     tiemposCiclo: computeTiemposCiclo_(historico),
   };
+}
+
+/**
+ * Sustituye el sprint activo de la migración por el reconstruido en vivo
+ * desde JiraHistorico, cuando hay uno detectable (ver determinarSprintActivoJira_
+ * en JiraHistorico.gs) — mismo patrón "usar Jira si hay, si no caer al
+ * mecanismo antiguo" ya usado en Equipos. Los sprints no activos de la
+ * migración se conservan tal cual (siguen siendo útiles como histórico
+ * aunque no se puedan refrescar solos).
+ */
+function fusionarSprintsConJira_(sheetId, proyectoId, sprintsMigracion, historico, hoy) {
+  const nombreActivo = determinarSprintActivoJira_(historico, hoy);
+  if (!nombreActivo) return sprintsMigracion;
+  const sprintJira = construirSprintDesdeJira_(historico, nombreActivo);
+  sprintJira.burndownDiario = leerBurndownDiarioJira_(sheetId, proyectoId, nombreActivo);
+  const sinActivoMigrado = sprintsMigracion.filter(function (s) { return !s.activo; });
+  return sinActivoMigrado.concat([sprintJira]).sort(function (a, b) { return (a.numero || 0) - (b.numero || 0); });
 }
 
 // ============================================================================
@@ -497,14 +510,20 @@ function leerSnapshot(sheetId, proyectoId) {
   const roadmapTecnico = leerJsonUnico_(sheetId, proyectoId, 'roadmapTecnico');
   const roadmapCliente = leerRoadmapCliente_(sheetId, proyectoId);
 
-  const sprints = leerSprints_(sheetId, proyectoId);
+  const sprintsMigracion = leerSprints_(sheetId, proyectoId);
 
   const legacy = leerJsonUnico_(sheetId, proyectoId, 'legacy');
   const paso0 = leerRequisitosPaso0_(sheetId, proyectoId);
   const cambiosPendientes = leerCambiosPendientes_(sheetId, proyectoId);
   const documentos = leerDocumentos_(sheetId, proyectoId);
-  const equipos = leerEquipos_(sheetId, proyectoId, sprints);
-  const jiraAnalytics = leerJiraAnalytics_(sheetId, proyectoId);
+
+  const jiraHistorico = leerJiraHistorico_(sheetId, proyectoId);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const sprints = fusionarSprintsConJira_(sheetId, proyectoId, sprintsMigracion, jiraHistorico, hoy);
+
+  const equipos = leerEquipos_(sheetId, proyectoId, sprints, jiraHistorico);
+  const jiraAnalytics = leerJiraAnalytics_(jiraHistorico, hoy);
 
   const metricas = calcularMetricas_(riesgos, dependencias, impedimentos, sprints);
 

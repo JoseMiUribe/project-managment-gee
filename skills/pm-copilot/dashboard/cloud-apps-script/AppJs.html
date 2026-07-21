@@ -615,15 +615,26 @@
       return Math.round(totalComprometido * (1 - frac) * 10) / 10;
     });
 
-    const dailylogs = (state.gee && state.gee.dailylogs) || [];
-    const numeroSprint = String(sprintActivo.numero !== undefined ? sprintActivo.numero : "");
+    // Un sprint reconstruido desde Jira (origen: "jira", ver JiraHistorico.gs)
+    // no tiene daily logs — su línea "Real" viene de burndownDiario, una
+    // foto de "puntos restantes hoy" que se registra sola en cada
+    // sincronización (no hay datos de antes de activar la sincronización,
+    // ver README.md).
     const puntosPorFecha = {};
-    dailylogs.forEach((log) => {
-      if (String(log.sprint || "").trim() === numeroSprint && log.puntosRestantes !== "" && log.puntosRestantes !== undefined) {
-        const n = Number(log.puntosRestantes);
-        if (!Number.isNaN(n)) puntosPorFecha[log.fecha] = n;
-      }
-    });
+    if (sprintActivo.origen === "jira" && Array.isArray(sprintActivo.burndownDiario)) {
+      sprintActivo.burndownDiario.forEach((punto) => {
+        puntosPorFecha[punto.fecha] = punto.puntosRestantes;
+      });
+    } else {
+      const dailylogs = (state.gee && state.gee.dailylogs) || [];
+      const numeroSprint = String(sprintActivo.numero !== undefined ? sprintActivo.numero : "");
+      dailylogs.forEach((log) => {
+        if (String(log.sprint || "").trim() === numeroSprint && log.puntosRestantes !== "" && log.puntosRestantes !== undefined) {
+          const n = Number(log.puntosRestantes);
+          if (!Number.isNaN(n)) puntosPorFecha[log.fecha] = n;
+        }
+      });
+    }
     const realData = dias.map((d) => (puntosPorFecha[d] !== undefined ? puntosPorFecha[d] : null));
     const hayDatosReales = realData.some((v) => v !== null);
 
@@ -654,10 +665,10 @@
     });
 
     if (!hayDatosReales) {
-      showToast(
-        "El burndown solo tiene la línea ideal — todavía no hay ningún daily log de este sprint con \"Puntos restantes del sprint\" relleno.",
-        "warn"
-      );
+      const mensaje = sprintActivo.origen === "jira"
+        ? "El burndown solo tiene la línea ideal — la línea real se construye sola con cada sincronización de Jira (ver Proyecto → Salud de entrega), pero solo desde que se activó, no hay datos de antes."
+        : "El burndown solo tiene la línea ideal — todavía no hay ningún daily log de este sprint con \"Puntos restantes del sprint\" relleno.";
+      showToast(mensaje, "warn");
     }
   }
 

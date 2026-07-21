@@ -31,7 +31,7 @@ var JIRA_IMPORT_HOJA_ = 'JiraImport';
 var JIRA_HISTORICO_COLUMNAS_ = [
   'Proyecto', 'Key', 'Resumen', 'Estado', 'EstadoCategoria', 'Asignado', 'Tipo',
   'Prioridad', 'Creada', 'Actualizada', 'Resuelta', 'StoryPoints', 'SprintsJSON',
-  'EpicLink', 'PrimeraVezVisto', 'UltimaVezVisto',
+  'EpicLink', 'Padre', 'PrimeraVezVisto', 'UltimaVezVisto',
 ];
 
 // Columnas que produce la fórmula =JIRA(...) en JiraImport, en este orden
@@ -42,7 +42,7 @@ var JIRA_HISTORICO_COLUMNAS_ = [
 // regla predecible — un match por texto de cabecera sería más frágil que
 // fijarse solo en la posición y comprobar que la fila 1 tiene forma de
 // tabla real (ver leerFilasJiraImport_).
-var JIRA_IMPORT_NUM_COLUMNAS_ = 14;
+var JIRA_IMPORT_NUM_COLUMNAS_ = 15;
 var JIRA_IMPORT_COL_KEY_ = 0;
 var JIRA_IMPORT_COL_RESUMEN_ = 1;
 var JIRA_IMPORT_COL_ESTADO_ = 2;
@@ -57,6 +57,7 @@ var JIRA_IMPORT_COL_VENCIMIENTO_ = 10;
 var JIRA_IMPORT_COL_STORYPOINTS_ = 11;
 var JIRA_IMPORT_COL_SPRINT_ = 12;
 var JIRA_IMPORT_COL_EPIC_ = 13;
+var JIRA_IMPORT_COL_PADRE_ = 14;
 
 // ============================================================================
 // Normalización de fechas y nombres de sprint
@@ -90,6 +91,14 @@ var JIRA_MESES_ES_ = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, a
  * velocidad histórica, solo se pierde la posibilidad de ordenar
  * cronológicamente o de desambiguar cuál es "el vigente" por fecha.
  */
+/** "AAAA-MM-DD" a partir de enteros, sin pasar por ningún objeto Date ni
+ *  zona horaria — evita el redondeo de medianoche que un new Date(y,m,d)
+ *  reformateado con Utilities.formatDate podría introducir según la zona
+ *  horaria de ejecución. */
+function fechaIsoDesdeEnteros_(anio, mesIdx, dia) {
+  return anio + '-' + pad_(mesIdx + 1, 2) + '-' + pad_(dia, 2);
+}
+
 function parsearNombreSprint_(nombre) {
   const texto = String(nombre || '');
   const numMatch = texto.match(/Sprint\s*(\d+)/i);
@@ -101,7 +110,12 @@ function parsearNombreSprint_(nombre) {
     const mesIdx = JIRA_MESES_ES_[m[3].toLowerCase().slice(0, 3)];
     if (mesIdx !== undefined) {
       const anio = parseInt(m[4], 10);
-      return { nombre: texto, numero: numero, inicio: new Date(anio, mesIdx, parseInt(m[1], 10)), fin: new Date(anio, mesIdx, parseInt(m[2], 10)) };
+      const diaIni = parseInt(m[1], 10), diaFin = parseInt(m[2], 10);
+      return {
+        nombre: texto, numero: numero,
+        inicio: new Date(anio, mesIdx, diaIni), fin: new Date(anio, mesIdx, diaFin),
+        inicioIso: fechaIsoDesdeEnteros_(anio, mesIdx, diaIni), finIso: fechaIsoDesdeEnteros_(anio, mesIdx, diaFin),
+      };
     }
   }
   // Cruza de mes: "Sprint 5 (28 jun-5 jul 2026)"
@@ -111,10 +125,15 @@ function parsearNombreSprint_(nombre) {
     const mesFin = JIRA_MESES_ES_[m[4].toLowerCase().slice(0, 3)];
     if (mesIni !== undefined && mesFin !== undefined) {
       const anio = parseInt(m[5], 10);
-      return { nombre: texto, numero: numero, inicio: new Date(anio, mesIni, parseInt(m[1], 10)), fin: new Date(anio, mesFin, parseInt(m[3], 10)) };
+      const diaIni = parseInt(m[1], 10), diaFin = parseInt(m[3], 10);
+      return {
+        nombre: texto, numero: numero,
+        inicio: new Date(anio, mesIni, diaIni), fin: new Date(anio, mesFin, diaFin),
+        inicioIso: fechaIsoDesdeEnteros_(anio, mesIni, diaIni), finIso: fechaIsoDesdeEnteros_(anio, mesFin, diaFin),
+      };
     }
   }
-  return { nombre: texto, numero: numero, inicio: null, fin: null };
+  return { nombre: texto, numero: numero, inicio: null, fin: null, inicioIso: null, finIso: null };
 }
 
 // ============================================================================
@@ -163,6 +182,11 @@ function leerFilasJiraImport_(hojaImport) {
       storyPoints: row[JIRA_IMPORT_COL_STORYPOINTS_],
       sprintsRaw: row[JIRA_IMPORT_COL_SPRINT_] || '',
       epicLink: row[JIRA_IMPORT_COL_EPIC_] || '',
+      // padre (parent.key): si el complemento no resuelve bien el path con
+      // puntos, puede devolver un volcado en bruto en vez de la clave limpia
+      // — se descarta en vez de propagar basura (mejor "sin padre" que un
+      // valor sin sentido usado para agrupar subtareas).
+      padre: /^[A-Za-z][A-Za-z0-9]*-\d+$/.test(String(row[JIRA_IMPORT_COL_PADRE_] || '').trim()) ? String(row[JIRA_IMPORT_COL_PADRE_]).trim() : '',
     });
   }
   if (filas.length === 0) return null;
@@ -187,7 +211,7 @@ function construirFilaJiraHistorico_(proyectoId, item, ahoraIso, filaExistente) 
     EstadoCategoria: item.estadoCategoria, Asignado: item.asignado, Tipo: item.tipo,
     Prioridad: item.prioridad, Creada: item.creada, Actualizada: item.actualizada,
     Resuelta: item.resuelta, StoryPoints: item.storyPoints === undefined ? '' : item.storyPoints,
-    SprintsJSON: JSON.stringify(sprints), EpicLink: item.epicLink,
+    SprintsJSON: JSON.stringify(sprints), EpicLink: item.epicLink, Padre: item.padre || '',
     PrimeraVezVisto: primeraVezVisto, UltimaVezVisto: ahoraIso,
   };
   return JIRA_HISTORICO_COLUMNAS_.map(function (col) { return valoresPorColumna[col]; });
@@ -250,8 +274,19 @@ function sincronizarJiraHistorico_(sheetId, proyectoId) {
     if (existentes.length > 0) {
       hojaHistorico.getRange(2, 1, existentes.length, JIRA_HISTORICO_COLUMNAS_.length).setValues(existentes);
     }
+
+    // Burndown diario: se registra tras el upsert, con el estado ya
+    // actualizado. Si no hay un sprint activo detectable (entre sprints, o
+    // los nombres no se pudieron parsear por fecha), simplemente no se
+    // registra nada ese día — no es un error.
+    const historicoActualizado = leerJiraHistorico_(sheetId, proyectoId);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const sprintActivoNombre = determinarSprintActivoJira_(historicoActualizado, hoy);
+    registrarPuntoBurndownDiario_(ss, proyectoId, historicoActualizado, sprintActivoNombre, hoy);
+
     PropertiesService.getScriptProperties().deleteProperty('jiraSyncError');
-    return { ok: true, creadas: creadas, actualizadas: actualizadas, vistasAhora: filasImport.length, totalHistorico: existentes.length };
+    return { ok: true, creadas: creadas, actualizadas: actualizadas, vistasAhora: filasImport.length, totalHistorico: existentes.length, sprintActivo: sprintActivoNombre };
   } finally {
     lock.releaseLock();
   }
@@ -279,6 +314,7 @@ function leerJiraHistorico_(sheetId, proyectoId) {
       prioridad: row[idx['Prioridad']], creada: row[idx['Creada']], actualizada: row[idx['Actualizada']],
       resuelta: row[idx['Resuelta']], storyPoints: row[idx['StoryPoints']],
       sprints: parseJsonSeguro_(row[idx['SprintsJSON']], []), epicLink: row[idx['EpicLink']],
+      padre: row[idx['Padre']] || '',
       primeraVezVisto: row[idx['PrimeraVezVisto']], ultimaVezVisto: row[idx['UltimaVezVisto']],
     });
   });
@@ -391,6 +427,157 @@ function computeTiemposCiclo_(historico) {
     const t = porTipo[k];
     return { tipo: t.tipo, incidencias: t.total, mediaDias: Math.round((t.suma / t.total) * 10) / 10 };
   });
+}
+
+// ============================================================================
+// "Sprint actual" reconstruido desde JiraHistorico — para que la pestaña
+// Sprint actual también funcione sin depender de la migración puntual.
+// ============================================================================
+
+var JIRA_TIPOS_SUBTAREA_ = ['subtarea', 'sub-task', 'subtask'];
+
+function esSubtarea_(tipo) {
+  return JIRA_TIPOS_SUBTAREA_.indexOf(String(tipo || '').trim().toLowerCase()) !== -1;
+}
+
+/**
+ * De todos los nombres de sprint vistos en JiraHistorico, decide cuál es
+ * "el activo" por ventana de fechas (parseadas del propio nombre — ver
+ * parsearNombreSprint_), no por posición en ninguna lista. Si hay solape
+ * (dos sprints cuya ventana contiene hoy — transición de cierre/apertura),
+ * se queda con el que termina más tarde. Si el parseo de fechas falla para
+ * todos, no hay forma fiable de saber cuál es "el activo" — devuelve null.
+ */
+function determinarSprintActivoJira_(historico, hoy) {
+  const nombresVistos = {};
+  historico.forEach(function (item) { (item.sprints || []).forEach(function (n) { nombresVistos[n] = true; }); });
+  const parseados = Object.keys(nombresVistos).map(parsearNombreSprint_).filter(function (s) { return s.inicio && s.fin; });
+  if (parseados.length === 0) return null;
+  const enVentana = parseados.filter(function (s) { return s.inicio <= hoy && hoy <= s.fin; });
+  if (enVentana.length > 0) {
+    enVentana.sort(function (a, b) { return b.fin - a.fin; });
+    return enVentana[0].nombre;
+  }
+  return null; // fuera de cualquier ventana conocida (entre sprints) — no se inventa uno "más cercano" aquí, a diferencia de la velocidad histórica, porque aquí sí importa acertar
+}
+
+/**
+ * Reconstruye un objeto "sprint" con la misma forma que ya espera el
+ * frontend (dashboard/cloud-apps-script/AppJs.html#renderSprintTab) a partir
+ * de las incidencias de JiraHistorico que referencian `nombreSprint`. Las
+ * Subtareas se anidan bajo su Historia padre vía el campo `padre` (Key de la
+ * incidencia padre, ver parent.key en la fórmula de JiraImport) — una
+ * Subtarea sin padre reconocido (campo vacío o no resuelto) se deja fuera
+ * en vez de mostrarse suelta sin contexto.
+ *
+ * Objetivo/CapacidadDisponible quedan vacíos — Jira Cloud for Sheets no
+ * expone el "goal" del sprint por esta vía, y la capacidad disponible es
+ * una decisión de planning que no vive en ningún campo de incidencia.
+ */
+function construirSprintDesdeJira_(historico, nombreSprint) {
+  const parsed = parsearNombreSprint_(nombreSprint);
+  const issuesDelSprint = historico.filter(function (item) { return (item.sprints || []).indexOf(nombreSprint) !== -1; });
+
+  const subtareasPorPadre = {};
+  const husRaw = [];
+  issuesDelSprint.forEach(function (item) {
+    if (esSubtarea_(item.tipo)) {
+      if (!item.padre) return;
+      if (!subtareasPorPadre[item.padre]) subtareasPorPadre[item.padre] = [];
+      subtareasPorPadre[item.padre].push({ descripcion: item.resumen, responsable: item.asignado, estado: item.estado });
+    } else {
+      husRaw.push(item);
+    }
+  });
+
+  const hu = husRaw.map(function (item) {
+    return {
+      hu: item.key, epica: item.epicLink || '', titulo: item.resumen, estado: item.estado,
+      tallas: item.storyPoints === '' || item.storyPoints === undefined ? '' : String(item.storyPoints),
+      subtareas: subtareasPorPadre[item.key] || [], responsable: item.asignado, locked: true,
+    };
+  });
+
+  const capacidadOcupada = issuesDelSprint.reduce(function (sum, i) { return sum + (parseFloat(i.storyPoints) || 0); }, 0);
+
+  return {
+    numero: parsed.numero, fechas: nombreSprint,
+    // inicioIso/finIso vienen de fechaIsoDesdeEnteros_ (concatenación de
+    // texto a partir de los enteros ya parseados) a propósito, no de
+    // formatear parsed.inicio/fin — evita cualquier redondeo de medianoche
+    // sensible a la zona horaria al pasar por un objeto Date.
+    fechaInicio: parsed.inicioIso || '',
+    fechaFin: parsed.finIso || '',
+    objetivo: '', capacidadDisponible: '', capacidadOcupada: String(capacidadOcupada),
+    nuevosRiesgos: [], activo: true, origen: 'jira', hu: hu,
+  };
+}
+
+// ============================================================================
+// Burndown diario — Jira Cloud for Sheets no expone el historial de cambios
+// de estado (necesitaría el changelog de Jira, fuera de alcance sin token),
+// así que no hay forma de reconstruir el burndown de días ya pasados. En su
+// lugar, cada sincronización registra "cuántos puntos quedan hoy" para el
+// sprint activo — un burndown real que se construye solo, día a día, desde
+// el momento en que esto se activó (no antes).
+// ============================================================================
+
+var JIRA_BURNDOWN_HOJA_ = 'JiraBurndownDiario';
+var JIRA_BURNDOWN_COLUMNAS_ = ['Proyecto', 'SprintNombre', 'Fecha', 'PuntosRestantes', 'PuntosTotal'];
+
+/**
+ * Upsert por (Proyecto, SprintNombre, Fecha=hoy): si la sincronización se
+ * ejecuta varias veces el mismo día, se sobrescribe el mismo punto en vez de
+ * duplicar filas — el dato del día es siempre el de la última sincronización.
+ */
+function registrarPuntoBurndownDiario_(ss, proyectoId, historico, nombreSprintActivo, hoy) {
+  if (!nombreSprintActivo) return;
+  let sheet = ss.getSheetByName(JIRA_BURNDOWN_HOJA_);
+  if (!sheet) {
+    sheet = ss.insertSheet(JIRA_BURNDOWN_HOJA_);
+    sheet.getRange(1, 1, 1, JIRA_BURNDOWN_COLUMNAS_.length).setValues([JIRA_BURNDOWN_COLUMNAS_]);
+    sheet.setFrozenRows(1);
+  }
+
+  const issuesDelSprint = historico.filter(function (item) { return (item.sprints || []).indexOf(nombreSprintActivo) !== -1; });
+  const puntosTotal = issuesDelSprint.reduce(function (sum, i) { return sum + (parseFloat(i.storyPoints) || 0); }, 0);
+  const puntosRestantes = issuesDelSprint.reduce(function (sum, i) { return sum + (esDone_(i) ? 0 : (parseFloat(i.storyPoints) || 0)); }, 0);
+  const fechaHoy = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+  const lastRow = sheet.getLastRow();
+  const existentes = lastRow >= 2 ? sheet.getRange(2, 1, lastRow - 1, JIRA_BURNDOWN_COLUMNAS_.length).getValues() : [];
+  const idxProyecto = JIRA_BURNDOWN_COLUMNAS_.indexOf('Proyecto');
+  const idxSprint = JIRA_BURNDOWN_COLUMNAS_.indexOf('SprintNombre');
+  const idxFecha = JIRA_BURNDOWN_COLUMNAS_.indexOf('Fecha');
+  let filaExistente = -1;
+  for (let i = 0; i < existentes.length; i++) {
+    if (String(existentes[i][idxProyecto]) === String(proyectoId) && existentes[i][idxSprint] === nombreSprintActivo && existentes[i][idxFecha] === fechaHoy) {
+      filaExistente = i;
+      break;
+    }
+  }
+  const nuevaFila = [proyectoId, nombreSprintActivo, fechaHoy, puntosRestantes, puntosTotal];
+  if (filaExistente !== -1) {
+    sheet.getRange(filaExistente + 2, 1, 1, JIRA_BURNDOWN_COLUMNAS_.length).setValues([nuevaFila]);
+  } else {
+    sheet.appendRow(nuevaFila);
+  }
+}
+
+/** Serie de burndown diario ya registrada para un sprint concreto, ordenada por fecha. */
+function leerBurndownDiarioJira_(sheetId, proyectoId, nombreSprint) {
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sheet = ss.getSheetByName(JIRA_BURNDOWN_HOJA_);
+  if (!sheet) return [];
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const values = sheet.getRange(2, 1, lastRow - 1, JIRA_BURNDOWN_COLUMNAS_.length).getValues();
+  const idx = {};
+  JIRA_BURNDOWN_COLUMNAS_.forEach(function (col, i) { idx[col] = i; });
+  return values
+    .filter(function (row) { return String(row[idx['Proyecto']]) === String(proyectoId) && row[idx['SprintNombre']] === nombreSprint; })
+    .map(function (row) { return { fecha: row[idx['Fecha']], puntosRestantes: row[idx['PuntosRestantes']], puntosTotal: row[idx['PuntosTotal']] }; })
+    .sort(function (a, b) { return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; });
 }
 
 // ============================================================================
