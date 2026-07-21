@@ -27,9 +27,15 @@ const backend = getBackend(PROJECT_PATH);
 // Tipos cuyas ediciones se registran en el ledger de cambios pendientes
 // (ver output-transversal/cambios-pendientes-dashboard.md) para que
 // actualizar-cascada.md sepa qué cambió sin re-escanear todo el proyecto.
-// El daily log queda fuera a propósito: no es un artefacto del que dependa
-// ningún otro paso del pipeline (no aparece en la tabla de esa cascada).
-const TIPOS_CON_CAMBIOS_PENDIENTES = new Set(Object.keys(TIPO_DESCRIPTORS));
+// Es la lista explícita de artefactos que cubre la tabla de dependencias de
+// ese prompt, NO "todos los tipos registro que existan" — los tipos de
+// Equipos (equipos/personas/ausencias/catalogoRoles/catalogoEmpresas) son
+// datos de roster/catálogo sin implicación de cascada, y el daily log queda
+// fuera porque no es un artefacto del que dependa ningún otro paso.
+const TIPOS_CON_CAMBIOS_PENDIENTES = new Set([
+  'riesgos', 'dependencias', 'acciones', 'impedimentos', 'changelog',
+  'peticiones', 'funcionales', 'nofuncionales', 'zonas',
+]);
 
 function readCacheIfExists() {
   if (fs.existsSync(CACHE_FILE)) {
@@ -111,8 +117,8 @@ app.put('/api/gee/:tipo/:id', async (req, res) => {
     return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, ...campos } para aplicar el cambio.' });
   }
   try {
-    const { confirm, ...fields } = req.body;
-    await backend.writeRow(PROJECT_PATH, tipo, id, fields, { origen: 'dashboard' });
+    const { confirm, autorPersona, ...fields } = req.body;
+    await backend.writeRow(PROJECT_PATH, tipo, id, fields, { origen: 'dashboard', autorPersona });
     if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
       await backend.logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
     }
@@ -133,8 +139,8 @@ app.post('/api/gee/:tipo', async (req, res) => {
     return res.status(400).json({ error: 'Falta confirmación explícita. Envía { "confirm": true, ...campos } para crear el registro.' });
   }
   try {
-    const { confirm, ...fields } = req.body;
-    const result = await backend.writeRow(PROJECT_PATH, tipo, null, fields, { origen: 'dashboard' });
+    const { confirm, autorPersona, ...fields } = req.body;
+    const result = await backend.writeRow(PROJECT_PATH, tipo, null, fields, { origen: 'dashboard', autorPersona });
     if (TIPOS_CON_CAMBIOS_PENDIENTES.has(tipo)) {
       await backend.logCambioPendiente(PROJECT_PATH, { artefacto: tipo, registroId: result.id, camposModificados: [] });
     }
@@ -248,7 +254,7 @@ app.get('/print/documento', (req, res) => {
     const version = req.query.version === 'cliente' ? 'cliente' : 'completa';
     const markdownRaw = fs.readFileSync(rutaAbsoluta, 'utf8');
     const markdown = version === 'cliente' ? stripContenidoInterno(markdownRaw) : markdownRaw;
-    const html = renderDocumentoView(markdown, rutaRelativa, version);
+    const html = renderDocumentoView(markdown, rutaRelativa);
     res.type('html').send(html);
   } catch (err) {
     console.error('[server] Error renderizando /print/documento:', err);
@@ -289,6 +295,36 @@ app.get('/api/documento/md', (req, res) => {
   } catch (err) {
     console.error('[server] Error sirviendo /api/documento/md:', err);
     res.status(500).send(`Error leyendo el documento: ${err.message}`);
+  }
+});
+
+// --- GET /api/documentos/exportar --------------------------------------------
+// A diferencia de GET /api/data (que solo incluye metadatos del catálogo de
+// documentos, igual que en modo local), esta ruta añade el CONTENIDO de cada
+// .md — pensada exclusivamente para el flujo de migración a modo nube
+// (dashboard/cloud-apps-script/Migracion.gs#migrarDocumentos), donde el PM
+// copia este JSON y lo pega en la página de migración para subir los
+// documentos a una carpeta de Drive del cliente. No se usa en el uso normal
+// del dashboard local — el catálogo local siempre lee del disco directamente,
+// nunca necesitó exportar el contenido en bloque hasta ahora.
+app.get('/api/documentos/exportar', async (req, res) => {
+  try {
+    const snapshot = readCacheIfExists() || (await backend.readSnapshot(PROJECT_PATH));
+    const documentos = snapshot.documentos || [];
+    const conContenido = documentos.map((doc) => {
+      let contenido = '';
+      try {
+        const rutaAbsoluta = resolveRutaDocumento(PROJECT_PATH, doc.ruta);
+        contenido = fs.readFileSync(rutaAbsoluta, 'utf8');
+      } catch (err) {
+        console.error(`[server] No se pudo leer el contenido de ${doc.ruta} para exportar:`, err.message);
+      }
+      return { ...doc, contenido };
+    });
+    res.json({ documentos: conContenido });
+  } catch (err) {
+    console.error('[server] Error en /api/documentos/exportar:', err);
+    res.status(500).json({ error: 'Error exportando documentos', detail: err.message });
   }
 });
 

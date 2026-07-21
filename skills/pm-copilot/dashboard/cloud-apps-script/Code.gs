@@ -234,6 +234,7 @@ function leerSprints_(sheetId, proyectoId) {
     return {
       sprintNumero: f['SprintNumero'], hu: f['HU'] || '', epica: f['Epica'] || '', titulo: f['Titulo'] || '',
       estado: f['Estado'] || '', tallas: f['Tallas'] || '', subtareas: parseJsonSeguro_(f['SubtareasJSON'], []),
+      responsable: f['Responsable'] || '',
     };
   });
 
@@ -247,7 +248,7 @@ function leerSprints_(sheetId, proyectoId) {
         hu: husTodas
           .filter(function (h) { return h.sprintNumero === s.numero; })
           .map(function (h) {
-            return { hu: h.hu, epica: h.epica, titulo: h.titulo, estado: h.estado, tallas: h.tallas, subtareas: h.subtareas, locked: activo };
+            return { hu: h.hu, epica: h.epica, titulo: h.titulo, estado: h.estado, tallas: h.tallas, subtareas: h.subtareas, responsable: h.responsable, locked: activo };
           }),
       };
     })
@@ -283,6 +284,7 @@ function leerDocumentos_(sheetId, proyectoId) {
     return {
       ruta: f['Ruta'] || '', titulo: f['Titulo'] || '', descripcion: f['Descripcion'] || '',
       paso: f['Paso'] || '', tamano: f['Tamano'] || '', modificadoEn: f['ModificadoEn'] || '',
+      driveUrl: f['DriveUrl'] || '',
     };
   });
 }
@@ -353,6 +355,144 @@ function calcularMetricas_(riesgos, dependencias, impedimentos, sprints) {
   };
 }
 
+function normalizarNombre_(s) {
+  return String(s || '').trim().toLowerCase();
+}
+
+/**
+ * Copia de computeEntregaPorPersona en dashboard/lib/buildSnapshot.js —
+ * incluye el mismo respaldo al asignado de la propia historia (`hu.responsable`,
+ * viene de Jira `assignee.displayName`) cuando la HU no trae subtareas
+ * propias desglosadas, porque Jira da un asignado por historia, no por
+ * subtarea.
+ */
+function computeEntregaPorPersona_(sprintActivo, personas) {
+  if (!sprintActivo || !sprintActivo.hu) return [];
+  const porNombre = {};
+  function contar(nombreRaw, estado) {
+    const nombre = String(nombreRaw || '').trim();
+    if (!nombre) return;
+    const key = normalizarNombre_(nombre);
+    if (!porNombre[key]) porNombre[key] = { nombre: nombre, total: 0, hechas: 0 };
+    porNombre[key].total++;
+    if (/hecho|terminad|complet|✅/i.test(estado || '')) porNombre[key].hechas++;
+  }
+  sprintActivo.hu.forEach(function (hu) {
+    if (hu.subtareas && hu.subtareas.length) {
+      hu.subtareas.forEach(function (st) { contar(st.responsable, st.estado); });
+    } else if (hu.responsable) {
+      contar(hu.responsable, hu.estado);
+    }
+  });
+  const personaPorNombre = {};
+  personas.forEach(function (p) { personaPorNombre[normalizarNombre_(p.nombre)] = p; });
+  return Object.keys(porNombre).map(function (key) {
+    const e = porNombre[key];
+    const persona = personaPorNombre[key];
+    return {
+      nombre: e.nombre,
+      personaId: persona ? persona.id : null,
+      totalSubtareas: e.total,
+      subtareasHechas: e.hechas,
+      pctCompletado: e.total ? Math.round((e.hechas / e.total) * 1000) / 10 : null,
+    };
+  });
+}
+
+/** Copia de computeCapacidadPrevista en dashboard/lib/buildSnapshot.js. */
+function computeCapacidadPrevista_(personas, ausencias, sprintActivo) {
+  const activas = personas.filter(function (p) { return p.activo; });
+  const dedicacionTotalPct = activas.reduce(function (sum, p) { return sum + (parseFloat(p.dedicacionPct) || 0); }, 0);
+  let ausentesEnSprintActivo = [];
+  if (sprintActivo && sprintActivo.fechaInicio && sprintActivo.fechaFin) {
+    const inicioSprint = new Date(sprintActivo.fechaInicio);
+    const finSprint = new Date(sprintActivo.fechaFin);
+    if (!isNaN(inicioSprint) && !isNaN(finSprint)) {
+      ausentesEnSprintActivo = ausencias
+        .filter(function (a) {
+          if (!a.fechaInicio || !a.fechaFin) return false;
+          const inicio = new Date(a.fechaInicio);
+          const fin = new Date(a.fechaFin);
+          return !isNaN(inicio) && !isNaN(fin) && inicio <= finSprint && fin >= inicioSprint;
+        })
+        .map(function (a) {
+          const persona = personas.filter(function (p) { return p.id === a.personaId; })[0];
+          return {
+            personaId: a.personaId, nombre: persona ? persona.nombre : a.personaId,
+            fechaInicio: a.fechaInicio, fechaFin: a.fechaFin, motivo: a.motivo,
+          };
+        });
+    }
+  }
+  return { dedicacionTotalPct: dedicacionTotalPct, personasActivas: activas.length, ausentesEnSprintActivo: ausentesEnSprintActivo };
+}
+
+/** Lee equipos/personas/ausencias/catálogos y calcula el cruce con el sprint activo. */
+function leerEquipos_(sheetId, proyectoId, sprints, jiraHistorico) {
+  const equipos = leerRegistros_(sheetId, proyectoId, 'equipos');
+  const personasRaw = leerRegistros_(sheetId, proyectoId, 'personas');
+  const personas = personasRaw.map(function (p) {
+    return Object.assign({}, p, {
+      esGestor: /^s[ií]$/i.test(String(p.esGestor || '').trim()),
+      activo: String(p.activo || '').trim() === '' ? true : /^s[ií]$/i.test(String(p.activo).trim()),
+    });
+  });
+  const ausencias = leerRegistros_(sheetId, proyectoId, 'ausencias');
+  const catalogoRoles = leerRegistros_(sheetId, proyectoId, 'catalogoRoles');
+  const catalogoEmpresas = leerRegistros_(sheetId, proyectoId, 'catalogoEmpresas');
+  const sprintActivo = sprints.filter(function (s) { return s.activo; })[0] || null;
+
+  // Entrega por persona: si hay datos de JiraHistorico (JiraImport + el
+  // complemento "Jira Cloud for Sheets" configurados — ver JiraHistorico.gs),
+  // esa es la fuente real (asignado/estado reales de Jira); si no, se cae al
+  // cálculo antiguo basado en subtareas/responsable escrito a mano en el sprint.
+  const entregaPorPersona = jiraHistorico.length > 0
+    ? computeEntregaPorPersonaJira_(jiraHistorico)
+    : computeEntregaPorPersona_(sprintActivo, personas);
+
+  return {
+    equipos: equipos,
+    personas: personas,
+    ausencias: ausencias,
+    catalogoRoles: catalogoRoles,
+    catalogoEmpresas: catalogoEmpresas,
+    capacidadPrevista: computeCapacidadPrevista_(personas, ausencias, sprintActivo),
+    entregaPorPersona: entregaPorPersona,
+  };
+}
+
+/**
+ * Analítica de entrega desde Jira (JiraHistorico.gs) — velocidad histórica,
+ * cuellos de botella y tiempos de ciclo. Vacío (arrays vacíos, no error) si
+ * el proyecto todavía no tiene Jira Cloud for Sheets configurado — ver
+ * README.md, sección "Analítica de Jira".
+ */
+function leerJiraAnalytics_(historico, hoy) {
+  return {
+    disponible: historico.length > 0,
+    velocidadHistorica: computeVelocidadHistoricaJira_(historico),
+    cuellosBotella: computeCuellosBotella_(historico, hoy),
+    tiemposCiclo: computeTiemposCiclo_(historico),
+  };
+}
+
+/**
+ * Sustituye el sprint activo de la migración por el reconstruido en vivo
+ * desde JiraHistorico, cuando hay uno detectable (ver determinarSprintActivoJira_
+ * en JiraHistorico.gs) — mismo patrón "usar Jira si hay, si no caer al
+ * mecanismo antiguo" ya usado en Equipos. Los sprints no activos de la
+ * migración se conservan tal cual (siguen siendo útiles como histórico
+ * aunque no se puedan refrescar solos).
+ */
+function fusionarSprintsConJira_(sheetId, proyectoId, sprintsMigracion, historico, hoy) {
+  const nombreActivo = determinarSprintActivoJira_(historico, hoy);
+  if (!nombreActivo) return sprintsMigracion;
+  const sprintJira = construirSprintDesdeJira_(historico, nombreActivo);
+  sprintJira.burndownDiario = leerBurndownDiarioJira_(sheetId, proyectoId, nombreActivo);
+  const sinActivoMigrado = sprintsMigracion.filter(function (s) { return !s.activo; });
+  return sinActivoMigrado.concat([sprintJira]).sort(function (a, b) { return (a.numero || 0) - (b.numero || 0); });
+}
+
 // ============================================================================
 // Snapshot completo — misma forma que dashboard/lib/buildSnapshot.js
 // ============================================================================
@@ -370,12 +510,20 @@ function leerSnapshot(sheetId, proyectoId) {
   const roadmapTecnico = leerJsonUnico_(sheetId, proyectoId, 'roadmapTecnico');
   const roadmapCliente = leerRoadmapCliente_(sheetId, proyectoId);
 
-  const sprints = leerSprints_(sheetId, proyectoId);
+  const sprintsMigracion = leerSprints_(sheetId, proyectoId);
 
   const legacy = leerJsonUnico_(sheetId, proyectoId, 'legacy');
   const paso0 = leerRequisitosPaso0_(sheetId, proyectoId);
   const cambiosPendientes = leerCambiosPendientes_(sheetId, proyectoId);
   const documentos = leerDocumentos_(sheetId, proyectoId);
+
+  const jiraHistorico = leerJiraHistorico_(sheetId, proyectoId);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const sprints = fusionarSprintsConJira_(sheetId, proyectoId, sprintsMigracion, jiraHistorico, hoy);
+
+  const equipos = leerEquipos_(sheetId, proyectoId, sprints, jiraHistorico);
+  const jiraAnalytics = leerJiraAnalytics_(jiraHistorico, hoy);
 
   const metricas = calcularMetricas_(riesgos, dependencias, impedimentos, sprints);
 
@@ -398,6 +546,8 @@ function leerSnapshot(sheetId, proyectoId) {
     requisitos: { legacy: legacy, paso0: paso0 },
     cambiosPendientes: cambiosPendientes,
     documentos: documentos,
+    equipos: equipos,
+    jiraAnalytics: jiraAnalytics,
     metricas: metricas,
   };
 }
@@ -451,7 +601,7 @@ function escribirRegistro_(sheetId, proyectoId, tipo, id, camposSemanticos, meta
     }
   });
   fila[columnas.indexOf('Última modificación')] = new Date().toISOString();
-  fila[columnas.indexOf('Modificado por')] = (meta && meta.origen) || 'skill';
+  fila[columnas.indexOf('Modificado por')] = (meta && meta.autorPersona) || (meta && meta.origen) || 'skill';
 
   if (creado) {
     sheet.appendRow(fila);
@@ -460,6 +610,11 @@ function escribirRegistro_(sheetId, proyectoId, tipo, id, camposSemanticos, meta
   }
   return { id: idFinal, created: creado };
 }
+
+// Tipos que cubre la tabla de dependencias de actualizar-cascada.md — NO
+// "todos los tipos registro que existan". Los tipos de Equipos son datos de
+// roster/catálogo sin implicación de cascada (ver TipoDescriptorsSheets.gs).
+var TIPOS_CASCADA_ = ['riesgos', 'dependencias', 'acciones', 'impedimentos', 'changelog', 'peticiones', 'funcionales', 'nofuncionales', 'zonas'];
 
 function registrarCambioPendiente_(sheetId, proyectoId, entry) {
   const descriptor = TIPO_DESCRIPTORS_SHEETS.cambiosPendientes;
@@ -503,7 +658,12 @@ function agregarNotaDailylog_(sheetId, proyectoId, fechaInput, payload) {
 
   const autorFinal = (payload.autor && String(payload.autor).trim()) || 'Sin especificar';
   const fechaHora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', 'yyyy-MM-dd HH:mm');
-  const notaNueva = { fechaHora: fechaHora, autor: autorFinal, texto: texto.trim() };
+  // Asociación opcional con otros registros del GEE — a diferencia de modo
+  // local (que codifica esto como sufijo de texto en la línea markdown, ver
+  // writers/dailylog.js), aquí NotasJSON ya es JSON de verdad, así que
+  // "relacionados" es simplemente un campo más del objeto, sin truco de texto.
+  const relacionados = Array.isArray(payload.relacionados) ? payload.relacionados.filter(Boolean) : [];
+  const notaNueva = { fechaHora: fechaHora, autor: autorFinal, texto: texto.trim(), relacionados: relacionados };
 
   const creado = targetRowNum === -1;
   const fila = creado ? new Array(columnas.length).fill('') : filaActual.slice();
@@ -577,9 +737,11 @@ function apiPutGee(sheetId, proyectoId, tipo, id, body) {
   }
   try {
     const fields = {};
-    Object.keys(body).forEach(function (k) { if (k !== 'confirm') fields[k] = body[k]; });
-    escribirRegistro_(sheetId, proyectoId, tipo, id, fields, { origen: 'dashboard' });
-    registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
+    Object.keys(body).forEach(function (k) { if (k !== 'confirm' && k !== 'autorPersona') fields[k] = body[k]; });
+    escribirRegistro_(sheetId, proyectoId, tipo, id, fields, { origen: 'dashboard', autorPersona: body.autorPersona });
+    if (TIPOS_CASCADA_.indexOf(tipo) !== -1) {
+      registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: id, camposModificados: Object.keys(fields) });
+    }
     return ok_(leerSnapshot(sheetId, proyectoId));
   } catch (err) {
     return fail_(500, 'Error actualizando ' + tipo + '/' + id + ': ' + err.message);
@@ -595,9 +757,11 @@ function apiPostGee(sheetId, proyectoId, tipo, body) {
   }
   try {
     const fields = {};
-    Object.keys(body).forEach(function (k) { if (k !== 'confirm') fields[k] = body[k]; });
-    const result = escribirRegistro_(sheetId, proyectoId, tipo, null, fields, { origen: 'dashboard' });
-    registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: result.id, camposModificados: [] });
+    Object.keys(body).forEach(function (k) { if (k !== 'confirm' && k !== 'autorPersona') fields[k] = body[k]; });
+    const result = escribirRegistro_(sheetId, proyectoId, tipo, null, fields, { origen: 'dashboard', autorPersona: body.autorPersona });
+    if (TIPOS_CASCADA_.indexOf(tipo) !== -1) {
+      registrarCambioPendiente_(sheetId, proyectoId, { artefacto: tipo, registroId: result.id, camposModificados: [] });
+    }
     return ok_({ createdId: result.id, snapshot: leerSnapshot(sheetId, proyectoId) });
   } catch (err) {
     return fail_(500, 'Error creando registro en ' + tipo + ': ' + err.message);
@@ -609,7 +773,7 @@ function apiPostDailylog(sheetId, proyectoId, body) {
     return fail_(400, 'Falta confirmación explícita. Envía { "confirm": true, autor, texto } para añadir la nota.');
   }
   try {
-    const payload = { autor: body.autor, texto: body.texto };
+    const payload = { autor: body.autor, texto: body.texto, relacionados: body.relacionados };
     const result = agregarNotaDailylog_(sheetId, proyectoId, body.fecha || null, payload);
     return ok_({ fecha: result.fecha, creado: result.created, snapshot: leerSnapshot(sheetId, proyectoId) });
   } catch (err) {
@@ -666,6 +830,15 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(renderMigratePage(sheetId, proyectoId)).setTitle('Migrar a la nube — ' + proyectoId);
   }
 
+  if (vista === 'documento') {
+    const ruta = e.parameter.ruta;
+    const versionDoc = e.parameter.version === 'cliente' ? 'cliente' : 'completa';
+    if (!ruta) {
+      return HtmlService.createHtmlOutput('<p style="font-family:sans-serif;padding:24px;">Falta el parámetro <code>ruta</code>.</p>');
+    }
+    return renderVistaDocumento_(sheetId, proyectoId, ruta, versionDoc);
+  }
+
   // OJO: NO usar setXFrameOptionsMode(ALLOWALL) aquí. Ese modo es para permitir
   // incrustar la página dentro del iframe de OTRO sitio, que no es este caso
   // (el usuario abre la URL directamente) — y rompe el mecanismo interno de
@@ -681,6 +854,13 @@ function doGet(e) {
   const template = HtmlService.createTemplateFromFile('Index');
   template.sheetId = sheetId;
   template.proyectoId = proyectoId;
+  // OJO: nunca derivar la URL pública del Web App con window.location.href en
+  // el cliente — el contenido de Apps Script se sirve dentro de un iframe
+  // (googleusercontent.com/userCodeAppPanel), así que window.location.href
+  // ahí dentro apunta a esa URL interna del iframe, no a la URL real
+  // (script.google.com/.../exec) que hay que abrir en una pestaña nueva.
+  // ScriptApp.getService().getUrl() sí devuelve la URL pública correcta.
+  template.webAppUrl = ScriptApp.getService().getUrl();
   return template
     .evaluate()
     .setTitle('PM Copilot — ' + proyectoId)
@@ -726,5 +906,47 @@ function bootstrapClientSheet(sheetId) {
   if (porDefecto && porDefecto.getLastRow() === 0 && ss.getSheets().length > 1) {
     ss.deleteSheet(porDefecto);
   }
+  // Nota: a diferencia del modo local (donde la plantilla de catalogoRoles/
+  // catalogoEmpresas siembra 6 roles + "Paradigma" al primer alta), aquí NO
+  // se siembra nada — bootstrapClientSheet no recibe un proyectoId concreto
+  // (una misma Sheet aloja varios proyectos) y estos catálogos son por
+  // proyecto, así que no hay un proyectoId válido al que asignar la semilla
+  // en este punto. El primer uso del dashboard en cada proyecto simplemente
+  // parte de catálogos vacíos — mismo punto de partida que Riesgos/Acciones/etc.
   return 'Listo — ' + Object.keys(TIPO_DESCRIPTORS_SHEETS).length + ' pestañas verificadas/creadas.';
+}
+
+// ============================================================================
+// JiraImport — pestaña de aterrizaje para el complemento "Jira Cloud for
+// Sheets" (login normal, sin token, de solo lectura). Decisión del PM: el
+// token de API de Jira se queda exclusivamente en modo local (bajo su
+// dominio, para altas puntuales de épicas/historias con él delante); el
+// dashboard nube — que se comparte con el equipo — no debe llevar ningún
+// secreto embebido, así que su vía de refresco es esta pestaña + el propio
+// complemento, no una llamada autenticada con token.
+//
+// Uso (manual, una vez, guiado igual que bootstrapClientSheet):
+//   1. Ejecuta crearHojaJiraImport(sheetId) una vez (crea la pestaña e
+//      inserta una JQL de ejemplo en A2 — sustituye "TU_PROJECT_KEY").
+//   2. Instala el complemento "Jira Cloud for Sheets" (Extensiones >
+//      Complementos > Obtener complementos) e inicia sesión con tu cuenta
+//      de Jira — no hace falta ningún token.
+//   3. Desde el complemento, apunta la consulta a la pestaña "JiraImport",
+//      pegando la JQL de la celda A2, insertando resultados a partir de A4.
+//      Actívalo con refresco automático si el complemento lo ofrece.
+//   4. Una vez haya datos reales ahí, hay que escribir la función que
+//      traduzca esas columnas a las pestañas Sprints/SprintHU que ya lee el
+//      dashboard — pendiente hasta ver el formato real que produce el
+//      complemento (varía algo entre versiones), así que no se ha escrito
+//      todavía a ciegas.
+// ============================================================================
+
+function crearHojaJiraImport(sheetId) {
+  const ss = SpreadsheetApp.openById(sheetId);
+  let sheet = ss.getSheetByName('JiraImport');
+  if (!sheet) sheet = ss.insertSheet('JiraImport');
+  sheet.getRange('A1').setValue('JQL para el complemento "Jira Cloud for Sheets" (pégala en su configuración, apuntando a esta pestaña desde A4):');
+  sheet.getRange('A2').setValue('project = "TU_PROJECT_KEY" AND sprint in openSprints() ORDER BY key ASC');
+  sheet.getRange('A3').setValue('(sustituye TU_PROJECT_KEY por el key real del proyecto en Jira antes de activar el complemento)');
+  return 'Pestaña "JiraImport" lista. Sigue los pasos del comentario en Code.gs (sección JiraImport) para activar el complemento.';
 }

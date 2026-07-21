@@ -40,7 +40,7 @@ async function writeRow(projectPath, tipo, id, fields, meta) {
   // cloud (ver mejoras-pendientes.md): permite saber si la última mano que
   // tocó una fila fue el skill o el propio dashboard, y cuándo.
   mappedFields['Última modificación'] = new Date().toISOString();
-  mappedFields['Modificado por'] = (meta && meta.origen) || 'skill';
+  mappedFields['Modificado por'] = (meta && meta.autorPersona) || (meta && meta.origen) || 'skill';
   return upsertRow(filePath, descriptor.headingCandidates, id, mappedFields, {
     idPrefix: descriptor.idPrefix,
     plantillaSiNoExiste: descriptor.plantillaSiNoExiste,

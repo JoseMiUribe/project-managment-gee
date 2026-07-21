@@ -13,7 +13,15 @@
   // dashboard/cloud-apps-script/README.md, sección "doGet"). AppJs.html
   // (incluido al final de este archivo) lo lee como window.PM_CLOUD_CONFIG
   // para saber qué Google Sheet/proyecto consultar en cada google.script.run.
-  window.PM_CLOUD_CONFIG = { sheetId: <?!= JSON.stringify(sheetId) ?>, proyectoId: <?!= JSON.stringify(proyectoId) ?> };
+  // webAppUrl viene de ScriptApp.getService().getUrl() en el servidor —
+  // nunca de window.location.href aquí (ver la nota en Code.gs#doGet: ese
+  // valor dentro del iframe de contenido de Apps Script apunta a la URL
+  // interna del iframe, no a la URL pública real).
+  window.PM_CLOUD_CONFIG = {
+    sheetId: <?!= JSON.stringify(sheetId) ?>,
+    proyectoId: <?!= JSON.stringify(proyectoId) ?>,
+    webAppUrl: <?!= JSON.stringify(webAppUrl) ?>
+  };
 </script>
 
 <!-- ======================= HEADER GLOBAL ======================= -->
@@ -23,6 +31,7 @@
     <div class="project-meta" id="project-ruta" title=""></div>
   </div>
   <div class="header-actions">
+    <div id="identidad-selector-wrap" class="identidad-selector-wrap hidden"></div>
     <span id="badge-cambios-pendientes" class="badge-cambios-pendientes hidden"></span>
     <span class="header-actualizado">Actualizado: <code id="project-generado-en">—</code></span>
     <button id="btn-sync" class="btn btn-primary">
@@ -43,6 +52,7 @@
   <button class="tab-btn" data-tab="tab-gee">GEE</button>
   <button class="tab-btn" data-tab="tab-requisitos">Requisitos</button>
   <button class="tab-btn" data-tab="tab-documentos">Documentos</button>
+  <button class="tab-btn" data-tab="tab-equipos">Equipos</button>
 </nav>
 
 <!-- ======================= TAB: SPRINT ACTUAL ======================= -->
@@ -139,6 +149,33 @@
     <div id="capacidad-actual-contenido"></div>
   </div>
 
+  <!-- Solo aparece si el proyecto tiene Jira Cloud for Sheets configurado
+       (pestaña JiraImport + JiraHistorico ya sincronizado) — ver
+       JiraHistorico.gs y README.md, sección "Analítica de Jira". Oculta
+       por defecto, la muestra renderJiraAnalyticsSection() en AppJs.html. -->
+  <div id="jira-analytics-section" class="hidden">
+    <div class="section-header">
+      <h2 style="margin:0;">📊 Salud de entrega — Jira</h2>
+    </div>
+    <div class="card">
+      <h2>Velocidad histórica (Jira)</h2>
+      <p class="text-muted">Puntos completados por sprint, a lo largo de todo el histórico. Una incidencia que pasó por varios sprints cuenta en cada uno de ellos — la suma entre sprints puede superar el total de puntos únicos.</p>
+      <div id="chart-jira-velocidad-historica" class="chart-box"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Cuellos de botella</h2>
+        <p class="text-muted">Incidencias no terminadas ordenadas por días sin tocar — una aproximación, no el tiempo real en cada estado.</p>
+        <div id="jira-cuellos-botella-contenido"></div>
+      </div>
+      <div class="card">
+        <h2>Tiempos de ciclo</h2>
+        <p class="text-muted">Días de creación a resolución, por tipo de incidencia.</p>
+        <div id="jira-tiempos-ciclo-contenido"></div>
+      </div>
+    </div>
+  </div>
+
 </section>
 
 <!-- ======================= TAB: GEE ======================= -->
@@ -233,11 +270,15 @@
           </div>
           <div class="form-field">
             <label>Autor</label>
-            <input type="text" id="nota-autor" placeholder="Tu nombre" />
+            <div id="nota-autor-wrap"><input type="text" id="nota-autor" placeholder="Tu nombre" /></div>
           </div>
           <div class="form-field form-field-wide">
             <label>Nota</label>
             <textarea id="nota-texto" rows="3"></textarea>
+          </div>
+          <div class="form-field form-field-wide">
+            <label>Relacionar con (opcional)</label>
+            <div id="nota-relacion-picker"></div>
           </div>
         </div>
         <div class="form-actions">
@@ -357,6 +398,81 @@
     "Versión cliente" retira cualquier bloque marcado en el propio documento como uso interno del equipo — el resto del contenido es idéntico.
   </p>
   <div id="documentos-lista"></div>
+</section>
+
+<!-- ======================= TAB: EQUIPOS ======================= -->
+<!-- Roster vivo de quién está en el proyecto ahora mismo — distinto del
+     snapshot de estimación de output-paso-2/capacidad-equipo/, que sigue
+     existiendo tal cual. Reutiliza el mismo motor genérico de tabla+edición
+     que GEE/Requisitos (ver EQUIPOS_CONFIG en AppJs.html). -->
+<section id="tab-equipos" class="tab-panel">
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Composición del equipo</h2>
+      <div id="chart-equipos-composicion" class="chart-box chart-sm"></div>
+    </div>
+    <div class="card">
+      <h2>Capacidad prevista (sprint activo)</h2>
+      <div id="equipos-capacidad-resumen"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Entrega por persona (sprint activo)</h2>
+    <p class="text-muted">% de subtareas en estado "Hecho", agrupadas por el responsable de cada subtarea del sprint. Depende de que ese campo esté bien rellenado (sync de Jira o sprint planning manual).</p>
+    <div id="chart-equipos-entrega" class="chart-box chart-sm"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-header">
+      <h2>Equipos</h2>
+      <button class="btn btn-primary btn-sm" data-toggle-form="form-nuevo-equipo">+ Nuevo equipo</button>
+    </div>
+    <p class="text-muted">Opcional — solo hace falta si el proyecto tiene más de un equipo (p. ej. uno externo encargado de otra parte).</p>
+    <div id="form-nuevo-equipo" class="new-record-form"></div>
+    <div id="equipos-tabla-wrap" class="table-wrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-header">
+      <h2>Personas</h2>
+      <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-persona">+ Nueva persona</button>
+    </div>
+    <p class="text-muted">Marca "Equipo de gestión" a quien deba poder aparecer en el selector "¿Quién eres?" de la cabecera y como autor de notas del daily log.</p>
+    <div id="form-nueva-persona" class="new-record-form"></div>
+    <div id="personas-tabla-wrap" class="table-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>Ausencias</h2>
+    <div id="chart-equipos-ausencias" class="chart-box"></div>
+    <div class="section-header">
+      <button class="btn btn-primary btn-sm" data-toggle-form="form-nueva-ausencia">+ Nueva ausencia</button>
+    </div>
+    <div id="form-nueva-ausencia" class="new-record-form"></div>
+    <div id="ausencias-tabla-wrap" class="table-wrap"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="section-header">
+        <h2>Catálogo de roles</h2>
+        <button class="btn btn-sm" data-toggle-form="form-nuevo-rol-catalogo">+ Añadir rol</button>
+      </div>
+      <div id="form-nuevo-rol-catalogo" class="new-record-form"></div>
+      <div id="catalogo-roles-tabla-wrap" class="table-wrap"></div>
+    </div>
+    <div class="card">
+      <div class="section-header">
+        <h2>Catálogo de empresas</h2>
+        <button class="btn btn-sm" data-toggle-form="form-nueva-empresa-catalogo">+ Añadir empresa</button>
+      </div>
+      <div id="form-nueva-empresa-catalogo" class="new-record-form"></div>
+      <div id="catalogo-empresas-tabla-wrap" class="table-wrap"></div>
+    </div>
+  </div>
+
 </section>
 
 <!-- MODO NUBE: ECharts se carga desde un CDN público en vez de vendorizado

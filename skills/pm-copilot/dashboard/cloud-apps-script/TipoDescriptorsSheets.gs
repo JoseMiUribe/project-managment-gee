@@ -112,6 +112,35 @@ const TIPO_DESCRIPTORS_SHEETS = {
     },
   },
 
+  // --- Registro editable (Equipos) — roster vivo, distinto del snapshot de
+  // estimación "capacidad" (lectura-json más abajo). No forman parte de la
+  // cascada de actualizar-cascada.md (ver TIPOS_CASCADA_ en Code.gs) porque
+  // son datos de roster/catálogo, no artefactos con implicación de cascada.
+  equipos: {
+    kind: 'registro', hoja: 'Equipos', idPrefix: 'EQ',
+    campos: { nombre: 'Nombre', ambito: 'Ámbito' },
+  },
+  personas: {
+    kind: 'registro', hoja: 'Personas', idPrefix: 'P',
+    campos: {
+      nombre: 'Nombre', equipoId: 'Equipo', empresa: 'Empresa', rol: 'Rol',
+      emailCorporativo: 'Email corporativo', dedicacionPct: 'Dedicación (%)',
+      esGestor: 'Equipo de gestión', activo: 'Activo',
+    },
+  },
+  ausencias: {
+    kind: 'registro', hoja: 'Ausencias', idPrefix: 'AU',
+    campos: { personaId: 'Persona', fechaInicio: 'Fecha inicio', fechaFin: 'Fecha fin', motivo: 'Motivo' },
+  },
+  catalogoRoles: {
+    kind: 'registro', hoja: 'CatalogoRoles', idPrefix: 'ROL',
+    campos: { nombre: 'Nombre' },
+  },
+  catalogoEmpresas: {
+    kind: 'registro', hoja: 'CatalogoEmpresas', idPrefix: 'EMP',
+    campos: { nombre: 'Nombre' },
+  },
+
   // --- Ledger interno (append-only, nunca se edita una fila existente) ---
   cambiosPendientes: {
     kind: 'ledger', hoja: 'CambiosPendientes', idPrefix: 'CD',
@@ -119,9 +148,14 @@ const TIPO_DESCRIPTORS_SHEETS = {
   },
 
   // --- Catálogo de metadatos (poblado por migración, sin escritura desde el dashboard) ---
+  // DriveFileId/DriveUrl los rellena migrarDocumentos (Migracion.gs) al subir
+  // el CONTENIDO de cada .md a una carpeta de Drive del proyecto — la
+  // migración normal (migrarDesdeSnapshot) solo trae metadatos y actualiza
+  // estas dos columnas por Ruta en vez de reemplazar la pestaña entera, para
+  // no perder el enlace de Drive ya subido en una migración anterior.
   documentos: {
     kind: 'catalogo', hoja: 'Documentos',
-    columnas: ['Proyecto', 'Ruta', 'Titulo', 'Descripcion', 'Paso', 'Tamano', 'ModificadoEn'],
+    columnas: ['Proyecto', 'Ruta', 'Titulo', 'Descripcion', 'Paso', 'Tamano', 'ModificadoEn', 'DriveFileId', 'DriveUrl'],
   },
 
   // --- Lectura tabular (poblado por migración, sin escritura desde el dashboard) ---
@@ -138,8 +172,17 @@ const TIPO_DESCRIPTORS_SHEETS = {
     columnas: ['Proyecto', 'Numero', 'Fechas', 'FechaInicio', 'FechaFin', 'Objetivo', 'CapacidadDisponible', 'CapacidadOcupada', 'RevisionCerrada', 'NuevosRiesgosJSON'],
   },
   sprintHu: {
+    // Responsable va AL FINAL (no reordena las columnas existentes) porque
+    // el orden de lectura es posicional: una Sheet de producción ya
+    // poblada con el layout antiguo (8 columnas) debe poder seguir
+    // leyéndose sin romperse, con "Responsable" simplemente vacío en filas
+    // ya migradas hasta la próxima migración. Es el asignado de la propia
+    // historia (Jira assignee.displayName en una sync en vivo, o vacío en
+    // sprints escritos a mano con desglose de subtareas propio) — necesario
+    // para cruzar entrega por persona en Equipos cuando el sprint viene de
+    // Jira, que no da asignado por subtarea, solo por historia.
     kind: 'lectura-tabular', hoja: 'SprintHU',
-    columnas: ['Proyecto', 'SprintNumero', 'HU', 'Epica', 'Titulo', 'Estado', 'Tallas', 'SubtareasJSON'],
+    columnas: ['Proyecto', 'SprintNumero', 'HU', 'Epica', 'Titulo', 'Estado', 'Tallas', 'SubtareasJSON', 'Responsable'],
   },
   reglasNegocio: {
     // Sub-tabla opcional dentro de requisitos-funcionales.md en modo local

@@ -74,6 +74,10 @@ function parseNotas(text) {
   if (!body) return [];
 
   const lineRe = /^-\s*\*\*\[([^\]]+)\]\s*([^:]+):\*\*\s*(.*)$/;
+  // Sufijo opcional " (relacionado con: R-001, A-002)" al final de la propia
+  // línea de la nota (ver writers/dailylog.js#appendDailylogNota) — se separa
+  // del texto visible de la nota antes de mostrarla.
+  const relacionSufijoRe = /\s*\(relacionado con:\s*([^)]+)\)\s*$/i;
   const lines = body.split(/\r?\n/);
   const notas = [];
   let huboFormatoNuevo = false;
@@ -84,7 +88,14 @@ function parseNotas(text) {
     const m = trimmed.match(lineRe);
     if (m) {
       huboFormatoNuevo = true;
-      notas.push({ fechaHora: m[1].trim(), autor: m[2].trim(), texto: m[3].trim() });
+      let texto = m[3].trim();
+      let relacionados = [];
+      const relMatch = texto.match(relacionSufijoRe);
+      if (relMatch) {
+        relacionados = relMatch[1].split(',').map((s) => s.trim()).filter(Boolean);
+        texto = texto.slice(0, relMatch.index).trim();
+      }
+      notas.push({ fechaHora: m[1].trim(), autor: m[2].trim(), texto, relacionados });
     } else if (huboFormatoNuevo && trimmed.startsWith('-')) {
       // continuación improbable de una nota anterior con formato distinto: se ignora en vez de romper el parseo
       continue;
@@ -93,7 +104,7 @@ function parseNotas(text) {
 
   if (notas.length > 0) return notas;
   // Formato antiguo (texto libre, sin lista) — no se pierde el contenido.
-  return [{ fechaHora: '', autor: '', texto: body }];
+  return [{ fechaHora: '', autor: '', texto: body, relacionados: [] }];
 }
 
 function parseSprintDia(text) {

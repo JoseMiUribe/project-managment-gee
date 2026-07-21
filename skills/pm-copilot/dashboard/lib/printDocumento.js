@@ -67,12 +67,14 @@ function esc(value) {
  * tumbar el servidor.
  *
  * @param {string} markdown ya debe venir filtrado (ver stripContenidoInterno)
- *   si `version` es "cliente" — esta función no filtra nada por sí misma,
- *   solo pinta el aviso visual de qué versión es.
+ *   si es la versión cliente — esta función no filtra nada por sí misma, y
+ *   no distingue visualmente entre versiones (decisión explícita: al cliente
+ *   no le gusta ver un aviso de "versión cliente", lo interpreta como que se
+ *   le oculta o engaña algo, aunque el recorte de contenido interno sea
+ *   legítimo y esperado).
  * @param {string} rutaRelativa
- * @param {"completa"|"cliente"} [version]
  */
-function renderDocumentoView(markdown, rutaRelativa, version) {
+function renderDocumentoView(markdown, rutaRelativa) {
   let cuerpoHtml;
   try {
     const { marked } = require('marked');
@@ -84,10 +86,6 @@ function renderDocumentoView(markdown, rutaRelativa, version) {
   }
 
   const titulo = path.basename(rutaRelativa, '.md');
-  const esCliente = version === 'cliente';
-  const avisoVersion = esCliente
-    ? '<p class="aviso-version">Versión cliente — sin contenido de uso interno del equipo.</p>'
-    : '';
 
   return `<!doctype html>
 <html lang="es">
@@ -102,7 +100,6 @@ function renderDocumentoView(markdown, rutaRelativa, version) {
   h3 { font-size: 15px; margin-top: 20px; }
   h4 { font-size: 13px; margin-top: 16px; }
   .meta { color: #555; margin-bottom: 16px; font-size: 12px; }
-  .aviso-version { color: #9a3412; background: #fff7ed; border: 1px solid #fdba74; border-radius: 4px; padding: 6px 10px; font-size: 12px; display: inline-block; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
   th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
   th { background: #f0f0f0; }
@@ -119,7 +116,6 @@ function renderDocumentoView(markdown, rutaRelativa, version) {
 </head>
 <body>
   <p class="meta">${esc(rutaRelativa)}</p>
-  ${avisoVersion}
   ${cuerpoHtml}
 </body>
 </html>`;
